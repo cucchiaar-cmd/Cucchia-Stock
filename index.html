@@ -219,82 +219,13 @@ aparte para revisar antes de fusionar.
 
     <div class="cols">
       <div class="col">
-        <div class="col-head">PENDIENTES <span class="count" id="cPend">3</span></div>
-        <div id="pendCol">
-
-        <div class="order" data-ch="wa" data-sabores="espresso,sambayon,limon">
-          <div class="strip" style="background:linear-gradient(90deg,var(--espresso),var(--sambayon),var(--limon))"></div>
-          <div class="ohead"><span class="onum">#107</span>
-            <div style="display:flex;gap:9px;align-items:center"><span class="when">20:48</span><span class="chan"><span class="dot dw"></span>WhatsApp</span></div></div>
-          <div class="cli">Carla Giménez</div>
-          <div class="meta">11 5512-3344 · Delivery</div>
-          <div class="meta">Av. Mitre 1240 · timbre azul, depto 3B</div>
-          <div class="potes">
-            <div class="pote"><span class="sw-c" style="background:var(--espresso)"></span> Espresso Almond <span class="ml">360ml</span></div>
-            <div class="pote"><span class="sw-c" style="background:var(--sambayon)"></span> Sambayón <span class="ml">360ml</span></div>
-            <div class="pote"><span class="sw-c" style="background:var(--limon)"></span> Limón Botánico <span class="ml">360ml</span></div>
-          </div>
-          <div class="ofoot">
-            <div><div class="total">$35.000</div><div class="paytag">Efvo · cambio $40.000</div></div>
-            <div class="actions"><button class="btn btn-ghost" onclick="ticket(this)">Comanda</button><button class="btn btn-ok" onclick="done(this)">Listo ✓</button></div>
-          </div>
-        </div>
-
-        <div class="order" data-ch="manual" data-sabores="nuez,americana">
-          <div class="strip" style="background:linear-gradient(90deg,var(--nuez),var(--americana))"></div>
-          <div class="ohead"><span class="onum">#106</span>
-            <div style="display:flex;gap:9px;align-items:center"><span class="when">20:41</span><span class="chan"><span class="dot dm"></span>Manual</span></div></div>
-          <div class="cli">Roberto Paz</div>
-          <div class="meta">11 4477-9090 · Retira en local</div>
-          <div class="potes">
-            <div class="pote"><span class="sw-c" style="background:var(--nuez)"></span> Crema de Nuez <span class="ml">360ml</span></div>
-            <div class="pote"><span class="sw-c" style="background:var(--americana)"></span> Americana <span class="ml">360ml</span></div>
-          </div>
-          <div class="ofoot">
-            <div><div class="total">$19.000</div><div class="paytag">MercadoPago · Retira</div></div>
-            <div class="actions"><button class="btn btn-ghost" onclick="ticket(this)">Comanda</button><button class="btn btn-ok" onclick="done(this)">Listo ✓</button></div>
-          </div>
-        </div>
-
-        <div class="order" data-ch="tel" data-sabores="ddl,frutilla">
-          <div class="strip" style="background:linear-gradient(90deg,var(--ddl),var(--frutilla))"></div>
-          <div class="ohead"><span class="onum">#105</span>
-            <div style="display:flex;gap:9px;align-items:center"><span class="when">20:33</span><span class="chan"><span class="dot dt"></span>Teléfono</span></div></div>
-          <div class="cli">María (depto)</div>
-          <div class="meta">11 3322-1100 · Delivery</div>
-          <div class="meta">Lavalle 567, PB · portón negro</div>
-          <div class="potes">
-            <div class="pote"><span class="sw-c" style="background:var(--ddl)"></span> DDL Granizado <span class="ml">360ml</span></div>
-            <div class="pote"><span class="sw-c" style="background:var(--frutilla)"></span> Frutilla a la Crema <span class="ml">360ml</span></div>
-          </div>
-          <div class="ofoot">
-            <div><div class="total">$18.000</div><div class="paytag">Efvo · abona justo</div></div>
-            <div class="actions"><button class="btn btn-ghost" onclick="ticket(this)">Comanda</button><button class="btn btn-ok" onclick="done(this)">Listo ✓</button></div>
-          </div>
-        </div>
-        </div>
+        <div class="col-head">PENDIENTES <span class="count" id="cPend">0</span></div>
+        <div id="pendCol"></div>
       </div>
 
       <div class="col done-col">
-        <div class="col-head">LISTOS <span class="count ok" id="cListo">2</span></div>
-        <div id="doneCol">
-        <div class="order done" data-ch="wa" data-sabores="choco">
-          <div class="strip" style="background:var(--choco)"></div>
-          <div class="ohead"><span class="onum">#104</span><span class="chan"><span class="dot dw"></span>WhatsApp</span></div>
-          <div class="cli">Diego Fernández</div>
-          <div class="meta">San Martín 880 · 20:20</div>
-          <div class="potes"><div class="pote"><span class="sw-c" style="background:var(--choco)"></span> Chocolate (gel cítrico) <span class="ml">360ml</span></div></div>
-          <div class="ofoot"><div class="total">$10.000</div><div class="doneflag">✓ Despachado</div></div>
-        </div>
-        <div class="order done" data-ch="manual" data-sabores="americana,espresso">
-          <div class="strip" style="background:linear-gradient(90deg,var(--americana),var(--espresso))"></div>
-          <div class="ohead"><span class="onum">#103</span><span class="chan"><span class="dot dm"></span>Manual</span></div>
-          <div class="cli">Sofía R.</div>
-          <div class="meta">Belgrano 145 · 20:11</div>
-          <div class="potes"><div class="pote"><span class="sw-c" style="background:var(--americana)"></span> Americana <span class="ml">360ml</span></div><div class="pote"><span class="sw-c" style="background:var(--espresso)"></span> Espresso Almond <span class="ml">360ml</span></div></div>
-          <div class="ofoot"><div class="total">$21.500</div><div class="doneflag">✓ Despachado</div></div>
-        </div>
-        </div>
+        <div class="col-head">LISTOS <span class="count ok" id="cListo">0</span></div>
+        <div id="doneCol"></div>
       </div>
     </div>
   </section>
@@ -306,14 +237,18 @@ aparte para revisar antes de fusionar.
       <div>
         <div class="box">
           <h3>① Cliente</h3>
-          <div class="field"><label>Teléfono</label><input value="11 5512-3344">
-            <div class="found">✓ Cliente conocido: <b>Carla Giménez</b> · última dirección: Av. Mitre 1240 — ¿es la misma?</div></div>
+          <div class="field"><label>Teléfono</label><input id="pTel" placeholder="11 1234-5678" oninput="buscarCliente()">
+            <div class="found" id="pFound" style="display:none"></div></div>
           <div class="grid2">
-            <div class="field"><label>Nombre</label><input id="ncli" value="Carla Giménez"></div>
-            <div class="field"><label>Entrega</label><select><option>Delivery</option><option>Retira</option></select></div>
+            <div class="field"><label>Nombre</label><input id="pNombre" placeholder="Nombre del cliente"></div>
+            <div class="field"><label>Entrega</label><select id="pEntrega"><option>Delivery</option><option>Retira</option></select></div>
           </div>
-          <div class="field"><label>Dirección</label><input value="Av. Mitre 1240"></div>
-          <div class="field"><label>Referencia / timbre</label><input value="timbre azul, depto 3B"></div>
+          <div class="field"><label>Dirección</label><input id="pDireccion" placeholder="Dirección (si es delivery)"></div>
+          <div class="field"><label>Referencia / timbre</label><input id="pReferencia" placeholder="Ej: timbre azul, depto 3B"></div>
+          <div class="grid2">
+            <div class="field"><label>Canal de contacto</label><select id="pCanalContacto"><option value="wa">WhatsApp</option><option value="manual">Manual</option><option value="tel">Teléfono</option></select></div>
+            <div class="field"><label>Canal de venta</label><select id="pCanalVenta" onchange="actualizarPreciosChips()"><option value="Landing">Landing</option><option value="Rappi">Rappi</option><option value="Amigos">Amigos</option></select></div>
+          </div>
         </div>
         <div class="box">
           <h3>② Sabores <span style="font-family:var(--mont);font-size:9.5px;font-weight:600;color:var(--muted);letter-spacing:.4px">— pote 360ml · sin mínimo</span></h3>
@@ -328,8 +263,9 @@ aparte para revisar antes de fusionar.
         <div class="box">
           <h3>③ Pedido</h3>
           <div id="cartLines"></div>
-          <div class="field" style="margin-top:15px"><label>Medio de pago</label><select><option>Efectivo</option><option>Transferencia</option><option>MercadoPago</option></select></div>
-          <div class="field"><label>¿Necesita cambio?</label><input placeholder="cambio para $40.000"></div>
+          <div class="field" style="margin-top:15px"><label>Medio de pago</label><select id="pMedioPago"><option>Efectivo</option><option>Transferencia</option><option>MercadoPago</option></select></div>
+          <div class="field"><label>¿Necesita cambio?</label><input id="pCambio" placeholder="cambio para $40.000"></div>
+          <div class="field"><label>Costo de envío (opcional)</label><input id="pEnvioManual" type="number" placeholder="Automático" oninput="renderCart()"></div>
           <div class="resumen">
             <div class="rline"><span id="rSub">Subtotal (0 potes)</span><span id="rSubV">$0</span></div>
             <div class="rline"><span>Envío</span><span id="rEnvio">$1.800</span></div>
@@ -451,34 +387,20 @@ aparte para revisar antes de fusionar.
 
   <!-- ====== REPORTES ====== -->
   <section id="reportes" class="section">
-    <div class="topbar"><div><h1>Caja del día</h1><div class="sub">Viernes 26/06 · cierre</div></div>
-      <button class="btn btn-pri">Imprimir cierre</button></div>
+    <div class="topbar"><div><h1>Caja del día</h1><div class="sub" id="repFecha">—</div></div>
+      <button class="btn btn-pri" onclick="window.print()">Imprimir cierre</button></div>
     <div class="kpis">
-      <div class="kpi"><span class="emoji">◆</span><div class="n">$103.500</div><div class="l">Vendido hoy</div></div>
-      <div class="kpi"><span class="emoji">▦</span><div class="n">5</div><div class="l">Pedidos</div></div>
-      <div class="kpi"><span class="emoji">△</span><div class="n">$20.700</div><div class="l">Ticket promedio (sin envío)</div></div>
-      <div class="kpi"><span class="emoji">●</span><div class="n">10</div><div class="l">Potes vendidos</div></div>
+      <div class="kpi"><span class="emoji">◆</span><div class="n" id="repVendido">$0</div><div class="l">Vendido hoy</div></div>
+      <div class="kpi"><span class="emoji">▦</span><div class="n" id="repPedidos">0</div><div class="l">Pedidos</div></div>
+      <div class="kpi"><span class="emoji">△</span><div class="n" id="repTicket">$0</div><div class="l">Ticket promedio (sin envío)</div></div>
+      <div class="kpi"><span class="emoji">●</span><div class="n" id="repPotes">0</div><div class="l">Potes vendidos</div></div>
     </div>
     <div class="grid2">
-      <div class="box"><h3>Por línea</h3>
-        <div class="barrow"><div class="t"><span>Clásicos</span><b>6 potes · $56.000</b></div><div class="bar"><i style="width:54%;background:var(--ddl)"></i></div></div>
-        <div class="barrow"><div class="t"><span>De Autor</span><b>4 potes · $47.500</b></div><div class="bar"><i style="width:46%;background:var(--navy)"></i></div></div>
-      </div>
-      <div class="box"><h3>Por canal</h3>
-        <div class="barrow"><div class="t"><span>WhatsApp</span><b>2 · $45.000</b></div><div class="bar"><i style="width:43%;background:var(--wa)"></i></div></div>
-        <div class="barrow"><div class="t"><span>Manual</span><b>2 · $40.500</b></div><div class="bar"><i style="width:39%;background:var(--navy)"></i></div></div>
-        <div class="barrow"><div class="t"><span>Teléfono</span><b>1 · $18.000</b></div><div class="bar"><i style="width:17%;background:var(--tel)"></i></div></div>
-      </div>
-      <div class="box"><h3>Sabores top</h3>
-        <div class="cartline"><span><span class="sw-c" style="background:var(--espresso);display:inline-block;vertical-align:middle;margin-right:8px"></span>Espresso Almond</span><b class="price">2</b></div>
-        <div class="cartline"><span><span class="sw-c" style="background:var(--americana);display:inline-block;vertical-align:middle;margin-right:8px"></span>Americana</span><b class="price">2</b></div>
-        <div class="cartline" style="border:0"><span><span class="sw-c" style="background:var(--sambayon);display:inline-block;vertical-align:middle;margin-right:8px"></span>Sambayón</span><b class="price">1</b></div>
-      </div>
-      <div class="box"><h3>Por medio de pago</h3>
-        <div class="barrow"><div class="t"><span>Efectivo</span><b>$62.500</b></div><div class="bar"><i style="width:60%;background:var(--espresso)"></i></div></div>
-        <div class="barrow"><div class="t"><span>MercadoPago</span><b>$21.000</b></div><div class="bar"><i style="width:20%;background:var(--navy2)"></i></div></div>
-        <div class="barrow"><div class="t"><span>Transferencia</span><b>$20.000</b></div><div class="bar"><i style="width:19%;background:var(--durazno,var(--ddl))"></i></div></div>
-      </div>
+      <div class="box"><h3>Por línea</h3><div id="repLinea"></div></div>
+      <div class="box"><h3>Por canal de venta</h3><div id="repCanalVenta"></div></div>
+      <div class="box"><h3>Por canal de contacto</h3><div id="repCanalContacto"></div></div>
+      <div class="box"><h3>Sabores top</h3><div id="repSabores"></div></div>
+      <div class="box"><h3>Por medio de pago</h3><div id="repPago"></div></div>
     </div>
   </section>
 </main>
@@ -513,15 +435,18 @@ const firebaseConfig = {
   messagingSenderId: "783782763117",
   appId: "1:783782763117:web:4023696e12c9f4f9d07d64"
 };
-const fbApp      = initializeApp(firebaseConfig);
-const db         = getFirestore(fbApp);
-const colLotes   = collection(db,'lotes');
-const colEgresos = collection(db,'egresos');
-const refConfig  = doc(db,'config','stock');
-const refSeed    = doc(db,'meta','seed');
+const fbApp        = initializeApp(firebaseConfig);
+const db           = getFirestore(fbApp);
+const colLotes     = collection(db,'lotes');
+const colEgresos   = collection(db,'egresos');
+const colSabores   = collection(db,'sabores');
+const colPedidos   = collection(db,'pedidos');
+const refConfig    = doc(db,'config','stock');
+const refSeed      = doc(db,'meta','seed');
+const refSeedSab   = doc(db,'meta','seedSabores');
 function fmtISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 
-/* ===================== NAV / TABS (igual al mockup original) ===================== */
+/* ===================== NAV / TABS ===================== */
 function go(id,el){
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('show'));
   document.getElementById(id).classList.add('show');
@@ -530,6 +455,17 @@ function go(id,el){
   window.scrollTo(0,0);
   closeMenu();
   if(id==='stock') renderStock();
+  if(id==='tablero') renderTablero();
+  if(id==='carga'){ pintarPickers(); renderCart(); }
+  if(id==='admin') pintarAdminSabores();
+  if(id==='reportes') renderReportesView();
+}
+function atab(id,el){
+  const parent = el.closest('.tabs').parentElement;
+  parent.querySelectorAll(':scope > .atab').forEach(s=>s.classList.remove('show'));
+  document.getElementById(id).classList.add('show');
+  el.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
 }
 function toggleMenu(){
   document.querySelector('aside').classList.toggle('open');
@@ -539,43 +475,35 @@ function closeMenu(){
   document.querySelector('aside').classList.remove('open');
   document.getElementById('menuOverlay').classList.remove('show');
 }
-function atab(id,el){
-  const parent = el.closest('.tabs').parentElement;
-  parent.querySelectorAll(':scope > .atab').forEach(s=>s.classList.remove('show'));
-  document.getElementById(id).classList.add('show');
-  el.closest('.tabs').querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
-}
-function filt(ch,el){
-  document.querySelectorAll('.seg button').forEach(b=>b.classList.remove('on'));
-  el.classList.add('on');
-  document.querySelectorAll('#tablero .order').forEach(o=>{
-    o.style.display=(ch==='all'||o.dataset.ch===ch)?'':'none';
-  });
-}
 
-/* ===================== CATÁLOGO — 8 sabores activos ===================== */
-const SABORES = [
-  {id:'ddl',       nombre:'DDL Granizado',           linea:'Clásicos', color:'var(--ddl)',       precio:9000},
-  {id:'choco',     nombre:'Chocolate (gel cítrico)',  linea:'Clásicos', color:'var(--choco)',     precio:10000},
-  {id:'frutilla',  nombre:'Frutilla a la Crema',      linea:'Clásicos', color:'var(--frutilla)',  precio:9000},
-  {id:'americana', nombre:'Americana',                linea:'Clásicos', color:'var(--americana)', precio:9000},
-  {id:'nuez',      nombre:'Crema de Nuez',            linea:'Clásicos', color:'var(--nuez)',      precio:10000},
-  {id:'espresso',  nombre:'Espresso Almond',          linea:'De Autor', color:'var(--espresso)',  precio:12500},
-  {id:'sambayon',  nombre:'Sambayón',                 linea:'De Autor', color:'var(--sambayon)',  precio:12500},
-  {id:'limon',     nombre:'Limón Botánico',           linea:'De Autor', color:'var(--limon)',     precio:10000},
-];
+/* ===================== CATÁLOGO — sincronizado con Firestore ===================== */
+let SABORES = []; // antes era const fija, ahora vive en la colección 'sabores'
 function sabor(id){ return SABORES.find(s=>s.id===id); }
+function precioCanalPedido(s, canal){
+  if(!s) return 0;
+  if(canal==='Rappi') return s.precioRappi ?? s.precioLanding ?? 0;
+  if(canal==='Amigos') return s.precioAmigos ?? s.precioLanding ?? 0;
+  return s.precioLanding ?? 0;
+}
+function precioCanal(s){
+  const el = document.getElementById('pCanalVenta');
+  return precioCanalPedido(s, el ? el.value : 'Landing');
+}
 
 /* ===================== STOCK — estado sincronizado con Firestore ===================== */
 let LOTES = [];
 let EGRESOS = [];
+let PEDIDOS = [];
 let STOCK_MIN = 5;
 let DIAS_LIMITE = 60;
 let ventaCart = {};
 let editingLoteId = null;
 let editingEgresoUid = null;
+let editingPedidoId = null;
+let editCart = {};
+let filtroCanalActivo = 'all';
 let dataReady = false;
+const loaded = {lotes:false, egresos:false, config:false, sabores:false, pedidos:false};
 const HOY = new Date(); HOY.setHours(0,0,0,0);
 
 function diasEntre(fechaISO){
@@ -583,7 +511,6 @@ function diasEntre(fechaISO){
   return Math.round((HOY - f) / 86400000);
 }
 
-// Calcula (sin persistir) qué lotes se usarían para cubrir una cantidad, en base al estado ya sincronizado.
 function consumirStockLocal(saborId, cantidad, lotesBase){
   const base = lotesBase || LOTES;
   let restante = cantidad;
@@ -600,7 +527,6 @@ function consumirStockLocal(saborId, cantidad, lotesBase){
   return {usados, faltante: restante};
 }
 
-// Persiste un consumo ya calculado: descuenta de los lotes + crea el egreso. Todo en un mismo batch.
 async function persistirEgreso(datos){
   const {ref, fecha, sabores, cantTotal, canal, usados, faltante} = datos;
   const batch = writeBatch(db);
@@ -624,14 +550,14 @@ function loteMasViejoConStock(saborId){
   return lotes[0] || null;
 }
 
-function fmt$(n){ return '$'+Math.round(n).toLocaleString('es-AR'); }
-function fmtFecha(iso){ const [y,m,d]=iso.split('-'); return d+'/'+m+'/'+y; }
+function fmt$(n){ return '$'+Math.round(n||0).toLocaleString('es-AR'); }
+function fmtFecha(iso){ if(!iso) return '—'; const [y,m,d]=iso.split('-'); return d+'/'+m+'/'+y; }
 
 /* ---- Dashboard ---- */
 function renderStock(){
   const totalPotes = SABORES.reduce((a,s)=>a+saldoSabor(s.id).final,0);
   const enAlerta = SABORES.filter(s=>saldoSabor(s.id).final < STOCK_MIN).length;
-  const valorInmovilizado = SABORES.reduce((a,s)=>a + saldoSabor(s.id).final * s.precio, 0);
+  const valorInmovilizado = SABORES.reduce((a,s)=>a + saldoSabor(s.id).final * (s.precioLanding||0), 0);
   let loteMasViejoDias = 0;
   LOTES.forEach(l=>{ if((l.cant-l.egresado)>0){ const d=diasEntre(l.fecha); if(d>loteMasViejoDias) loteMasViejoDias=d; } });
   document.getElementById('stockKpis').innerHTML = `
@@ -678,7 +604,7 @@ function renderLotes(){
   });
   document.getElementById('lotesTable').innerHTML = rows.map(l=>{
     if(editingLoteId===l.id) return filaEdicionLote(l);
-    const s = sabor(l.sabor);
+    const s = sabor(l.sabor) || {nombre:l.sabor, linea:'', color:'var(--navy)'};
     const dias = diasEntre(l.fecha);
     const saldo = l.cant - l.egresado;
     const vencido = saldo>0 && dias>DIAS_LIMITE;
@@ -732,7 +658,6 @@ async function eliminarLote(id){
   await deleteDoc(doc(db,'lotes',id));
 }
 
-/* Ingresos: una fila por sabor (agrupadas por línea), cada una con su propio botón Registrar. */
 function pintarIngresoPickers(){
   const row = s => `<div class="listrow" id="ingChip_${s.id}" style="flex-wrap:wrap">
       <div class="nm"><span class="sw-c" style="background:${s.color}"></span>${s.nombre} <span class="typetag">${s.linea}</span></div>
@@ -769,7 +694,7 @@ function renderEgresos(){
   }
   document.getElementById('egresosTable').innerHTML = EGRESOS.map(e=>{
     if(editingEgresoUid===e.uid) return filaEdicionEgreso(e);
-    const saboresTxt = e.sabores.map(x=> sabor(x.id).nombre+' x'+x.cant).join(', ');
+    const saboresTxt = e.sabores.map(x=> (sabor(x.id)||{nombre:x.id}).nombre+' x'+x.cant).join(', ');
     const lotesTxt = e.lotes.map(l=> l.lote+' (-'+l.cant+')').join(', ') + (e.faltante>0 ? ' · ⚠ faltaron '+e.faltante : '');
     const puedeEditar = e.ref && e.ref.startsWith('V') && e.sabores.length===1;
     const btnEditar = puedeEditar ? `<button class="btn btn-ghost btn-xs" onclick="editarEgreso('${e.uid}')">Editar</button>` : '';
@@ -787,15 +712,16 @@ function renderEgresos(){
 
 function filaEdicionEgreso(e){
   const saborId = e.sabores[0].id;
+  const nombreSabor = (sabor(saborId)||{nombre:saborId}).nombre;
   return `<div class="egrow" style="background:#fff;border-color:var(--navy)">
     <div style="font-weight:700">${e.ref}</div>
     <div><input type="date" id="editEgrFecha_${e.uid}" value="${e.fecha}" style="padding:5px 6px;font-size:9px;width:100%"></div>
-    <div style="font-size:10px;font-weight:700">${sabor(saborId).nombre}</div>
+    <div style="font-size:10px;font-weight:700">${nombreSabor}</div>
     <div><input type="number" id="editEgrCant_${e.uid}" min="1" value="${e.sabores[0].cant}" style="padding:5px 6px;font-size:10px;width:100%"></div>
     <div><select id="editEgrCanal_${e.uid}" style="padding:5px 6px;font-size:9px;width:100%">
       <option ${e.canal==='Rappi'?'selected':''}>Rappi</option>
-      <option ${e.canal==='Directo'?'selected':''}>Directo</option>
-      <option ${e.canal==='Ajuste / consumo propio'?'selected':''}>Ajuste / consumo propio</option>
+      <option ${e.canal==='Landing'?'selected':''}>Landing</option>
+      <option ${e.canal==='Amigos'?'selected':''}>Amigos</option>
     </select></div>
     <div style="font-size:8.5px;color:var(--muted)">el lote se recalcula al guardar</div>
     <div style="display:flex;gap:6px"><button class="btn btn-ok btn-xs" onclick="guardarEgresoEdicion('${e.uid}')">Guardar</button><button class="btn btn-ghost btn-xs" onclick="cancelarEdicionEgreso()">Cancelar</button></div>
@@ -840,22 +766,20 @@ async function deshacerEgreso(uid){
   await batch.commit();
 }
 
-/* Venta de 1 pote con un solo click — para el caso más común (se vendió un pote en Rappi). */
 async function venderRapidoUno(saborId){
   const {usados, faltante} = consumirStockLocal(saborId, 1);
   const ref = nextEgresoNum('V');
   await persistirEgreso({ref, fecha: fmtISO(new Date()), sabores:[{id:saborId,cant:1}], cantTotal:1, canal:'Rappi', usados, faltante});
-  if(faltante>0){ alert('⚠ No había stock de '+sabor(saborId).nombre+'.'); }
+  if(faltante>0){ alert('⚠ No había stock de '+(sabor(saborId)||{nombre:saborId}).nombre+'.'); }
 }
 
-/* Venta rápida multi-sabor (pestaña Egresos): tocás ＋ en cada sabor vendido y registrás todo junto. */
 function pintarVentaPickers(){
   const row = s => `<div class="listrow" id="ventaChip_${s.id}" style="flex-wrap:wrap">
       <div class="nm"><span class="sw-c" style="background:${s.color}"></span>${s.nombre} <span class="typetag">${s.linea}</span></div>
       <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
         <input type="date" id="ventaFecha_${s.id}" value="${fmtISO(new Date())}" style="width:126px;padding:6px 7px;font-size:10px">
         <select id="ventaCanal_${s.id}" style="width:112px;padding:6px 7px;font-size:10px">
-          <option>Rappi</option><option>Directo</option><option>Ajuste / consumo propio</option>
+          <option>Rappi</option><option>Landing</option><option>Amigos</option>
         </select>
         <button class="qbtn" onclick="ajustarVentaQty('${s.id}',-1)">－</button>
         <span class="qn" id="ventaQty_${s.id}">0</span>
@@ -884,7 +808,7 @@ async function registrarVentaFila(id){
   const chipEl = document.getElementById('ventaChip_'+id);
   if(chipEl){ chipEl.style.borderColor='var(--line)'; chipEl.style.background='var(--paper)'; }
   await persistirEgreso({ref, fecha, sabores:[{id,cant}], cantTotal:cant, canal, usados, faltante});
-  if(faltante>0) alert('⚠ No había stock suficiente de '+sabor(id).nombre+'. Se descontó lo disponible.');
+  if(faltante>0) alert('⚠ No había stock suficiente de '+(sabor(id)||{nombre:id}).nombre+'. Se descontó lo disponible.');
 }
 
 async function setStockMin(val){
@@ -896,137 +820,485 @@ async function setDiasLimite(val){
   await setDoc(refConfig, {diasLimite:n}, {merge:true});
 }
 
-/* ===================== TABLERO: "Listo" descuenta stock FIFO ===================== */
-async function done(btn){
-  const card = btn.closest('.order');
-  const sabIds = (card.dataset.sabores||'').split(',').filter(Boolean);
+/* ===================== TABLERO — pedidos reales, en vivo ===================== */
+function tarjetaPedido(p, esListo){
+  if(editingPedidoId===p.id) return formEdicionPedido(p);
+  const chDot = p.canalContacto==='wa'?'dw':p.canalContacto==='manual'?'dm':'dt';
+  const chTxt = p.canalContacto==='wa'?'WhatsApp':p.canalContacto==='manual'?'Manual':'Teléfono';
+  const colores = p.sabores.map(x=> (sabor(x.id)||{}).color || 'var(--navy)');
+  const strip = colores.length>1 ? 'linear-gradient(90deg,'+colores.join(',')+')' : (colores[0]||'var(--navy)');
+  const potesHtml = p.sabores.map(x=>{
+    const s = sabor(x.id);
+    const nombre = s? s.nombre : x.id;
+    const color = s? s.color : 'var(--navy)';
+    return `<div class="pote"><span class="sw-c" style="background:${color}"></span> ${nombre}${x.cant>1?' x'+x.cant:''} <span class="ml">360ml</span></div>`;
+  }).join('');
+  const cliNombre = (p.cliente&&p.cliente.nombre) || 'Cliente';
+  if(esListo){
+    return `<div class="order done">
+      <div class="strip" style="background:${strip}"></div>
+      <div class="ohead"><span class="onum">${p.numero}</span><span class="chan"><span class="dot ${chDot}"></span>${chTxt}</span></div>
+      <div class="cli">${cliNombre}</div>
+      <div class="meta">${(p.cliente&&p.cliente.direccion) || (p.entrega==='Retira'?'Retira en local':'')} · ${p.hora||''}</div>
+      <div class="potes">${potesHtml}</div>
+      <div class="ofoot"><div class="total">${fmt$(p.total)}</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px"><div class="doneflag">✓ Despachado</div><button class="btn btn-ghost btn-xs" onclick="editarPedido('${p.id}')">Editar</button></div></div>
+    </div>`;
+  }
+  const dirLinea = (p.cliente&&p.cliente.direccion) ? `<div class="meta">${p.cliente.direccion}${p.cliente.referencia?(' · '+p.cliente.referencia):''}</div>` : '';
+  return `<div class="order">
+    <div class="strip" style="background:${strip}"></div>
+    <div class="ohead"><span class="onum">${p.numero}</span>
+      <div style="display:flex;gap:9px;align-items:center"><span class="when">${p.hora||''}</span><span class="chan"><span class="dot ${chDot}"></span>${chTxt}</span></div></div>
+    <div class="cli">${cliNombre}</div>
+    <div class="meta">${(p.cliente&&p.cliente.telefono)||''} · ${p.entrega||'Delivery'}</div>
+    ${dirLinea}
+    <div class="potes">${potesHtml}</div>
+    <div class="ofoot">
+      <div><div class="total">${fmt$(p.total)}</div><div class="paytag">${p.medioPago||''}${p.cambio?(' · cambio '+p.cambio):''}</div></div>
+      <div class="actions"><button class="btn btn-ghost" onclick="ticket('${p.id}')">Comanda</button><button class="btn btn-ghost btn-xs" onclick="editarPedido('${p.id}')">Editar</button><button class="btn btn-danger btn-xs" onclick="cancelarPedido('${p.id}')">Cancelar</button><button class="btn btn-ok" onclick="done('${p.id}')">Listo ✓</button></div>
+    </div>
+  </div>`;
+}
+function renderTablero(){
+  const okCanal = p => filtroCanalActivo==='all' || p.canalContacto===filtroCanalActivo;
+  const pend = PEDIDOS.filter(p=>p.estado==='pendiente' && okCanal(p));
+  const lst  = PEDIDOS.filter(p=>p.estado==='listo' && okCanal(p));
+  document.getElementById('cPend').innerText = pend.length;
+  document.getElementById('cListo').innerText = lst.length;
+  document.getElementById('pendCol').innerHTML = pend.length ? pend.map(p=>tarjetaPedido(p,false)).join('') : '<div class="meta" style="padding:8px 4px">Sin pedidos pendientes.</div>';
+  document.getElementById('doneCol').innerHTML = lst.map(p=>tarjetaPedido(p,true)).join('');
+  if(editingPedidoId) actualizarTotalEdicion();
+}
+function filt(ch, el){
+  document.querySelectorAll('.seg button').forEach(b=>b.classList.remove('on'));
+  el.classList.add('on');
+  filtroCanalActivo = ch;
+  renderTablero();
+}
+
+async function done(id){
+  const p = PEDIDOS.find(x=>x.id===id);
+  if(!p || p.estado==='listo') return;
   const conteo = {};
-  sabIds.forEach(id => conteo[id] = (conteo[id]||0)+1);
+  p.sabores.forEach(x => conteo[x.id] = (conteo[x.id]||0)+x.cant);
   const usadosTotal = [];
   let faltanteTotal = 0;
   const nombresFaltantes = [];
-  Object.keys(conteo).forEach(id=>{
-    const {usados, faltante} = consumirStockLocal(id, conteo[id]);
+  Object.keys(conteo).forEach(id2=>{
+    const {usados, faltante} = consumirStockLocal(id2, conteo[id2]);
     usadosTotal.push(...usados);
-    if(faltante>0){ faltanteTotal += faltante; nombresFaltantes.push(sabor(id).nombre); }
+    if(faltante>0){ faltanteTotal += faltante; nombresFaltantes.push((sabor(id2)||{nombre:id2}).nombre); }
   });
-  const canal = card.dataset.ch==='wa'?'WhatsApp':card.dataset.ch==='manual'?'Manual':'Teléfono';
-  const ref = card.querySelector('.onum').innerText;
-
-  card.classList.add('done');
-  const total = card.querySelector('.total').innerText;
-  card.querySelector('.ofoot').innerHTML = '<div class="total">'+total+'</div><div class="doneflag">✓ Despachado</div>';
-  document.getElementById('cPend').innerText = Math.max(0, +document.getElementById('cPend').innerText - 1);
-  document.getElementById('cListo').innerText = +document.getElementById('cListo').innerText + 1;
-  document.getElementById('doneCol').prepend(card);
-
-  await persistirEgreso({
-    ref, fecha: fmtISO(new Date()),
-    sabores: Object.keys(conteo).map(id=>({id,cant:conteo[id]})),
-    cantTotal: sabIds.length, canal, usados: usadosTotal, faltante: faltanteTotal
+  const batch = writeBatch(db);
+  usadosTotal.forEach(u=> batch.update(doc(db,'lotes',u.lote), { egresado: increment(u.cant) }));
+  const egresoRef = doc(colEgresos);
+  batch.set(egresoRef, {
+    ref: p.numero, fecha: fmtISO(new Date()),
+    sabores: Object.keys(conteo).map(id2=>({id:id2,cant:conteo[id2]})),
+    cantTotal: p.sabores.reduce((a,x)=>a+x.cant,0), canal: p.canalVenta || 'Landing',
+    lotes: usadosTotal, faltante: faltanteTotal, ts: serverTimestamp()
   });
+  batch.update(doc(db,'pedidos', id), { estado:'listo', tsListo: serverTimestamp(), fechaListo: fmtISO(new Date()) });
+  await batch.commit();
   if(faltanteTotal>0){
     alert('⚠ Stock insuficiente para: '+nombresFaltantes.join(', ')+'. Se despachó igual con lo disponible — revisá el lote antes de confirmar con el cliente.');
   }
 }
 
-/* ===================== CARGA: carrito dinámico + crear pedido ===================== */
-let nextPedidoN = 108;
-function pintarPickers(){
-  const cl = SABORES.filter(s=>s.linea==='Clásicos');
-  const da = SABORES.filter(s=>s.linea==='De Autor');
-  const chip = s => `<span class="flav" data-id="${s.id}" onclick="this.classList.toggle('sel');renderCart()"><span class="sw-c" style="background:${s.color}"></span>${s.nombre}<span class="pr">${fmt$(s.precio)}</span></span>`;
-  document.getElementById('pickCl').innerHTML = cl.map(chip).join('');
-  document.getElementById('pickDa').innerHTML = da.map(chip).join('');
+async function cancelarPedido(id){
+  const p = PEDIDOS.find(x=>x.id===id);
+  if(!p) return;
+  if(p.estado==='listo'){ alert('Este pedido ya está despachado. Para corregir el stock asociado, andá a Stock → Egresos y usá "Deshacer" sobre el egreso '+p.numero+'.'); return; }
+  if(!confirm('¿Cancelar el pedido '+p.numero+'? Todavía no se descontó stock, así que no hay nada que revertir.')) return;
+  await deleteDoc(doc(db,'pedidos', id));
 }
-function seleccionActual(){
-  return [...document.querySelectorAll('#carga .flav.sel')].map(el=>el.dataset.id);
+
+/* ---- Editar un pedido ya cargado (pendiente o ya despachado) ---- */
+function editarPedido(id){
+  const p = PEDIDOS.find(x=>x.id===id);
+  if(!p) return;
+  editingPedidoId = id;
+  editCart = {};
+  p.sabores.forEach(x=> editCart[x.id] = x.cant);
+  renderTablero();
 }
-function renderCart(){
-  const sel = seleccionActual();
-  const lines = sel.map(id=>{
-    const s = sabor(id);
-    return `<div class="cartline"><span><span class="sw-c" style="background:${s.color};display:inline-block;vertical-align:middle;margin-right:7px"></span>${s.nombre} · 360ml</span><span class="price">${fmt$(s.precio)}</span></div>`;
+function cancelarEdicionPedido(){
+  editingPedidoId = null;
+  editCart = {};
+  renderTablero();
+}
+function ajustarEditQty(id, delta){
+  editCart[id] = Math.max(0, (editCart[id]||0) + delta);
+  const qtyEl = document.getElementById('editQty_'+id); if(qtyEl) qtyEl.innerText = editCart[id];
+  const chipEl = document.getElementById('editChip_'+id); if(chipEl) chipEl.classList.toggle('has', editCart[id]>0);
+  actualizarTotalEdicion();
+}
+function precioCanalEdit(s){
+  const el = document.getElementById('editCanalVenta_'+editingPedidoId);
+  return precioCanalPedido(s, el ? el.value : 'Landing');
+}
+function actualizarTotalEdicion(){
+  if(!editingPedidoId) return;
+  const totEl = document.getElementById('editTotal_'+editingPedidoId);
+  if(!totEl) return;
+  const entries = Object.keys(editCart).filter(id=>editCart[id]>0);
+  const totalPotes = entries.reduce((a,id)=>a+editCart[id],0);
+  const subtotal = entries.reduce((a,id)=>a+precioCanalEdit(sabor(id))*editCart[id],0);
+  const manualEl = document.getElementById('editEnvio_'+editingPedidoId);
+  const manual = manualEl ? manualEl.value : '';
+  const envio = (manual!==''&&manual!=null&&!isNaN(+manual)) ? +manual : envioAuto(totalPotes);
+  totEl.innerText = 'Total: '+fmt$(subtotal+envio)+' ('+totalPotes+' potes + envío '+fmt$(envio)+')';
+}
+function formEdicionPedido(p){
+  const chip = s => `<span class="flavq ${((editCart[s.id]||0)>0)?'has':''}" id="editChip_${s.id}">
+      <span class="sw-c" style="background:${s.color}"></span>${s.nombre}
+      <button class="qbtn" onclick="ajustarEditQty('${s.id}',-1)">－</button>
+      <span class="qn" id="editQty_${s.id}">${editCart[s.id]||0}</span>
+      <button class="qbtn" onclick="ajustarEditQty('${s.id}',1)">＋</button>
+    </span>`;
+  const avisoListo = p.estado==='listo'
+    ? '<div class="meta" style="color:var(--bad);margin:6px 0">⚠ Este pedido ya está despachado — si cambiás sabores/cantidades, se repone el stock viejo y se descuenta el nuevo automáticamente.</div>'
+    : '';
+  return `<div class="order" style="background:#fff;border-color:var(--navy)">
+    <div class="ohead"><span class="onum">${p.numero}</span><span class="badge badge-warn">Editando</span></div>
+    <div class="field" style="margin-top:8px"><label>Nombre</label><input id="editNombre_${p.id}" value="${(p.cliente&&p.cliente.nombre)||''}"></div>
+    <div class="grid2">
+      <div class="field"><label>Teléfono</label><input id="editTel_${p.id}" value="${(p.cliente&&p.cliente.telefono)||''}"></div>
+      <div class="field"><label>Entrega</label><select id="editEntrega_${p.id}"><option ${p.entrega==='Delivery'?'selected':''}>Delivery</option><option ${p.entrega==='Retira'?'selected':''}>Retira</option></select></div>
+    </div>
+    <div class="field"><label>Dirección</label><input id="editDireccion_${p.id}" value="${(p.cliente&&p.cliente.direccion)||''}"></div>
+    <div class="field"><label>Referencia</label><input id="editReferencia_${p.id}" value="${(p.cliente&&p.cliente.referencia)||''}"></div>
+    <div class="grid2">
+      <div class="field"><label>Canal de contacto</label><select id="editCanalContacto_${p.id}">
+        <option value="wa" ${p.canalContacto==='wa'?'selected':''}>WhatsApp</option>
+        <option value="manual" ${p.canalContacto==='manual'?'selected':''}>Manual</option>
+        <option value="tel" ${p.canalContacto==='tel'?'selected':''}>Teléfono</option>
+      </select></div>
+      <div class="field"><label>Canal de venta</label><select id="editCanalVenta_${p.id}" onchange="actualizarTotalEdicion()">
+        <option value="Landing" ${p.canalVenta==='Landing'?'selected':''}>Landing</option>
+        <option value="Rappi" ${p.canalVenta==='Rappi'?'selected':''}>Rappi</option>
+        <option value="Amigos" ${p.canalVenta==='Amigos'?'selected':''}>Amigos</option>
+      </select></div>
+    </div>
+    <div class="grid2">
+      <div class="field"><label>Medio de pago</label><select id="editMedioPago_${p.id}">
+        <option ${p.medioPago==='Efectivo'?'selected':''}>Efectivo</option>
+        <option ${p.medioPago==='Transferencia'?'selected':''}>Transferencia</option>
+        <option ${p.medioPago==='MercadoPago'?'selected':''}>MercadoPago</option>
+      </select></div>
+      <div class="field"><label>Costo de envío</label><input id="editEnvio_${p.id}" type="number" value="${p.envio}" oninput="actualizarTotalEdicion()"></div>
+    </div>
+    <div class="field"><label>Cambio</label><input id="editCambio_${p.id}" value="${p.cambio||''}"></div>
+    <div class="pick" style="margin:8px 0">${SABORES.map(chip).join('')}</div>
+    <div class="meta" id="editTotal_${p.id}" style="font-weight:700;margin-bottom:6px"></div>
+    ${avisoListo}
+    <div class="actions"><button class="btn btn-ok" onclick="guardarPedidoEdicion('${p.id}')">Guardar</button><button class="btn btn-ghost" onclick="cancelarEdicionPedido()">Cancelar</button></div>
+  </div>`;
+}
+async function guardarPedidoEdicion(id){
+  const p = PEDIDOS.find(x=>x.id===id);
+  if(!p) return;
+  const entries = Object.keys(editCart).filter(k=>editCart[k]>0);
+  if(entries.length===0){ alert('El pedido necesita al menos un sabor (con ＋/－).'); return; }
+
+  const nombre = document.getElementById('editNombre_'+id).value || 'Cliente';
+  const tel = (document.getElementById('editTel_'+id).value||'').trim();
+  const direccion = document.getElementById('editDireccion_'+id).value||'';
+  const referencia = document.getElementById('editReferencia_'+id).value||'';
+  const entrega = document.getElementById('editEntrega_'+id).value;
+  const canalContacto = document.getElementById('editCanalContacto_'+id).value;
+  const canalVenta = document.getElementById('editCanalVenta_'+id).value;
+  const medioPago = document.getElementById('editMedioPago_'+id).value;
+  const cambio = document.getElementById('editCambio_'+id).value||'';
+  const envioManual = document.getElementById('editEnvio_'+id).value;
+
+  const totalPotes = entries.reduce((a,k)=>a+editCart[k],0);
+  const subtotal = entries.reduce((a,k)=>a+precioCanalPedido(sabor(k),canalVenta)*editCart[k],0);
+  const envio = (envioManual!==''&&envioManual!=null&&!isNaN(+envioManual)) ? +envioManual : envioAuto(totalPotes);
+  const total = subtotal+envio;
+  const nuevosSabores = entries.map(k=>({id:k, cant:editCart[k], precioUnit:precioCanalPedido(sabor(k),canalVenta)}));
+
+  const batch = writeBatch(db);
+  let faltanteTotal = 0;
+
+  if(p.estado==='listo'){
+    const egresoAsociado = EGRESOS.find(e=>e.ref===p.numero);
+    if(egresoAsociado){
+      const lotesRevertidos = LOTES.map(l=>{
+        const usadoAqui = egresoAsociado.lotes.find(u=>u.lote===l.id);
+        return usadoAqui ? {...l, egresado: l.egresado - usadoAqui.cant} : l;
+      });
+      const conteoNuevo = {};
+      nuevosSabores.forEach(x=> conteoNuevo[x.id] = (conteoNuevo[x.id]||0)+x.cant);
+      const usadosTotal = [];
+      Object.keys(conteoNuevo).forEach(k2=>{
+        const {usados, faltante} = consumirStockLocal(k2, conteoNuevo[k2], lotesRevertidos);
+        usadosTotal.push(...usados);
+        faltanteTotal += faltante;
+      });
+      egresoAsociado.lotes.forEach(u=> batch.update(doc(db,'lotes',u.lote), { egresado: increment(-u.cant) }));
+      usadosTotal.forEach(u=> batch.update(doc(db,'lotes',u.lote), { egresado: increment(u.cant) }));
+      batch.update(doc(db,'egresos', egresoAsociado.uid), {
+        sabores: Object.keys(conteoNuevo).map(k2=>({id:k2,cant:conteoNuevo[k2]})),
+        cantTotal: totalPotes, canal: canalVenta, lotes: usadosTotal, faltante: faltanteTotal
+      });
+    } else {
+      alert('No encontré el egreso de stock asociado a este pedido (puede haberse borrado a mano). El pedido se actualiza igual, pero revisá el stock a mano en Stock → Egresos.');
+    }
+  }
+
+  if(tel){
+    batch.set(doc(db,'clientes', tel), { nombre, direccion, referencia, actualizado: serverTimestamp() }, {merge:true});
+  }
+  batch.update(doc(db,'pedidos', id), {
+    cliente: {telefono:tel, nombre, direccion, referencia},
+    entrega, canalContacto, canalVenta, medioPago, cambio,
+    sabores: nuevosSabores, subtotal, envio, total
+  });
+
+  editingPedidoId = null;
+  editCart = {};
+  await batch.commit();
+  if(faltanteTotal>0) alert('⚠ No había stock suficiente para el nuevo pedido, quedó un faltante de '+faltanteTotal+' potes en el egreso asociado.');
+}
+
+function ticket(id){
+  const p = PEDIDOS.find(x=>x.id===id);
+  if(!p) return;
+  const canalTxt = p.canalContacto==='wa'?'WhatsApp':p.canalContacto==='manual'?'Manual':'Teléfono';
+  const potesHtml = p.sabores.map(x=>{
+    const s = sabor(x.id); const nombre = s?s.nombre:x.id;
+    return `<div class="trow"><span>${x.cant}× ${nombre} · 360ml</span></div>`;
   }).join('');
-  document.getElementById('cartLines').innerHTML = lines || '<div class="meta" style="padding:8px 0">Elegí sabores arriba para armar el pedido.</div>';
-  const subtotal = sel.reduce((a,id)=>a+sabor(id).precio,0);
-  const envio = sel.length>=3 ? 0 : (sel.length>0 ? 1800 : 0);
-  document.getElementById('rSub').innerText = 'Subtotal ('+sel.length+' potes)';
-  document.getElementById('rSubV').innerText = fmt$(subtotal);
-  document.getElementById('rEnvio').innerText = envio===0 ? 'Gratis 🎉' : fmt$(envio);
-  document.getElementById('rTot').innerText = fmt$(subtotal+envio);
-}
-
-function crearPedido(){
-  const sel = seleccionActual();
-  if(sel.length===0){ alert('Elegí al menos un sabor.'); return; }
-  const subtotal = sel.reduce((a,id)=>a+sabor(id).precio,0);
-  const envio = sel.length>=3 ? 0 : 1800;
-  const total = subtotal + envio;
-  const num = '#'+(nextPedidoN++);
-  const cliente = document.getElementById('ncli').value || 'Cliente';
-  const grad = sel.map(id=>sabor(id).color).join(',');
-  const potes = sel.map(id=>{
-    const s = sabor(id);
-    return `<div class="pote"><span class="sw-c" style="background:${s.color}"></span> ${s.nombre} <span class="ml">360ml</span></div>`;
-  }).join('');
-
-  const div = document.createElement('div');
-  div.className = 'order';
-  div.dataset.ch = 'manual';
-  div.dataset.sabores = sel.join(',');
-  div.innerHTML = `
-    <div class="strip" style="background:linear-gradient(90deg,${grad})"></div>
-    <div class="ohead"><span class="onum">${num}</span>
-      <div style="display:flex;gap:9px;align-items:center"><span class="when">ahora</span><span class="chan"><span class="dot dm"></span>Manual</span></div></div>
-    <div class="cli">${cliente}</div>
-    <div class="meta">Cargado desde "Cargar pedido"</div>
-    <div class="potes">${potes}</div>
-    <div class="ofoot">
-      <div><div class="total">${fmt$(total)}</div><div class="paytag">${envio===0?'Envío gratis':'Envío '+fmt$(envio)}</div></div>
-      <div class="actions"><button class="btn btn-ghost" onclick="ticket(this)">Comanda</button><button class="btn btn-ok" onclick="done(this)">Listo ✓</button></div>
-    </div>`;
-  document.getElementById('pendCol').prepend(div);
-  document.getElementById('cPend').innerText = +document.getElementById('cPend').innerText + 1;
-
-  document.querySelectorAll('#carga .flav.sel').forEach(el=>el.classList.remove('sel'));
-  renderCart();
-  go('tablero', document.querySelectorAll('nav a')[0]);
-}
-
-/* ===================== ADMIN: sabores agrupados por línea ===================== */
-function pintarAdminSabores(){
-  const row = (s,notaExtra) => `<div class="listrow"><div><div class="nm"><span class="sw-c" style="background:${s.color}"></span>${s.nombre} <span class="typetag">${s.linea}</span></div>${notaExtra?('<div class="meta2">'+notaExtra+'</div>'):''}</div><div style="display:flex;gap:14px;align-items:center"><div class="priceWrap">$ <input class="price-in" value="${s.precio.toLocaleString('es-AR')}"></div><span class="sw on" onclick="this.classList.toggle('on')"><i></i></span></div></div>`;
-  document.getElementById('admSabCl').innerHTML = SABORES.filter(s=>s.linea==='Clásicos').map(s=>row(s)).join('');
-  document.getElementById('admSabDa').innerHTML = SABORES.filter(s=>s.linea==='De Autor').map(s=>row(s,s.id==='espresso'?'ancla del lineup':'')).join('');
-}
-
-/* ===================== TICKET ===================== */
-function ticket(btnOrEl){
-  const card = btnOrEl.closest('.order');
-  const num = card.querySelector('.onum').innerText;
-  const cli = card.querySelector('.cli') ? card.querySelector('.cli').innerText : '—';
-  const canalTxt = card.dataset.ch==='wa'?'WhatsApp':card.dataset.ch==='manual'?'Manual':'Teléfono';
-  const potesHtml = [...card.querySelectorAll('.pote')].map(p=>{
-    const nombre = p.textContent.replace('360ml','').trim();
-    return `<div class="trow"><span>1× ${nombre} · 360ml</span></div>`;
-  }).join('');
-  const total = card.querySelector('.total').innerText;
   document.getElementById('ticketBody').innerHTML = `
     <div class="th">Cucchia</div>
     <div class="ts">El frío justo. La seda. El crujir.</div>
-    <div class="tc">COMANDA · PEDIDO ${num}</div>
+    <div class="tc">COMANDA · PEDIDO ${p.numero}</div>
     <div class="tdiv"></div>
     <div class="trow"><b>CANAL</b><span>${canalTxt}</span></div>
-    <div class="trow"><b>Cliente</b><span>${cli}</span></div>
+    <div class="trow"><b>Cliente</b><span>${(p.cliente&&p.cliente.nombre)||'—'}</span></div>
     <div class="tdiv"></div>
     ${potesHtml}
     <div class="tdiv"></div>
-    <div class="trow" style="font-weight:bold;font-size:14px"><span>TOTAL</span><span>${total}</span></div>
+    <div class="trow" style="font-weight:bold;font-size:14px"><span>TOTAL</span><span>${fmt$(p.total)}</span></div>
   `;
   document.getElementById('modal').classList.add('show');
 }
 function closeT(){document.getElementById('modal').classList.remove('show')}
+
+/* ===================== CARGA: cliente + carrito + crear pedido ===================== */
+let buscarClienteTimer = null;
+function buscarCliente(){
+  clearTimeout(buscarClienteTimer);
+  buscarClienteTimer = setTimeout(async ()=>{
+    const tel = (document.getElementById('pTel').value||'').trim();
+    const found = document.getElementById('pFound');
+    if(!tel){ found.style.display='none'; return; }
+    try{
+      const snap = await getDoc(doc(db,'clientes', tel));
+      if(snap.exists()){
+        const c = snap.data();
+        document.getElementById('pNombre').value = c.nombre||'';
+        document.getElementById('pDireccion').value = c.direccion||'';
+        document.getElementById('pReferencia').value = c.referencia||'';
+        found.style.display='block';
+        found.innerHTML = '✓ Cliente conocido: <b>'+(c.nombre||'')+'</b>'+(c.direccion? (' · última dirección: '+c.direccion+' — ¿es la misma?') : '');
+      } else {
+        found.style.display='none';
+      }
+    }catch(e){ /* silencioso: si falla la búsqueda, se sigue cargando el pedido a mano */ }
+  }, 500);
+}
+let pedidoCart = {};
+function pintarPickers(){
+  const activos = SABORES.filter(s=>s.activo!==false);
+  const cl = activos.filter(s=>s.linea==='Clásicos');
+  const da = activos.filter(s=>s.linea==='De Autor');
+  const chip = s => `<span class="flavq ${((pedidoCart[s.id]||0)>0)?'has':''}" id="pChip_${s.id}" data-id="${s.id}">
+      <span class="sw-c" style="background:${s.color}"></span>${s.nombre}
+      <span class="pr" style="margin-left:2px">${fmt$(precioCanal(s))}</span>
+      <button class="qbtn" onclick="ajustarPedidoQty('${s.id}',-1)">－</button>
+      <span class="qn" id="pQty_${s.id}">${pedidoCart[s.id]||0}</span>
+      <button class="qbtn" onclick="ajustarPedidoQty('${s.id}',1)">＋</button>
+    </span>`;
+  document.getElementById('pickCl').innerHTML = cl.map(chip).join('');
+  document.getElementById('pickDa').innerHTML = da.map(chip).join('');
+}
+function actualizarPreciosChips(){
+  document.querySelectorAll('#carga .flavq').forEach(el=>{
+    const s = sabor(el.dataset.id);
+    if(s){ const pr = el.querySelector('.pr'); if(pr) pr.innerText = fmt$(precioCanal(s)); }
+  });
+  renderCart();
+}
+function ajustarPedidoQty(id, delta){
+  pedidoCart[id] = Math.max(0, (pedidoCart[id]||0) + delta);
+  const qtyEl = document.getElementById('pQty_'+id); if(qtyEl) qtyEl.innerText = pedidoCart[id];
+  const chipEl = document.getElementById('pChip_'+id); if(chipEl) chipEl.classList.toggle('has', pedidoCart[id]>0);
+  renderCart();
+}
+function envioAuto(totalPotes){
+  return totalPotes>=3 ? 0 : (totalPotes>0 ? 1800 : 0);
+}
+function envioActual(totalPotes){
+  const manualEl = document.getElementById('pEnvioManual');
+  const manual = manualEl ? manualEl.value : '';
+  if(manual!==''&&manual!=null && !isNaN(+manual)) return +manual;
+  return envioAuto(totalPotes);
+}
+function renderCart(){
+  const entries = Object.keys(pedidoCart).filter(id=>pedidoCart[id]>0);
+  const totalPotes = entries.reduce((a,id)=>a+pedidoCart[id],0);
+  const lines = entries.map(id=>{
+    const s = sabor(id); const cant = pedidoCart[id];
+    return `<div class="cartline"><span><span class="sw-c" style="background:${s.color};display:inline-block;vertical-align:middle;margin-right:7px"></span>${s.nombre} · 360ml${cant>1?' x'+cant:''}</span><span class="price">${fmt$(precioCanal(s)*cant)}</span></div>`;
+  }).join('');
+  document.getElementById('cartLines').innerHTML = lines || '<div class="meta" style="padding:8px 0">Elegí sabores arriba (con ＋/－) para armar el pedido.</div>';
+  const subtotal = entries.reduce((a,id)=>a+precioCanal(sabor(id))*pedidoCart[id],0);
+  const envio = envioActual(totalPotes);
+  const manualEl = document.getElementById('pEnvioManual');
+  if(manualEl) manualEl.placeholder = 'Auto: '+(envioAuto(totalPotes)===0?'Gratis':fmt$(envioAuto(totalPotes)));
+  document.getElementById('rSub').innerText = 'Subtotal ('+totalPotes+' potes)';
+  document.getElementById('rSubV').innerText = fmt$(subtotal);
+  document.getElementById('rEnvio').innerText = envio===0 ? 'Gratis 🎉' : fmt$(envio);
+  document.getElementById('rTot').innerText = fmt$(subtotal+envio);
+}
+function siguienteNumeroPedido(){
+  let max = 100;
+  PEDIDOS.forEach(p=>{ const m=/^#(\d+)$/.exec(p.numero); if(m) max=Math.max(max,+m[1]); });
+  return '#'+(max+1);
+}
+async function crearPedido(){
+  const entries = Object.keys(pedidoCart).filter(id=>pedidoCart[id]>0);
+  if(entries.length===0){ alert('Elegí al menos un sabor (con ＋/－).'); return; }
+  const tel = (document.getElementById('pTel').value||'').trim();
+  const nombre = document.getElementById('pNombre').value || 'Cliente';
+  const direccion = document.getElementById('pDireccion').value||'';
+  const referencia = document.getElementById('pReferencia').value||'';
+  const entrega = document.getElementById('pEntrega').value;
+  const canalContacto = document.getElementById('pCanalContacto').value;
+  const canalVenta = document.getElementById('pCanalVenta').value;
+  const medioPago = document.getElementById('pMedioPago').value;
+  const cambio = document.getElementById('pCambio').value||'';
+
+  const totalPotes = entries.reduce((a,id)=>a+pedidoCart[id],0);
+  const subtotal = entries.reduce((a,id)=>a+precioCanal(sabor(id))*pedidoCart[id],0);
+  const envio = envioActual(totalPotes);
+  const total = subtotal+envio;
+  const numero = siguienteNumeroPedido();
+
+  if(tel){
+    await setDoc(doc(db,'clientes', tel), { nombre, direccion, referencia, actualizado: serverTimestamp() }, {merge:true});
+  }
+  await addDoc(colPedidos, {
+    numero,
+    cliente: {telefono:tel, nombre, direccion, referencia},
+    entrega, canalContacto, canalVenta, medioPago, cambio,
+    sabores: entries.map(id=>({id, cant:pedidoCart[id], precioUnit:precioCanal(sabor(id))})),
+    subtotal, envio, total,
+    estado: 'pendiente',
+    fecha: fmtISO(new Date()),
+    hora: new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),
+    ts: serverTimestamp()
+  });
+
+  document.getElementById('pTel').value='';
+  document.getElementById('pNombre').value='';
+  document.getElementById('pDireccion').value='';
+  document.getElementById('pReferencia').value='';
+  document.getElementById('pEnvioManual').value='';
+  const found = document.getElementById('pFound'); if(found) found.style.display='none';
+  pedidoCart = {};
+  pintarPickers();
+  renderCart();
+  go('tablero', document.querySelectorAll('nav a')[0]);
+}
+
+/* ===================== ADMIN: sabores con 3 precios + activo ===================== */
+function pintarAdminSabores(){
+  const row = s => `<div class="listrow" id="admChip_${s.id}" style="flex-wrap:wrap;align-items:center">
+    <div class="nm"><span class="sw-c" style="background:${s.color}"></span>${s.nombre} <span class="typetag">${s.linea}</span></div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <div class="priceWrap">Rappi $ <input class="price-in" id="admRappi_${s.id}" value="${s.precioRappi??0}"></div>
+      <div class="priceWrap">Landing $ <input class="price-in" id="admLanding_${s.id}" value="${s.precioLanding??0}"></div>
+      <div class="priceWrap">Amigos $ <input class="price-in" id="admAmigos_${s.id}" value="${s.precioAmigos??0}"></div>
+      <span class="sw ${s.activo!==false?'on':''}" id="admActivo_${s.id}" onclick="this.classList.toggle('on')" title="Disponible para vender"><i></i></span>
+      <button class="btn btn-pri btn-xs" onclick="guardarSabor('${s.id}')">Guardar</button>
+    </div>
+  </div>`;
+  document.getElementById('admSabCl').innerHTML = SABORES.filter(s=>s.linea==='Clásicos').map(row).join('');
+  document.getElementById('admSabDa').innerHTML = SABORES.filter(s=>s.linea==='De Autor').map(row).join('');
+}
+async function guardarSabor(id){
+  const rappi = +document.getElementById('admRappi_'+id).value || 0;
+  const landing = +document.getElementById('admLanding_'+id).value || 0;
+  const amigos = +document.getElementById('admAmigos_'+id).value || 0;
+  const activo = document.getElementById('admActivo_'+id).classList.contains('on');
+  await setDoc(doc(db,'sabores', id), { precioRappi:rappi, precioLanding:landing, precioAmigos:amigos, activo }, {merge:true});
+}
+
+/* ===================== REPORTES: Caja del día, calculada en vivo ===================== */
+function actualizarVendidoHoy(){
+  const hoy = fmtISO(new Date());
+  const v = PEDIDOS.filter(p=>p.estado==='listo' && p.fechaListo===hoy).reduce((a,p)=>a+(p.total||0),0);
+  const el = document.getElementById('sfVendido'); if(el) el.innerText = fmt$(v);
+}
+function renderReportesView(){
+  const hoy = fmtISO(new Date());
+  const fEl = document.getElementById('repFecha'); if(fEl) fEl.innerText = fmtFecha(hoy)+' · en vivo';
+  const listosHoy = PEDIDOS.filter(p=>p.estado==='listo' && p.fechaListo===hoy);
+
+  const vendidoHoy = listosHoy.reduce((a,p)=>a+(p.total||0),0);
+  const potesHoy = listosHoy.reduce((a,p)=>a+p.sabores.reduce((b,x)=>b+x.cant,0),0);
+  const ticketProm = listosHoy.length ? Math.round(listosHoy.reduce((a,p)=>a+(p.subtotal||0),0)/listosHoy.length) : 0;
+  document.getElementById('repVendido').innerText = fmt$(vendidoHoy);
+  document.getElementById('repPedidos').innerText = listosHoy.length;
+  document.getElementById('repTicket').innerText = fmt$(ticketProm);
+  document.getElementById('repPotes').innerText = potesHoy;
+
+  const porLinea = {'Clásicos':{n:0,v:0}, 'De Autor':{n:0,v:0}};
+  listosHoy.forEach(p=> p.sabores.forEach(x=>{
+    const s = sabor(x.id); if(!s || !porLinea[s.linea]) return;
+    porLinea[s.linea].n += x.cant;
+    porLinea[s.linea].v += x.cant * (x.precioUnit!=null ? x.precioUnit : precioCanalPedido(s, p.canalVenta));
+  }));
+  const maxLinea = Math.max(1, porLinea['Clásicos'].v, porLinea['De Autor'].v);
+  document.getElementById('repLinea').innerHTML = `
+    <div class="barrow"><div class="t"><span>Clásicos</span><b>${porLinea['Clásicos'].n} potes · ${fmt$(porLinea['Clásicos'].v)}</b></div><div class="bar"><i style="width:${Math.round(porLinea['Clásicos'].v/maxLinea*100)}%;background:var(--ddl)"></i></div></div>
+    <div class="barrow"><div class="t"><span>De Autor</span><b>${porLinea['De Autor'].n} potes · ${fmt$(porLinea['De Autor'].v)}</b></div><div class="bar"><i style="width:${Math.round(porLinea['De Autor'].v/maxLinea*100)}%;background:var(--navy)"></i></div></div>`;
+
+  const porCV = {Rappi:{n:0,v:0}, Landing:{n:0,v:0}, Amigos:{n:0,v:0}};
+  listosHoy.forEach(p=>{ const c=p.canalVenta||'Landing'; if(!porCV[c]) porCV[c]={n:0,v:0}; porCV[c].n++; porCV[c].v+=p.total||0; });
+  const maxCV = Math.max(1, ...Object.values(porCV).map(x=>x.v));
+  document.getElementById('repCanalVenta').innerHTML = Object.keys(porCV).map(c=>
+    `<div class="barrow"><div class="t"><span>${c}</span><b>${porCV[c].n} · ${fmt$(porCV[c].v)}</b></div><div class="bar"><i style="width:${Math.round(porCV[c].v/maxCV*100)}%;background:var(--navy)"></i></div></div>`
+  ).join('');
+
+  const nomCC = {wa:'WhatsApp', manual:'Manual', tel:'Teléfono'};
+  const clrCC = {wa:'var(--wa)', manual:'var(--navy)', tel:'var(--tel)'};
+  const porCC = {wa:{n:0,v:0}, manual:{n:0,v:0}, tel:{n:0,v:0}};
+  listosHoy.forEach(p=>{ const c=p.canalContacto||'manual'; if(porCC[c]){ porCC[c].n++; porCC[c].v+=p.total||0; } });
+  const maxCC = Math.max(1, ...Object.values(porCC).map(x=>x.v));
+  document.getElementById('repCanalContacto').innerHTML = Object.keys(porCC).map(c=>
+    `<div class="barrow"><div class="t"><span>${nomCC[c]}</span><b>${porCC[c].n} · ${fmt$(porCC[c].v)}</b></div><div class="bar"><i style="width:${Math.round(porCC[c].v/maxCC*100)}%;background:${clrCC[c]}"></i></div></div>`
+  ).join('');
+
+  const conteoSabor = {};
+  listosHoy.forEach(p=>p.sabores.forEach(x=>{ conteoSabor[x.id]=(conteoSabor[x.id]||0)+x.cant; }));
+  const top = Object.keys(conteoSabor).map(id=>({id,cant:conteoSabor[id]})).sort((a,b)=>b.cant-a.cant).slice(0,5);
+  document.getElementById('repSabores').innerHTML = top.length ? top.map((t,i)=>{
+    const s = sabor(t.id);
+    return `<div class="cartline"${i===top.length-1?' style="border:0"':''}><span><span class="sw-c" style="background:${s?s.color:'var(--navy)'};display:inline-block;vertical-align:middle;margin-right:8px"></span>${s?s.nombre:t.id}</span><b class="price">${t.cant}</b></div>`;
+  }).join('') : '<div class="meta" style="padding:8px 0">Todavía no hay ventas hoy.</div>';
+
+  const porPago = {};
+  listosHoy.forEach(p=>{ const m=p.medioPago||'Efectivo'; porPago[m]=(porPago[m]||0)+(p.total||0); });
+  const maxPago = Math.max(1, ...Object.values(porPago));
+  const clrPago = {Efectivo:'var(--espresso)', MercadoPago:'var(--navy2)', Transferencia:'var(--ddl)'};
+  document.getElementById('repPago').innerHTML = Object.keys(porPago).length ? Object.keys(porPago).map(m=>
+    `<div class="barrow"><div class="t"><span>${m}</span><b>${fmt$(porPago[m])}</b></div><div class="bar"><i style="width:${Math.round(porPago[m]/maxPago*100)}%;background:${clrPago[m]||'var(--navy)'}"></i></div></div>`
+  ).join('') : '<div class="meta" style="padding:8px 0">Todavía no hay ventas hoy.</div>';
+}
 
 /* ===================== FIRESTORE: semilla inicial + listeners en vivo ===================== */
 async function seedInitialDataIfNeeded(){
@@ -1048,46 +1320,103 @@ async function seedInitialDataIfNeeded(){
   batch.set(refSeed, {at: serverTimestamp()});
   await batch.commit();
 }
+async function seedSaboresIfNeeded(){
+  const seedSnap = await getDoc(refSeedSab);
+  if(seedSnap.exists()) return;
+  const INITIAL_SABORES = [
+    {id:'ddl',       nombre:'DDL Granizado',           linea:'Clásicos', color:'var(--ddl)',       precio:9000},
+    {id:'choco',     nombre:'Chocolate (gel cítrico)',  linea:'Clásicos', color:'var(--choco)',     precio:10000},
+    {id:'frutilla',  nombre:'Frutilla a la Crema',      linea:'Clásicos', color:'var(--frutilla)',  precio:9000},
+    {id:'americana', nombre:'Americana',                linea:'Clásicos', color:'var(--americana)', precio:9000},
+    {id:'nuez',      nombre:'Crema de Nuez',            linea:'Clásicos', color:'var(--nuez)',      precio:10000},
+    {id:'espresso',  nombre:'Espresso Almond',          linea:'De Autor', color:'var(--espresso)',  precio:12500},
+    {id:'sambayon',  nombre:'Sambayón',                 linea:'De Autor', color:'var(--sambayon)',  precio:12500},
+    {id:'limon',     nombre:'Limón Botánico',           linea:'De Autor', color:'var(--limon)',     precio:10000},
+  ];
+  const batch = writeBatch(db);
+  INITIAL_SABORES.forEach(s => batch.set(doc(db,'sabores',s.id), {
+    nombre:s.nombre, linea:s.linea, color:s.color, activo:true,
+    precioRappi:s.precio, precioLanding:s.precio, precioAmigos:s.precio
+  }));
+  batch.set(refSeedSab, {at: serverTimestamp()});
+  await batch.commit();
+}
+
+function checkAllLoaded(){
+  if(dataReady || !Object.values(loaded).every(Boolean)) return;
+  dataReady = true;
+  renderStock();
+  pintarIngresoPickers();
+  pintarVentaPickers();
+  renderTablero();
+  pintarPickers(); renderCart();
+  pintarAdminSabores();
+  renderReportesView();
+  actualizarVendidoHoy();
+}
 
 function iniciarListeners(){
   onSnapshot(colLotes, snap=>{
     LOTES = snap.docs.map(d=>({id:d.id, ...d.data()}));
-    if(dataReady) renderStock();
+    loaded.lotes = true;
+    if(dataReady && document.getElementById('stock').classList.contains('show')) renderStock();
+    checkAllLoaded();
   });
   onSnapshot(query(colEgresos, orderBy('ts','desc')), snap=>{
     EGRESOS = snap.docs.map(d=>({uid:d.id, ...d.data()}));
-    if(dataReady) renderStock();
+    loaded.egresos = true;
+    if(dataReady && document.getElementById('stock').classList.contains('show')) renderStock();
+    checkAllLoaded();
   });
   onSnapshot(refConfig, snap=>{
-    if(!snap.exists()) return;
-    const d = snap.data();
-    if(d.stockMin!=null) STOCK_MIN = d.stockMin;
-    if(d.diasLimite!=null) DIAS_LIMITE = d.diasLimite;
-    const cfgMinEl = document.getElementById('cfgMin'); if(cfgMinEl) cfgMinEl.value = STOCK_MIN;
-    const cfgDiasEl = document.getElementById('cfgDias'); if(cfgDiasEl) cfgDiasEl.value = DIAS_LIMITE;
-    if(dataReady) renderStock();
+    if(snap.exists()){
+      const d = snap.data();
+      if(d.stockMin!=null) STOCK_MIN = d.stockMin;
+      if(d.diasLimite!=null) DIAS_LIMITE = d.diasLimite;
+      const cfgMinEl=document.getElementById('cfgMin'); if(cfgMinEl) cfgMinEl.value=STOCK_MIN;
+      const cfgDiasEl=document.getElementById('cfgDias'); if(cfgDiasEl) cfgDiasEl.value=DIAS_LIMITE;
+    }
+    loaded.config = true;
+    if(dataReady && document.getElementById('stock').classList.contains('show')) renderStock();
+    checkAllLoaded();
+  });
+  onSnapshot(colSabores, snap=>{
+    SABORES = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    loaded.sabores = true;
+    if(dataReady){
+      if(document.getElementById('stock').classList.contains('show')) renderStock();
+      if(document.getElementById('tablero').classList.contains('show')) renderTablero();
+      if(document.getElementById('reportes').classList.contains('show')) renderReportesView();
+    }
+    checkAllLoaded();
+  });
+  onSnapshot(query(colPedidos, orderBy('ts','desc')), snap=>{
+    PEDIDOS = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    loaded.pedidos = true;
+    actualizarVendidoHoy();
+    if(dataReady){
+      if(document.getElementById('tablero').classList.contains('show')) renderTablero();
+      if(document.getElementById('reportes').classList.contains('show')) renderReportesView();
+    }
+    checkAllLoaded();
   });
 }
 
 /* ===================== INIT ===================== */
 document.addEventListener('DOMContentLoaded', async function(){
-  pintarPickers();
-  renderCart();
-  pintarAdminSabores();
-  pintarVentaPickers();
-  pintarIngresoPickers();
   await seedInitialDataIfNeeded();
+  await seedSaboresIfNeeded();
   iniciarListeners();
-  dataReady = true;
-  renderStock();
 });
 
 Object.assign(window, {
-  go, atab, filt, done, ticket, closeT, crearPedido, renderCart,
+  go, atab, filt, done, ticket, closeT, crearPedido, renderCart, cancelarPedido,
   editarLote, eliminarLote, guardarLoteEdicion, cancelarEdicionLote,
   registrarIngresoFila, editarEgreso, deshacerEgreso, guardarEgresoEdicion, cancelarEdicionEgreso,
   venderRapidoUno, ajustarVentaQty, registrarVentaFila,
-  setStockMin, setDiasLimite, toggleMenu, closeMenu
+  setStockMin, setDiasLimite, toggleMenu, closeMenu,
+  buscarCliente, actualizarPreciosChips, guardarSabor, ajustarPedidoQty,
+  editarPedido, cancelarEdicionPedido, ajustarEditQty, actualizarTotalEdicion, guardarPedidoEdicion
 });
 
 </script>
