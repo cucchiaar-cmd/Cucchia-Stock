@@ -180,6 +180,14 @@ aparte para revisar antes de fusionar.
     .stockrow,.lotrow,.egrow{grid-template-columns:1fr;gap:2px;padding:12px 14px}
     .stockrow>div,.lotrow>div,.egrow>div{display:flex;justify-content:flex-start;align-items:baseline;gap:8px;padding:3px 0}
     .stockrow>div[data-label]::before,.lotrow>div[data-label]::before,.egrow>div[data-label]::before{content:attr(data-label) ":";font-size:8px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;flex:none;min-width:98px}
+    html,body{max-width:100%;overflow-x:hidden}
+    .topbar{flex-wrap:wrap}
+    .seg{flex-wrap:wrap;width:100%}
+    .seg button{flex:1 1 auto;justify-content:center}
+    .ofoot{flex-wrap:wrap;row-gap:10px}
+    .actions{flex-wrap:wrap;justify-content:flex-end;width:100%}
+    .order{padding:0 11px 11px}
+    .pote,.cli,.meta{word-break:break-word}
   }
 </style>
 </head>
