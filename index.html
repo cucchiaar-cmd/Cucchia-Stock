@@ -21,6 +21,7 @@ aparte para revisar antes de fusionar.
 <meta name="theme-color" content="#16162C">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
   :root{
     --kraft:#F0EAD8; --kraft2:#E9E1CB; --paper:#FAF5E9; --ink:#14110D; --navy:#16162C; --navy2:#222243;
@@ -91,6 +92,7 @@ aparte para revisar antes de fusionar.
   .btn:active{transform:scale(.96)}
   .btn-ok{background:var(--wa);color:#fff} .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--navy)}
   .btn-pri{background:var(--navy);color:#F2EAD6} .btn-gold{background:var(--kraft2);color:var(--navy);border:1px solid var(--line)}
+  .btn-warn{background:var(--sambayon)!important;color:var(--navy)!important}
   .btn-xs{padding:4px 9px;font-size:8.5px} .btn-danger{background:transparent;border:1px solid var(--bad);color:var(--bad)}
   .actions{display:flex;gap:6px;align-items:center}
   .doneflag{font-weight:700;color:var(--wa);font-size:9.5px;letter-spacing:1px;text-transform:uppercase}
@@ -171,11 +173,11 @@ aparte para revisar antes de fusionar.
   .ticket-logo{width:84px;height:auto;display:block;margin:0 auto 8px;object-fit:contain}
   .ticket-actions{display:flex;gap:8px;margin:13px auto 0;width:292px}
   .ticket-actions .btn{flex:1;text-align:center}
-  @page{size:80mm 200mm;margin:4mm}
   @media print{
-    body>*:not(.modal){display:none!important}
-    .modal.show{position:static!important;background:#fff!important;padding:0}
-    .ticket{width:100%!important;box-shadow:none;border-radius:0;background:#fff}
+    aside,.menu-toggle,.menu-overlay,.modal{display:none!important}
+    main{padding:0!important}
+    .section{display:none!important}
+    .section.show{display:block!important}
     .no-print{display:none!important}
   }
   .menu-toggle{display:none;position:fixed;top:14px;left:14px;z-index:21;width:38px;height:38px;border-radius:8px;background:var(--navy);color:#F2EAD6;border:0;align-items:center;justify-content:center;font-size:18px;cursor:pointer}
@@ -218,7 +220,8 @@ aparte para revisar antes de fusionar.
     <a onclick="go('carga',this)"><span class="ico">＋</span> Cargar pedido</a>
     <a onclick="go('stock',this)"><span class="ico">◧</span> Stock</a>
     <a onclick="go('admin',this)"><span class="ico">❖</span> Administración</a>
-    <a onclick="go('reportes',this)"><span class="ico">▦</span> Caja del día</a>
+    <a id="navReportes" onclick="go('reportes',this)"><span class="ico">▦</span> Caja del día</a>
+    <a onclick="go('historial',this)"><span class="ico">▤</span> Historial</a>
   </nav>
   <div class="sidefoot"><div class="lbl">VENDIDO HOY</div><div class="big" id="sfVendido">$103.500</div></div>
 </aside>
@@ -407,9 +410,12 @@ aparte para revisar antes de fusionar.
   <!-- ====== REPORTES ====== -->
   <section id="reportes" class="section">
     <div class="topbar"><div><h1>Caja del día</h1><div class="sub" id="repFecha">—</div></div>
-      <button class="btn btn-pri" onclick="window.print()">Imprimir cierre</button></div>
+      <div class="no-print" style="display:flex;gap:8px">
+        <button class="btn btn-ghost" id="btnVolverHoy" style="display:none" onclick="volverAHoy()">← Volver a hoy</button>
+        <button class="btn btn-pri" onclick="window.print()">Imprimir cierre</button>
+      </div></div>
     <div class="kpis">
-      <div class="kpi"><span class="emoji">◆</span><div class="n" id="repVendido">$0</div><div class="l">Vendido hoy</div></div>
+      <div class="kpi"><span class="emoji">◆</span><div class="n" id="repVendido">$0</div><div class="l">Vendido</div></div>
       <div class="kpi"><span class="emoji">▦</span><div class="n" id="repPedidos">0</div><div class="l">Pedidos</div></div>
       <div class="kpi"><span class="emoji">△</span><div class="n" id="repTicket">$0</div><div class="l">Ticket promedio (sin envío)</div></div>
       <div class="kpi"><span class="emoji">●</span><div class="n" id="repPotes">0</div><div class="l">Potes vendidos</div></div>
@@ -420,6 +426,14 @@ aparte para revisar antes de fusionar.
       <div class="box"><h3>Por canal de contacto</h3><div id="repCanalContacto"></div></div>
       <div class="box"><h3>Sabores top</h3><div id="repSabores"></div></div>
       <div class="box"><h3>Por medio de pago</h3><div id="repPago"></div></div>
+    </div>
+  </section>
+
+  <!-- ====== HISTORIAL ====== -->
+  <section id="historial" class="section">
+    <div class="topbar"><div><h1>Historial de cierres</h1><div class="sub">Cada día que despachaste al menos un pedido, para revisar o volver a imprimir</div></div></div>
+    <div class="box">
+      <div id="histLista"></div>
     </div>
   </section>
 </main>
@@ -435,7 +449,7 @@ aparte para revisar antes de fusionar.
       <div class="tc">Ver detalle del pedido en el tablero.</div>
     </div>
     <div class="ticket-actions no-print">
-      <a class="btn btn-pri" onclick="imprimirTicket()">🖨 Imprimir / PDF</a>
+      <a class="btn btn-pri" onclick="descargarTicketPDF()">📄 Descargar PDF</a>
       <a class="btn btn-gold" onclick="closeT()">Cerrar</a>
     </div>
   </div>
@@ -481,6 +495,7 @@ function go(id,el){
   if(id==='carga'){ pintarPickers(); renderCart(); }
   if(id==='admin') pintarAdminSabores();
   if(id==='reportes') renderReportesView();
+  if(id==='historial') renderHistorial();
 }
 function atab(id,el){
   const parent = el.closest('.tabs').parentElement;
@@ -524,6 +539,7 @@ let editingEgresoUid = null;
 let editingPedidoId = null;
 let editCart = {};
 let pedidoEnTicket = null;
+let fechaCajaSeleccionada = null;
 let filtroCanalActivo = 'all';
 let dataReady = false;
 const loaded = {lotes:false, egresos:false, config:false, sabores:false, pedidos:false};
@@ -1115,29 +1131,69 @@ function ticket(id){
   document.getElementById('modal').classList.add('show');
 }
 function closeT(){document.getElementById('modal').classList.remove('show')}
-function imprimirTicket(){
-  const body = document.getElementById('ticketBody');
-  const pxToMm = px => px / 96 * 25.4;
-  const alto = Math.ceil(pxToMm(body.offsetHeight) + 16);
-  let styleTag = document.getElementById('printPageSize');
-  if(!styleTag){
-    styleTag = document.createElement('style');
-    styleTag.id = 'printPageSize';
-    document.head.appendChild(styleTag);
-  }
-  styleTag.textContent = '@page{size:80mm '+alto+'mm;margin:4mm}';
-
-  const tituloOriginal = document.title;
+function nombreArchivoLimpio(txt){
+  return (txt||'Cliente').normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/[^a-zA-Z0-9]+/g,'_').replace(/^_+|_+$/g,'') || 'Cliente';
+}
+function descargarTicketPDF(){
   const p = pedidoEnTicket;
-  if(p){
-    const nombreLimpio = ((p.cliente&&p.cliente.nombre)||'Cliente')
-      .normalize('NFD').replace(/[̀-ͯ]/g,'')
-      .replace(/[^a-zA-Z0-9]+/g,'_').replace(/^_+|_+$/g,'') || 'Cliente';
-    document.title = 'Comanda_'+(p.numero||'').replace('#','')+'_'+nombreLimpio;
-  }
-  const restaurarTitulo = () => { document.title = tituloOriginal; window.removeEventListener('afterprint', restaurarTitulo); };
-  window.addEventListener('afterprint', restaurarTitulo);
-  window.print();
+  if(!p || !window.jspdf){ alert('No se pudo generar el PDF. Recargá la página e intentá de nuevo.'); return; }
+  const { jsPDF } = window.jspdf;
+  const canalTxt = p.canalContacto==='wa'?'WhatsApp':p.canalContacto==='manual'?'Manual':'Teléfono';
+  const dirTxt = (p.cliente&&p.cliente.direccion) ? p.cliente.direccion+(p.cliente.referencia?(' · '+p.cliente.referencia):'') : '';
+  const filas = [['Fecha', fmtFecha(p.fecha)+(p.hora?(' · '+p.hora):'')], ['Canal', canalTxt], ['Cliente', (p.cliente&&p.cliente.nombre)||'—']];
+  if(dirTxt) filas.push(['Dirección', dirTxt]);
+  const potesTxt = p.sabores.map(x=>{ const s=sabor(x.id); return x.cant+'× '+(s?s.nombre:x.id)+' · 360ml'; });
+
+  const W = 80, M = 5, usable = W - M*2, lineH = 4.8;
+  const LOGO_H = 22*290/320;
+
+  // Paso 1: medir con un doc temporal (alto grande) para saber cuánto ocupa cada línea envuelta
+  const tmp = new jsPDF({unit:'mm', format:[W, 300]});
+  tmp.setFont('courier','normal'); tmp.setFontSize(9);
+  const filasWrap = filas.map(([lab,val])=>[lab, tmp.splitTextToSize(String(val), usable-22)]);
+  const potesWrap = potesTxt.map(t=>tmp.splitTextToSize(t, usable));
+
+  let alto = M + LOGO_H + 3 + 5 + 6 + 4;
+  filasWrap.forEach(([,vlines])=>{ alto += Math.max(1,vlines.length)*lineH; });
+  alto += 4;
+  potesWrap.forEach(vlines=>{ alto += vlines.length*lineH; });
+  alto += 4 + 3*lineH + M;
+
+  // Paso 2: doc final, con el alto exacto que necesita este pedido
+  const doc = new jsPDF({unit:'mm', format:[W, alto]});
+  let y = M; const cx = W/2;
+  try{ doc.addImage(LOGO_NAVY, 'PNG', cx-11, y, 22, LOGO_H); }catch(e){}
+  y += LOGO_H + 3;
+
+  doc.setFont('times','italic'); doc.setFontSize(8.5); doc.setTextColor(110,98,74);
+  doc.text('El frío justo. La seda. El crujir.', cx, y, {align:'center'}); y += 5;
+
+  doc.setFont('courier','bold'); doc.setFontSize(8); doc.setTextColor(120,110,90);
+  doc.text('COMANDA · PEDIDO '+(p.numero||''), cx, y, {align:'center'}); y += 3;
+
+  doc.setDrawColor(190,172,133);
+  doc.line(M,y,W-M,y); y += 4;
+
+  doc.setTextColor(30,25,20); doc.setFontSize(9);
+  filasWrap.forEach(([label, vlines])=>{
+    doc.setFont('courier','bold'); doc.text(label, M, y);
+    doc.setFont('courier','normal');
+    vlines.forEach((ln,i)=>{ doc.text(ln, W-M, y+i*lineH, {align:'right'}); });
+    y += Math.max(1,vlines.length)*lineH;
+  });
+  doc.line(M,y,W-M,y); y += 4;
+
+  doc.setFont('courier','normal');
+  potesWrap.forEach(vlines=>{ vlines.forEach(ln=>{ doc.text(ln, M, y); y += lineH; }); });
+  doc.line(M,y,W-M,y); y += 4;
+
+  doc.text('Subtotal', M, y); doc.text(fmt$(p.subtotal), W-M, y, {align:'right'}); y += lineH;
+  doc.text('Envío', M, y); doc.text(p.envio ? fmt$(p.envio) : 'Gratis', W-M, y, {align:'right'}); y += lineH;
+  doc.setFont('courier','bold'); doc.setFontSize(11);
+  doc.text('TOTAL', M, y); doc.text(fmt$(p.total), W-M, y, {align:'right'});
+
+  doc.save('Comanda_'+(p.numero||'').replace('#','')+'_'+nombreArchivoLimpio((p.cliente&&p.cliente.nombre))+'.pdf');
 }
 
 /* ===================== CARGA: cliente + carrito + crear pedido ===================== */
@@ -1271,17 +1327,24 @@ async function crearPedido(){
 /* ===================== ADMIN: sabores con 3 precios + activo ===================== */
 function pintarAdminSabores(){
   const row = s => `<div class="listrow" id="admChip_${s.id}" style="flex-wrap:wrap;align-items:center">
-    <div class="nm"><span class="sw-c" style="background:${s.color}"></span><input class="name-in" id="admNombre_${s.id}" value="${s.nombre}"> <span class="typetag">${s.linea}</span></div>
+    <div class="nm"><span class="sw-c" style="background:${s.color}"></span><input class="name-in" id="admNombre_${s.id}" value="${s.nombre}" oninput="marcarSaborSucio('${s.id}')"> <span class="typetag">${s.linea}</span></div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <div class="priceWrap">Rappi $ <input class="price-in" id="admRappi_${s.id}" value="${s.precioRappi??0}"></div>
-      <div class="priceWrap">Landing $ <input class="price-in" id="admLanding_${s.id}" value="${s.precioLanding??0}"></div>
-      <div class="priceWrap">Amigos $ <input class="price-in" id="admAmigos_${s.id}" value="${s.precioAmigos??0}"></div>
-      <span class="sw ${s.activo!==false?'on':''}" id="admActivo_${s.id}" onclick="this.classList.toggle('on')" title="Disponible para vender"><i></i></span>
-      <button class="btn btn-pri btn-xs" onclick="guardarSabor('${s.id}')">Guardar</button>
+      <div class="priceWrap">Rappi $ <input class="price-in" id="admRappi_${s.id}" value="${s.precioRappi??0}" oninput="marcarSaborSucio('${s.id}')"></div>
+      <div class="priceWrap">Landing $ <input class="price-in" id="admLanding_${s.id}" value="${s.precioLanding??0}" oninput="marcarSaborSucio('${s.id}')"></div>
+      <div class="priceWrap">Amigos $ <input class="price-in" id="admAmigos_${s.id}" value="${s.precioAmigos??0}" oninput="marcarSaborSucio('${s.id}')"></div>
+      <span class="sw ${s.activo!==false?'on':''}" id="admActivo_${s.id}" onclick="this.classList.toggle('on');marcarSaborSucio('${s.id}')" title="Disponible para vender"><i></i></span>
+      <button class="btn btn-pri btn-xs" id="admGuardar_${s.id}" onclick="guardarSabor('${s.id}')">Guardar</button>
     </div>
   </div>`;
   document.getElementById('admSabCl').innerHTML = SABORES.filter(s=>s.linea==='Clásicos').map(row).join('');
   document.getElementById('admSabDa').innerHTML = SABORES.filter(s=>s.linea==='De Autor').map(row).join('');
+}
+function marcarSaborSucio(id){
+  const btn = document.getElementById('admGuardar_'+id);
+  if(!btn) return;
+  btn.classList.add('btn-warn');
+  btn.classList.remove('btn-pri');
+  btn.innerText = 'Guardar ●';
 }
 async function guardarSabor(id){
   const nombre = document.getElementById('admNombre_'+id).value.trim();
@@ -1291,6 +1354,8 @@ async function guardarSabor(id){
   const amigos = +document.getElementById('admAmigos_'+id).value || 0;
   const activo = document.getElementById('admActivo_'+id).classList.contains('on');
   await setDoc(doc(db,'sabores', id), { nombre, precioRappi:rappi, precioLanding:landing, precioAmigos:amigos, activo }, {merge:true});
+  const btn = document.getElementById('admGuardar_'+id);
+  if(btn){ btn.classList.remove('btn-warn'); btn.classList.add('btn-pri'); btn.innerText = 'Guardar'; }
 }
 
 /* ===================== REPORTES: Caja del día, calculada en vivo ===================== */
@@ -1300,8 +1365,10 @@ function actualizarVendidoHoy(){
   const el = document.getElementById('sfVendido'); if(el) el.innerText = fmt$(v);
 }
 function renderReportesView(){
-  const hoy = fmtISO(new Date());
-  const fEl = document.getElementById('repFecha'); if(fEl) fEl.innerText = fmtFecha(hoy)+' · en vivo';
+  const hoy = fechaCajaSeleccionada || fmtISO(new Date());
+  const esHoy = !fechaCajaSeleccionada;
+  const fEl = document.getElementById('repFecha'); if(fEl) fEl.innerText = fmtFecha(hoy) + (esHoy ? ' · en vivo' : ' · cierre archivado');
+  const btnVolver = document.getElementById('btnVolverHoy'); if(btnVolver) btnVolver.style.display = esHoy ? 'none' : 'inline-flex';
   const listosHoy = PEDIDOS.filter(p=>p.estado==='listo' && p.fechaListo===hoy);
 
   const vendidoHoy = listosHoy.reduce((a,p)=>a+(p.total||0),0);
@@ -1354,6 +1421,42 @@ function renderReportesView(){
   document.getElementById('repPago').innerHTML = Object.keys(porPago).length ? Object.keys(porPago).map(m=>
     `<div class="barrow"><div class="t"><span>${m}</span><b>${fmt$(porPago[m])}</b></div><div class="bar"><i style="width:${Math.round(porPago[m]/maxPago*100)}%;background:${clrPago[m]||'var(--navy)'}"></i></div></div>`
   ).join('') : '<div class="meta" style="padding:8px 0">Todavía no hay ventas hoy.</div>';
+}
+function volverAHoy(){
+  fechaCajaSeleccionada = null;
+  renderReportesView();
+}
+function verCajaFecha(fecha){
+  fechaCajaSeleccionada = fecha;
+  go('reportes', document.getElementById('navReportes'));
+}
+function imprimirCajaFecha(fecha){
+  verCajaFecha(fecha);
+  setTimeout(()=>window.print(), 60);
+}
+function renderHistorial(){
+  const porFecha = {};
+  PEDIDOS.filter(p=>p.estado==='listo' && p.fechaListo).forEach(p=>{
+    if(!porFecha[p.fechaListo]) porFecha[p.fechaListo] = {n:0, v:0};
+    porFecha[p.fechaListo].n++;
+    porFecha[p.fechaListo].v += (p.total||0);
+  });
+  const fechas = Object.keys(porFecha).sort().reverse();
+  const el = document.getElementById('histLista');
+  if(!el) return;
+  if(fechas.length===0){ el.innerHTML = '<div class="meta" style="padding:8px 4px">Todavía no hay días con pedidos despachados.</div>'; return; }
+  const hoyISO = fmtISO(new Date());
+  el.innerHTML = fechas.map(f=>{
+    const d = porFecha[f];
+    return `<div class="listrow">
+      <div class="nm">${fmtFecha(f)}${f===hoyISO?' <span class="typetag">HOY</span>':''}</div>
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <span class="meta">${d.n} pedido${d.n===1?'':'s'} · ${fmt$(d.v)}</span>
+        <button class="btn btn-ghost btn-xs" onclick="verCajaFecha('${f}')">Revisar</button>
+        <button class="btn btn-pri btn-xs" onclick="imprimirCajaFecha('${f}')">Imprimir</button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 /* ===================== FIRESTORE: semilla inicial + listeners en vivo ===================== */
@@ -1453,6 +1556,7 @@ function iniciarListeners(){
     if(dataReady){
       if(document.getElementById('tablero').classList.contains('show')) renderTablero();
       if(document.getElementById('reportes').classList.contains('show')) renderReportesView();
+      if(document.getElementById('historial').classList.contains('show')) renderHistorial();
     }
     checkAllLoaded();
   });
@@ -1473,7 +1577,7 @@ Object.assign(window, {
   setStockMin, setDiasLimite, toggleMenu, closeMenu,
   buscarCliente, actualizarPreciosChips, guardarSabor, ajustarPedidoQty,
   editarPedido, cancelarEdicionPedido, ajustarEditQty, actualizarTotalEdicion, guardarPedidoEdicion,
-  imprimirTicket
+  descargarTicketPDF, marcarSaborSucio, volverAHoy, verCajaFecha, imprimirCajaFecha
 });
 
 </script>
