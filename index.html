@@ -216,12 +216,12 @@ aparte para revisar antes de fusionar.
   </div>
   <div class="tag">El frío justo.<br>La seda. El crujir.</div>
   <nav>
-    <a class="active" onclick="go('tablero',this)"><span class="ico">▤</span> Tablero</a>
     <a onclick="go('carga',this)"><span class="ico">＋</span> Cargar pedido</a>
-    <a onclick="go('stock',this)"><span class="ico">◧</span> Stock</a>
-    <a onclick="go('admin',this)"><span class="ico">❖</span> Administración</a>
+    <a id="navTablero" class="active" onclick="go('tablero',this)"><span class="ico">▤</span> Tablero</a>
     <a id="navReportes" onclick="go('reportes',this)"><span class="ico">▦</span> Caja del día</a>
-    <a onclick="go('historial',this)"><span class="ico">▤</span> Historial</a>
+    <a onclick="go('stock',this)"><span class="ico">◧</span> Stock</a>
+    <a id="navHistorial" onclick="go('historial',this)"><span class="ico">▥</span> Historial</a>
+    <a onclick="go('admin',this)"><span class="ico">❖</span> Administración</a>
   </nav>
   <div class="sidefoot"><div class="lbl">VENDIDO HOY</div><div class="big" id="sfVendido">$103.500</div></div>
 </aside>
@@ -246,7 +246,7 @@ aparte para revisar antes de fusionar.
       </div>
 
       <div class="col done-col">
-        <div class="col-head">LISTOS <span class="count ok" id="cListo">0</span></div>
+        <div class="col-head">LISTOS HOY <span class="count ok" id="cListo">0</span></div>
         <div id="doneCol"></div>
       </div>
     </div>
@@ -419,6 +419,10 @@ aparte para revisar antes de fusionar.
       <div class="kpi"><span class="emoji">▦</span><div class="n" id="repPedidos">0</div><div class="l">Pedidos</div></div>
       <div class="kpi"><span class="emoji">△</span><div class="n" id="repTicket">$0</div><div class="l">Ticket promedio (sin envío)</div></div>
       <div class="kpi"><span class="emoji">●</span><div class="n" id="repPotes">0</div><div class="l">Potes vendidos</div></div>
+    </div>
+    <div class="box">
+      <h3>Pedidos del día</h3>
+      <div id="repPedidosDia" style="margin-top:10px"></div>
     </div>
     <div class="grid2">
       <div class="box"><h3>Por línea</h3><div id="repLinea"></div></div>
@@ -880,7 +884,7 @@ function tarjetaPedido(p, esListo){
       <div class="cli">${cliNombre}</div>
       <div class="meta">${(p.cliente&&p.cliente.direccion) || (p.entrega==='Retira'?'Retira en local':'')} · ${p.hora||''}</div>
       <div class="potes">${potesHtml}</div>
-      <div class="ofoot"><div class="total">${fmt$(p.total)}</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px"><div class="doneflag">✓ Despachado</div><div style="display:flex;gap:6px"><button class="btn btn-ghost btn-xs" onclick="ticket('${p.id}')">Comanda</button><button class="btn btn-ghost btn-xs" onclick="editarPedido('${p.id}')">Editar</button></div></div></div>
+      <div class="ofoot"><div class="total">${fmt$(p.total)}</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px"><div class="doneflag">✓ Despachado</div><div class="no-print" style="display:flex;gap:6px"><button class="btn btn-ghost btn-xs" onclick="ticket('${p.id}')">Comanda</button><button class="btn btn-ghost btn-xs" onclick="editarPedido('${p.id}')">Editar</button></div></div></div>
     </div>`;
   }
   const dirLinea = (p.cliente&&p.cliente.direccion) ? `<div class="meta">${p.cliente.direccion}${p.cliente.referencia?(' · '+p.cliente.referencia):''}</div>` : '';
@@ -900,12 +904,13 @@ function tarjetaPedido(p, esListo){
 }
 function renderTablero(){
   const okCanal = p => filtroCanalActivo==='all' || p.canalContacto===filtroCanalActivo;
+  const hoyISO = fmtISO(new Date());
   const pend = PEDIDOS.filter(p=>p.estado==='pendiente' && okCanal(p));
-  const lst  = PEDIDOS.filter(p=>p.estado==='listo' && okCanal(p));
+  const lst  = PEDIDOS.filter(p=>p.estado==='listo' && p.fechaListo===hoyISO && okCanal(p));
   document.getElementById('cPend').innerText = pend.length;
   document.getElementById('cListo').innerText = lst.length;
   document.getElementById('pendCol').innerHTML = pend.length ? pend.map(p=>tarjetaPedido(p,false)).join('') : '<div class="meta" style="padding:8px 4px">Sin pedidos pendientes.</div>';
-  document.getElementById('doneCol').innerHTML = lst.map(p=>tarjetaPedido(p,true)).join('');
+  document.getElementById('doneCol').innerHTML = lst.length ? lst.map(p=>tarjetaPedido(p,true)).join('') : '<div class="meta" style="padding:8px 4px">Sin despachos hoy todavía. Los días anteriores quedaron en <a onclick="go(\'historial\',document.getElementById(\'navHistorial\'))" style="color:var(--navy);font-weight:700;cursor:pointer">Historial</a>.</div>';
   if(editingPedidoId) actualizarTotalEdicion();
 }
 function filt(ch, el){
@@ -1321,7 +1326,7 @@ async function crearPedido(){
   pedidoCart = {};
   pintarPickers();
   renderCart();
-  go('tablero', document.querySelectorAll('nav a')[0]);
+  go('tablero', document.getElementById('navTablero'));
 }
 
 /* ===================== ADMIN: sabores con 3 precios + activo ===================== */
@@ -1379,6 +1384,13 @@ function renderReportesView(){
   document.getElementById('repTicket').innerText = fmt$(ticketProm);
   document.getElementById('repPotes').innerText = potesHoy;
 
+  const pedidosDiaEl = document.getElementById('repPedidosDia');
+  if(pedidosDiaEl){
+    pedidosDiaEl.innerHTML = listosHoy.length
+      ? listosHoy.map(pedidoDiaHTML).join('')
+      : '<div class="meta" style="padding:8px 4px">Sin pedidos despachados este día.</div>';
+  }
+
   const porLinea = {'Clásicos':{n:0,v:0}, 'De Autor':{n:0,v:0}};
   listosHoy.forEach(p=> p.sabores.forEach(x=>{
     const s = sabor(x.id); if(!s || !porLinea[s.linea]) return;
@@ -1422,18 +1434,46 @@ function renderReportesView(){
     `<div class="barrow"><div class="t"><span>${m}</span><b>${fmt$(porPago[m])}</b></div><div class="bar"><i style="width:${Math.round(porPago[m]/maxPago*100)}%;background:${clrPago[m]||'var(--navy)'}"></i></div></div>`
   ).join('') : '<div class="meta" style="padding:8px 0">Todavía no hay ventas hoy.</div>';
 }
+let expandidosDia = new Set();
+function pedidoDiaHTML(p){
+  const cliNombre = (p.cliente&&p.cliente.nombre) || 'Cliente';
+  if(expandidosDia.has(p.id)){
+    return `<div style="margin-bottom:11px">
+      <div class="listrow no-print" style="cursor:pointer;margin-bottom:0;border-radius:9px 9px 0 0" onclick="toggleExpandPedido('${p.id}')">
+        <div class="nm">${p.numero} · ${cliNombre}</div>
+        <span style="font-size:11px;color:var(--muted);font-weight:700">▴ Colapsar</span>
+      </div>
+      ${tarjetaPedido(p,true)}
+    </div>`;
+  }
+  return `<div class="listrow" style="cursor:pointer" onclick="toggleExpandPedido('${p.id}')">
+    <div class="nm">${p.numero} · ${cliNombre}</div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <span class="meta">${p.hora||''} · ${fmt$(p.total)}</span>
+      <span style="font-size:11px;color:var(--muted);font-weight:700">▾ Ver</span>
+    </div>
+  </div>`;
+}
+function toggleExpandPedido(id){
+  if(expandidosDia.has(id)) expandidosDia.delete(id); else expandidosDia.add(id);
+  renderReportesView();
+}
 function volverAHoy(){
   fechaCajaSeleccionada = null;
+  expandidosDia.clear();
   renderReportesView();
 }
 function verCajaFecha(fecha){
   fechaCajaSeleccionada = fecha;
+  expandidosDia.clear();
   go('reportes', document.getElementById('navReportes'));
 }
 function imprimirCajaFecha(fecha){
   verCajaFecha(fecha);
   setTimeout(()=>window.print(), 60);
 }
+const INICIO_ACTIVIDADES = '2026-08-05';
+const DIAS_SIN_VENTA = [1,2]; // 0=dom,1=lun,2=mar,3=mié,4=jue,5=vie,6=sáb — vende de miércoles a domingo
 function renderHistorial(){
   const porFecha = {};
   PEDIDOS.filter(p=>p.estado==='listo' && p.fechaListo).forEach(p=>{
@@ -1441,19 +1481,27 @@ function renderHistorial(){
     porFecha[p.fechaListo].n++;
     porFecha[p.fechaListo].v += (p.total||0);
   });
+  // completar todos los días desde el inicio de actividades, aunque no haya ventas
+  const hoyD = new Date(); hoyD.setHours(0,0,0,0);
+  const inicioD = new Date(INICIO_ACTIVIDADES+'T00:00:00');
+  for(let d = new Date(hoyD); d>=inicioD; d.setDate(d.getDate()-1)){
+    const f = fmtISO(d);
+    if(!porFecha[f]) porFecha[f] = {n:0, v:0};
+  }
   const fechas = Object.keys(porFecha).sort().reverse();
   const el = document.getElementById('histLista');
   if(!el) return;
-  if(fechas.length===0){ el.innerHTML = '<div class="meta" style="padding:8px 4px">Todavía no hay días con pedidos despachados.</div>'; return; }
   const hoyISO = fmtISO(new Date());
   el.innerHTML = fechas.map(f=>{
     const d = porFecha[f];
-    return `<div class="listrow">
+    const sinVentas = d.n===0;
+    const esDiaCerrado = DIAS_SIN_VENTA.includes(new Date(f+'T00:00:00').getDay());
+    const estadoTxt = !sinVentas ? (d.n+' pedido'+(d.n===1?'':'s')+' · '+fmt$(d.v)) : (esDiaCerrado ? 'Cerrado (no vendemos lun/mar)' : 'Sin ventas');
+    return `<div class="listrow"${sinVentas?' style="opacity:.5"':''}>
       <div class="nm">${fmtFecha(f)}${f===hoyISO?' <span class="typetag">HOY</span>':''}</div>
       <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
-        <span class="meta">${d.n} pedido${d.n===1?'':'s'} · ${fmt$(d.v)}</span>
-        <button class="btn btn-ghost btn-xs" onclick="verCajaFecha('${f}')">Revisar</button>
-        <button class="btn btn-pri btn-xs" onclick="imprimirCajaFecha('${f}')">Imprimir</button>
+        <span class="meta">${estadoTxt}</span>
+        ${sinVentas ? '' : `<button class="btn btn-ghost btn-xs" onclick="verCajaFecha('${f}')">Revisar</button><button class="btn btn-pri btn-xs" onclick="imprimirCajaFecha('${f}')">Imprimir</button>`}
       </div>
     </div>`;
   }).join('');
@@ -1577,7 +1625,7 @@ Object.assign(window, {
   setStockMin, setDiasLimite, toggleMenu, closeMenu,
   buscarCliente, actualizarPreciosChips, guardarSabor, ajustarPedidoQty,
   editarPedido, cancelarEdicionPedido, ajustarEditQty, actualizarTotalEdicion, guardarPedidoEdicion,
-  descargarTicketPDF, marcarSaborSucio, volverAHoy, verCajaFecha, imprimirCajaFecha
+  descargarTicketPDF, marcarSaborSucio, volverAHoy, verCajaFecha, imprimirCajaFecha, toggleExpandPedido
 });
 
 </script>
