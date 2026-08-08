@@ -31,7 +31,7 @@ aparte para revisar antes de fusionar.
     /* sabores activos — 5 Clásicos + 3 De Autor */
     --ddl:#C4622D; --choco:#4A2418; --frutilla:#C2536B; --americana:#B8792A; --nuez:#8B5E3C;
     --espresso:#7B4F35; --sambayon:#D4A82A; --limon:#6B7A35;
-    --bad:#B23A3A;
+    --bad:#B23A3A; --rappi:#FF441F;
     --bebas:'Bebas Neue',sans-serif; --mont:'Montserrat',system-ui,sans-serif; --play:'Playfair Display',serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -64,7 +64,7 @@ aparte para revisar antes de fusionar.
   .seg{display:inline-flex;background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:3px;gap:2px}
   .seg button{border:0;background:transparent;padding:6px 12px;border-radius:5px;font-family:var(--mont);font-weight:700;font-size:10px;letter-spacing:.6px;color:var(--muted);cursor:pointer;transition:.15s;display:flex;align-items:center;gap:6px;text-transform:uppercase}
   .seg button.on{background:var(--navy);color:#F2EAD6}
-  .dot{width:6px;height:6px;border-radius:50%} .dw{background:var(--wa)} .dm{background:var(--soft)} .dt{background:var(--tel)}
+  .dot{width:6px;height:6px;border-radius:50%} .dw{background:var(--wa)} .dm{background:var(--soft)} .dt{background:var(--tel)} .dr{background:var(--rappi)}
   /* TABLERO */
   .cols{display:grid;grid-template-columns:1fr 1fr;gap:18px}
   .col-head{display:flex;align-items:center;gap:8px;margin-bottom:13px;font-family:var(--bebas);font-size:17px;letter-spacing:1.2px;color:var(--navy)}
@@ -270,8 +270,11 @@ aparte para revisar antes de fusionar.
           <div class="field"><label>Referencia / timbre</label><input id="pReferencia" placeholder="Ej: timbre azul, depto 3B"></div>
           <div class="grid2">
             <div class="field"><label>Canal de contacto</label><select id="pCanalContacto"><option value="wa">WhatsApp</option><option value="manual">Manual</option><option value="tel">Teléfono</option></select></div>
-            <div class="field"><label>Canal de venta</label><select id="pCanalVenta" onchange="actualizarPreciosChips();actualizarModoPropio()"><option value="Landing">Landing</option><option value="Rappi">Rappi</option><option value="Amigos">Amigos</option><option value="Propio">Propio (sin cargo)</option></select></div>
+            <div class="field"><label>Canal de venta</label><select id="pCanalVenta" onchange="actualizarPreciosChips();actualizarModoPropio();actualizarDescuentoRappi();actualizarModoRappi()"><option value="Landing">Landing</option><option value="Rappi">Rappi</option><option value="Amigos">Amigos</option><option value="Propio">Propio (sin cargo)</option></select></div>
           </div>
+          <div class="field" id="wrapDescuentoRappi" style="display:none"><label>Descuento Rappi</label><select id="pDescuentoRappi" onchange="renderCart()"><option value="0">Sin descuento</option><option value="10">10% general</option><option value="13">13% VIP</option></select></div>
+          <div class="field" id="wrapRappiID" style="display:none"><label>N° de pedido Rappi</label><input id="pRappiID" placeholder="Ej: 4821 — para ubicarlo en la app"></div>
+          <div class="meta" id="pAvisoRappi" style="display:none;color:var(--bad);margin-top:4px">Pedido de Rappi: dirección, medio de pago, cambio y envío los gestiona Rappi. Acá alcanza con sabores, descuento y el N° de pedido.</div>
           <div class="meta" id="pAvisoPropio" style="display:none;color:var(--bad);margin-top:8px">Consumo propio: solo se descuenta stock a nombre de quien cargues. El resto de los campos no aplica.</div>
         </div>
         <div class="box">
@@ -293,6 +296,7 @@ aparte para revisar antes de fusionar.
           <div class="meta" id="pAvisoPropio2" style="display:none;color:var(--bad);margin-top:4px">No aplica en consumo propio.</div>
           <div class="resumen">
             <div class="rline"><span id="rSub">Subtotal (0 potes)</span><span id="rSubV">$0</span></div>
+            <div class="rline" id="rDescLine" style="display:none"><span id="rDescLabel">Descuento Rappi</span><span id="rDescV">-$0</span></div>
             <div class="rline"><span>Envío</span><span id="rEnvio">$1.800</span></div>
             <div class="rline tot"><span>TOTAL</span><span id="rTot">$0</span></div>
           </div>
@@ -533,7 +537,7 @@ function precioCanalPedido(s, canal){
 }
 function envioSegunCanal(totalPotes, manualVal, canal){
   if(manualVal!==''&&manualVal!=null&&!isNaN(+manualVal)) return +manualVal;
-  if(canal==='Propio') return 0;
+  if(canal==='Propio' || canal==='Rappi') return 0;
   return envioAuto(totalPotes);
 }
 function precioCanal(s){
@@ -879,8 +883,8 @@ async function setDiasLimite(val){
 /* ===================== TABLERO — pedidos reales, en vivo ===================== */
 function tarjetaPedido(p, esListo){
   if(editingPedidoId===p.id) return formEdicionPedido(p);
-  const chDot = p.canalContacto==='wa'?'dw':p.canalContacto==='manual'?'dm':'dt';
-  const chTxt = p.canalContacto==='wa'?'WhatsApp':p.canalContacto==='manual'?'Manual':'Teléfono';
+  const chDot = p.canalContacto==='wa'?'dw':p.canalContacto==='manual'?'dm':p.canalContacto==='tel'?'dt':'dr';
+  const chTxt = p.canalContacto==='wa'?'WhatsApp':p.canalContacto==='manual'?'Manual':p.canalContacto==='tel'?'Teléfono':'Rappi';
   const colores = p.sabores.map(x=> (sabor(x.id)||{}).color || 'var(--navy)');
   const strip = colores.length>1 ? 'linear-gradient(90deg,'+colores.join(',')+')' : (colores[0]||'var(--navy)');
   const potesHtml = p.sabores.map(x=>{
@@ -896,11 +900,13 @@ function tarjetaPedido(p, esListo){
       <div class="ohead"><span class="onum">${p.numero}</span><span class="chan"><span class="dot ${chDot}"></span>${chTxt}</span></div>
       <div class="cli">${cliNombre}</div>
       <div class="meta">${(p.cliente&&p.cliente.direccion) || (p.entrega==='Retira'?'Retira en local':'')} · ${p.hora||''}</div>
+      ${p.rappiPedidoId ? `<div class="meta" style="color:var(--rappi);font-weight:700">Rappi #${p.rappiPedidoId}</div>` : ''}
       <div class="potes">${potesHtml}</div>
       <div class="ofoot"><div class="total">${fmt$(p.total)}</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px"><div class="doneflag">✓ Despachado</div><div class="no-print" style="display:flex;gap:6px"><button class="btn btn-ghost btn-xs" onclick="ticket('${p.id}')">Comanda</button><button class="btn btn-ghost btn-xs" onclick="editarPedido('${p.id}')">Editar</button></div></div></div>
     </div>`;
   }
   const dirLinea = (p.cliente&&p.cliente.direccion) ? `<div class="meta">${p.cliente.direccion}${p.cliente.referencia?(' · '+p.cliente.referencia):''}</div>` : '';
+  const rappiLinea = p.rappiPedidoId ? `<div class="meta" style="color:var(--rappi);font-weight:700">Rappi #${p.rappiPedidoId}</div>` : '';
   return `<div class="order">
     <div class="strip" style="background:${strip}"></div>
     <div class="ohead"><span class="onum">${p.numero}</span>
@@ -908,6 +914,7 @@ function tarjetaPedido(p, esListo){
     <div class="cli">${cliNombre}</div>
     <div class="meta">${(p.cliente&&p.cliente.telefono)||''} · ${p.entrega||'Delivery'}</div>
     ${dirLinea}
+    ${rappiLinea}
     <div class="potes">${potesHtml}</div>
     <div class="ofoot">
       <div><div class="total">${fmt$(p.total)}</div><div class="paytag">${p.medioPago||''}${p.cambio?(' · cambio '+p.cambio):''}</div></div>
@@ -999,6 +1006,7 @@ function precioCanalEdit(s){
   return precioCanalPedido(s, el ? el.value : 'Landing');
 }
 const CAMPOS_EDIT_NO_PROPIO = ['editTel_','editEntrega_','editDireccion_','editReferencia_','editCanalContacto_','editMedioPago_','editCambio_','editEnvio_'];
+const CAMPOS_EDIT_NO_RAPPI = ['editTel_','editDireccion_','editReferencia_','editCanalContacto_','editMedioPago_','editCambio_','editEnvio_'];
 function actualizarTotalEdicion(){
   if(!editingPedidoId) return;
   const id = editingPedidoId;
@@ -1012,15 +1020,35 @@ function actualizarTotalEdicion(){
   });
   const av = document.getElementById('editAvisoPropio_'+id); if(av) av.style.display = esPropio ? 'block' : 'none';
 
+  const esRappi = canalEl && canalEl.value === 'Rappi';
+  CAMPOS_EDIT_NO_RAPPI.forEach(prefix=>{
+    const el = document.getElementById(prefix+id);
+    if(!el) return;
+    el.disabled = esPropio || esRappi;
+    if((esPropio||esRappi) && el.value!=='') el.value = '';
+  });
+  const descWrap = document.getElementById('editWrapDescuento_'+id);
+  const descSel = document.getElementById('editDescuento_'+id);
+  if(descWrap) descWrap.style.display = esRappi ? '' : 'none';
+  if(descSel && !esRappi) descSel.value = '0';
+  const idWrap = document.getElementById('editWrapRappiID_'+id);
+  if(idWrap) idWrap.style.display = esRappi ? '' : 'none';
+  const idField = document.getElementById('editRappiID_'+id);
+  if(idField && !esRappi) idField.value = '';
+  const avR = document.getElementById('editAvisoRappi_'+id); if(avR) avR.style.display = esRappi ? 'block' : 'none';
+
   const totEl = document.getElementById('editTotal_'+id);
   if(!totEl) return;
   const entries = Object.keys(editCart).filter(k=>editCart[k]>0);
   const totalPotes = entries.reduce((a,k)=>a+editCart[k],0);
-  const subtotal = entries.reduce((a,k)=>a+precioCanalEdit(sabor(k))*editCart[k],0);
+  const subtotalBruto = entries.reduce((a,k)=>a+precioCanalEdit(sabor(k))*editCart[k],0);
+  const descuentoPct = (esRappi && descSel) ? (+descSel.value||0) : 0;
+  const descuentoValor = Math.round(subtotalBruto*descuentoPct/100);
+  const subtotal = subtotalBruto - descuentoValor;
   const manualEl = document.getElementById('editEnvio_'+id);
   const manual = manualEl ? manualEl.value : '';
   const envio = envioSegunCanal(totalPotes, manual, canalEl ? canalEl.value : 'Landing');
-  totEl.innerText = 'Total: '+fmt$(subtotal+envio)+' ('+totalPotes+' potes + envío '+fmt$(envio)+')';
+  totEl.innerText = 'Total: '+fmt$(subtotal+envio)+' ('+totalPotes+' potes'+(descuentoPct>0?' · -'+descuentoPct+'% desc.':'')+' + envío '+fmt$(envio)+')';
 }
 function formEdicionPedido(p){
   const sucio = `marcarSucio('btnGuardarPedido_${p.id}','btn-ok')`;
@@ -1055,6 +1083,13 @@ function formEdicionPedido(p){
         <option value="Propio" ${p.canalVenta==='Propio'?'selected':''}>Propio (sin cargo)</option>
       </select></div>
     </div>
+    <div class="field" id="editWrapDescuento_${p.id}" style="display:none"><label>Descuento Rappi</label><select id="editDescuento_${p.id}" onchange="actualizarTotalEdicion();${sucio}">
+      <option value="0" ${!p.descuentoPct?'selected':''}>Sin descuento</option>
+      <option value="10" ${p.descuentoPct===10?'selected':''}>10% general</option>
+      <option value="13" ${p.descuentoPct===13?'selected':''}>13% VIP</option>
+    </select></div>
+    <div class="field" id="editWrapRappiID_${p.id}" style="display:none"><label>N° de pedido Rappi</label><input id="editRappiID_${p.id}" value="${p.rappiPedidoId||''}" oninput="${sucio}"></div>
+    <div class="meta" id="editAvisoRappi_${p.id}" style="display:none;color:var(--bad);margin:2px 0 6px">Pedido de Rappi: dirección, medio de pago, cambio y envío los gestiona Rappi.</div>
     <div class="meta" id="editAvisoPropio_${p.id}" style="display:none;color:var(--bad);margin:2px 0 6px">Consumo propio: el resto de los campos no aplica.</div>
     <div class="grid2">
       <div class="field"><label>Medio de pago</label><select id="editMedioPago_${p.id}" onchange="${sucio}">
@@ -1079,21 +1114,28 @@ async function guardarPedidoEdicion(id){
 
   const canalVenta = document.getElementById('editCanalVenta_'+id).value;
   const esPropio = canalVenta === 'Propio';
+  const esRappi = canalVenta === 'Rappi';
   const nombre = document.getElementById('editNombre_'+id).value || 'Cliente';
-  const tel = esPropio ? '' : (document.getElementById('editTel_'+id).value||'').trim();
-  const direccion = esPropio ? '' : document.getElementById('editDireccion_'+id).value||'';
-  const referencia = esPropio ? '' : document.getElementById('editReferencia_'+id).value||'';
+  const tel = (esPropio||esRappi) ? '' : (document.getElementById('editTel_'+id).value||'').trim();
+  const direccion = (esPropio||esRappi) ? '' : document.getElementById('editDireccion_'+id).value||'';
+  const referencia = (esPropio||esRappi) ? '' : document.getElementById('editReferencia_'+id).value||'';
   const entrega = esPropio ? 'Retira' : document.getElementById('editEntrega_'+id).value;
-  const canalContacto = esPropio ? 'manual' : document.getElementById('editCanalContacto_'+id).value;
-  const medioPago = esPropio ? '' : document.getElementById('editMedioPago_'+id).value;
-  const cambio = esPropio ? '' : document.getElementById('editCambio_'+id).value||'';
+  const canalContacto = esPropio ? 'manual' : (esRappi ? null : document.getElementById('editCanalContacto_'+id).value);
+  const medioPago = (esPropio||esRappi) ? '' : document.getElementById('editMedioPago_'+id).value;
+  const cambio = (esPropio||esRappi) ? '' : document.getElementById('editCambio_'+id).value||'';
   const envioManual = document.getElementById('editEnvio_'+id).value;
+  const rappiPedidoId = esRappi ? (document.getElementById('editRappiID_'+id).value||'').trim() : '';
 
   const totalPotes = entries.reduce((a,k)=>a+editCart[k],0);
-  const subtotal = entries.reduce((a,k)=>a+precioCanalPedido(sabor(k),canalVenta)*editCart[k],0);
+  const subtotalBruto = entries.reduce((a,k)=>a+precioCanalPedido(sabor(k),canalVenta)*editCart[k],0);
+  const descSelEl = document.getElementById('editDescuento_'+id);
+  const descuentoPct = (canalVenta==='Rappi' && descSelEl) ? (+descSelEl.value||0) : 0;
+  const descuentoValor = Math.round(subtotalBruto*descuentoPct/100);
+  const subtotal = subtotalBruto - descuentoValor;
+  const factorDesc = descuentoPct>0 ? (1-descuentoPct/100) : 1;
   const envio = envioSegunCanal(totalPotes, envioManual, canalVenta);
   const total = subtotal+envio;
-  const nuevosSabores = entries.map(k=>({id:k, cant:editCart[k], precioUnit:precioCanalPedido(sabor(k),canalVenta)}));
+  const nuevosSabores = entries.map(k=>({id:k, cant:editCart[k], precioUnit:Math.round(precioCanalPedido(sabor(k),canalVenta)*factorDesc)}));
 
   const batch = writeBatch(db);
   let faltanteTotal = 0;
@@ -1129,8 +1171,8 @@ async function guardarPedidoEdicion(id){
   }
   batch.update(doc(db,'pedidos', id), {
     cliente: {telefono:tel, nombre, direccion, referencia},
-    entrega, canalContacto, canalVenta, medioPago, cambio,
-    sabores: nuevosSabores, subtotal, envio, total
+    entrega, canalContacto, canalVenta, medioPago, cambio, rappiPedidoId,
+    sabores: nuevosSabores, subtotal, subtotalBruto, descuentoPct, descuentoValor, envio, total
   });
 
   editingPedidoId = null;
@@ -1144,7 +1186,7 @@ function ticket(id){
   const p = PEDIDOS.find(x=>x.id===id);
   if(!p) return;
   pedidoEnTicket = p;
-  const canalTxt = p.canalContacto==='wa'?'WhatsApp':p.canalContacto==='manual'?'Manual':'Teléfono';
+  const canalTxt = p.canalContacto==='wa'?'WhatsApp':p.canalContacto==='manual'?'Manual':p.canalContacto==='tel'?'Teléfono':'Rappi';
   const potesHtml = p.sabores.map(x=>{
     const s = sabor(x.id); const nombre = s?s.nombre:x.id;
     return `<div class="trow"><span>${x.cant}× ${nombre} · 360ml</span></div>`;
@@ -1158,11 +1200,13 @@ function ticket(id){
     <div class="trow"><b>Fecha</b><span>${fmtFecha(p.fecha)}${p.hora?(' · '+p.hora):''}</span></div>
     <div class="trow"><b>Canal</b><span>${canalTxt}</span></div>
     <div class="trow"><b>Cliente</b><span>${(p.cliente&&p.cliente.nombre)||'—'}</span></div>
+    ${p.rappiPedidoId ? `<div class="trow"><b>N° Rappi</b><span>${p.rappiPedidoId}</span></div>` : ''}
     ${dirHtml}
     <div class="tdiv"></div>
     ${potesHtml}
     <div class="tdiv"></div>
-    <div class="trow"><span>Subtotal</span><span>${fmt$(p.subtotal)}</span></div>
+    <div class="trow"><span>Subtotal</span><span>${fmt$(p.descuentoPct?p.subtotalBruto:p.subtotal)}</span></div>
+    ${p.descuentoPct ? `<div class="trow"><span>Descuento Rappi (${p.descuentoPct}%)</span><span>-${fmt$(p.descuentoValor||0)}</span></div>` : ''}
     <div class="trow"><span>Envío</span><span>${p.envio ? fmt$(p.envio) : 'Gratis'}</span></div>
     <div class="trow" style="font-weight:bold;font-size:14px;margin-top:4px"><span>TOTAL</span><span>${fmt$(p.total)}</span></div>
   `;
@@ -1177,9 +1221,10 @@ function descargarTicketPDF(){
   const p = pedidoEnTicket;
   if(!p || !window.jspdf){ alert('No se pudo generar el PDF. Recargá la página e intentá de nuevo.'); return; }
   const { jsPDF } = window.jspdf;
-  const canalTxt = p.canalContacto==='wa'?'WhatsApp':p.canalContacto==='manual'?'Manual':'Teléfono';
+  const canalTxt = p.canalContacto==='wa'?'WhatsApp':p.canalContacto==='manual'?'Manual':p.canalContacto==='tel'?'Teléfono':'Rappi';
   const dirTxt = (p.cliente&&p.cliente.direccion) ? p.cliente.direccion+(p.cliente.referencia?(' · '+p.cliente.referencia):'') : '';
   const filas = [['Fecha', fmtFecha(p.fecha)+(p.hora?(' · '+p.hora):'')], ['Canal', canalTxt], ['Cliente', (p.cliente&&p.cliente.nombre)||'—']];
+  if(p.rappiPedidoId) filas.push(['N° Rappi', p.rappiPedidoId]);
   if(dirTxt) filas.push(['Dirección', dirTxt]);
   const potesTxt = p.sabores.map(x=>{ const s=sabor(x.id); return x.cant+'× '+(s?s.nombre:x.id)+' · 360ml'; });
 
@@ -1192,11 +1237,12 @@ function descargarTicketPDF(){
   const filasWrap = filas.map(([lab,val])=>[lab, tmp.splitTextToSize(String(val), usable-22)]);
   const potesWrap = potesTxt.map(t=>tmp.splitTextToSize(t, usable));
 
+  const tieneDescuento = !!p.descuentoPct;
   let alto = M + LOGO_H + 3 + 5 + 6 + 4;
   filasWrap.forEach(([,vlines])=>{ alto += Math.max(1,vlines.length)*lineH; });
   alto += 4;
   potesWrap.forEach(vlines=>{ alto += vlines.length*lineH; });
-  alto += 4 + 3*lineH + M;
+  alto += 4 + (tieneDescuento?4:3)*lineH + M;
 
   // Paso 2: doc final, con el alto exacto que necesita este pedido
   const doc = new jsPDF({unit:'mm', format:[W, alto]});
@@ -1226,7 +1272,10 @@ function descargarTicketPDF(){
   potesWrap.forEach(vlines=>{ vlines.forEach(ln=>{ doc.text(ln, M, y); y += lineH; }); });
   doc.line(M,y,W-M,y); y += 4;
 
-  doc.text('Subtotal', M, y); doc.text(fmt$(p.subtotal), W-M, y, {align:'right'}); y += lineH;
+  doc.text('Subtotal', M, y); doc.text(fmt$(tieneDescuento?p.subtotalBruto:p.subtotal), W-M, y, {align:'right'}); y += lineH;
+  if(tieneDescuento){
+    doc.text('Desc. Rappi ('+p.descuentoPct+'%)', M, y); doc.text('-'+fmt$(p.descuentoValor||0), W-M, y, {align:'right'}); y += lineH;
+  }
   doc.text('Envío', M, y); doc.text(p.envio ? fmt$(p.envio) : 'Gratis', W-M, y, {align:'right'}); y += lineH;
   doc.setFont('courier','bold'); doc.setFontSize(11);
   doc.text('TOTAL', M, y); doc.text(fmt$(p.total), W-M, y, {align:'right'});
@@ -1293,6 +1342,36 @@ function actualizarModoPropio(){
   const av1 = document.getElementById('pAvisoPropio'); if(av1) av1.style.display = esPropio ? 'block' : 'none';
   const av2 = document.getElementById('pAvisoPropio2'); if(av2) av2.style.display = esPropio ? 'block' : 'none';
 }
+function actualizarDescuentoRappi(){
+  const canalEl = document.getElementById('pCanalVenta');
+  const wrap = document.getElementById('wrapDescuentoRappi');
+  const esRappi = canalEl && canalEl.value === 'Rappi';
+  if(wrap) wrap.style.display = esRappi ? '' : 'none';
+  if(!esRappi){ const sel = document.getElementById('pDescuentoRappi'); if(sel) sel.value = '0'; }
+  renderCart();
+}
+function descuentoActual(){
+  const canalEl = document.getElementById('pCanalVenta');
+  if(!canalEl || canalEl.value !== 'Rappi') return 0;
+  const sel = document.getElementById('pDescuentoRappi');
+  return sel ? (+sel.value || 0) : 0;
+}
+const CAMPOS_NO_RAPPI = ['pTel','pDireccion','pReferencia','pCanalContacto','pMedioPago','pCambio','pEnvioManual'];
+function actualizarModoRappi(){
+  const canalEl = document.getElementById('pCanalVenta');
+  const esRappi = canalEl && canalEl.value === 'Rappi';
+  CAMPOS_NO_RAPPI.forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.disabled = esRappi;
+    if(esRappi) el.value = '';
+  });
+  const wrapId = document.getElementById('wrapRappiID'); if(wrapId) wrapId.style.display = esRappi ? '' : 'none';
+  if(!esRappi){ const idEl = document.getElementById('pRappiID'); if(idEl) idEl.value=''; }
+  const found = document.getElementById('pFound'); if(found && esRappi) found.style.display = 'none';
+  const av = document.getElementById('pAvisoRappi'); if(av) av.style.display = esRappi ? 'block' : 'none';
+  renderCart();
+}
 function ajustarPedidoQty(id, delta){
   pedidoCart[id] = Math.max(0, (pedidoCart[id]||0) + delta);
   const qtyEl = document.getElementById('pQty_'+id); if(qtyEl) qtyEl.innerText = pedidoCart[id];
@@ -1316,12 +1395,21 @@ function renderCart(){
     return `<div class="cartline"><span><span class="sw-c" style="background:${s.color};display:inline-block;vertical-align:middle;margin-right:7px"></span>${s.nombre} · 360ml${cant>1?' x'+cant:''}</span><span class="price">${fmt$(precioCanal(s)*cant)}</span></div>`;
   }).join('');
   document.getElementById('cartLines').innerHTML = lines || '<div class="meta" style="padding:8px 0">Elegí sabores arriba (con ＋/－) para armar el pedido.</div>';
-  const subtotal = entries.reduce((a,id)=>a+precioCanal(sabor(id))*pedidoCart[id],0);
+  const subtotalBruto = entries.reduce((a,id)=>a+precioCanal(sabor(id))*pedidoCart[id],0);
+  const descuentoPct = descuentoActual();
+  const descuentoValor = Math.round(subtotalBruto*descuentoPct/100);
+  const subtotal = subtotalBruto - descuentoValor;
   const envio = envioActual(totalPotes);
   const manualEl = document.getElementById('pEnvioManual');
   if(manualEl) manualEl.placeholder = 'Auto: '+(envioAuto(totalPotes)===0?'Gratis':fmt$(envioAuto(totalPotes)));
   document.getElementById('rSub').innerText = 'Subtotal ('+totalPotes+' potes)';
-  document.getElementById('rSubV').innerText = fmt$(subtotal);
+  document.getElementById('rSubV').innerText = fmt$(subtotalBruto);
+  const descLine = document.getElementById('rDescLine');
+  if(descLine){
+    descLine.style.display = descuentoPct>0 ? '' : 'none';
+    document.getElementById('rDescLabel').innerText = 'Descuento Rappi ('+descuentoPct+'%)';
+    document.getElementById('rDescV').innerText = '-'+fmt$(descuentoValor);
+  }
   document.getElementById('rEnvio').innerText = envio===0 ? 'Gratis 🎉' : fmt$(envio);
   document.getElementById('rTot').innerText = fmt$(subtotal+envio);
 }
@@ -1335,17 +1423,23 @@ async function crearPedido(){
   if(entries.length===0){ alert('Elegí al menos un sabor (con ＋/－).'); return; }
   const canalVenta = document.getElementById('pCanalVenta').value;
   const esPropio = canalVenta === 'Propio';
+  const esRappi = canalVenta === 'Rappi';
   const nombre = document.getElementById('pNombre').value || 'Cliente';
-  const tel = esPropio ? '' : (document.getElementById('pTel').value||'').trim();
-  const direccion = esPropio ? '' : document.getElementById('pDireccion').value||'';
-  const referencia = esPropio ? '' : document.getElementById('pReferencia').value||'';
+  const tel = (esPropio||esRappi) ? '' : (document.getElementById('pTel').value||'').trim();
+  const direccion = (esPropio||esRappi) ? '' : document.getElementById('pDireccion').value||'';
+  const referencia = (esPropio||esRappi) ? '' : document.getElementById('pReferencia').value||'';
   const entrega = esPropio ? 'Retira' : document.getElementById('pEntrega').value;
-  const canalContacto = esPropio ? 'manual' : document.getElementById('pCanalContacto').value;
-  const medioPago = esPropio ? '' : document.getElementById('pMedioPago').value;
-  const cambio = esPropio ? '' : document.getElementById('pCambio').value||'';
+  const canalContacto = esPropio ? 'manual' : (esRappi ? null : document.getElementById('pCanalContacto').value);
+  const medioPago = (esPropio||esRappi) ? '' : document.getElementById('pMedioPago').value;
+  const cambio = (esPropio||esRappi) ? '' : document.getElementById('pCambio').value||'';
+  const rappiPedidoId = esRappi ? (document.getElementById('pRappiID').value||'').trim() : '';
 
   const totalPotes = entries.reduce((a,id)=>a+pedidoCart[id],0);
-  const subtotal = entries.reduce((a,id)=>a+precioCanal(sabor(id))*pedidoCart[id],0);
+  const subtotalBruto = entries.reduce((a,id)=>a+precioCanal(sabor(id))*pedidoCart[id],0);
+  const descuentoPct = descuentoActual();
+  const descuentoValor = Math.round(subtotalBruto*descuentoPct/100);
+  const subtotal = subtotalBruto - descuentoValor;
+  const factorDesc = descuentoPct>0 ? (1-descuentoPct/100) : 1;
   const envio = envioActual(totalPotes);
   const total = subtotal+envio;
   const numero = siguienteNumeroPedido();
@@ -1356,9 +1450,9 @@ async function crearPedido(){
   await addDoc(colPedidos, {
     numero,
     cliente: {telefono:tel, nombre, direccion, referencia},
-    entrega, canalContacto, canalVenta, medioPago, cambio,
-    sabores: entries.map(id=>({id, cant:pedidoCart[id], precioUnit:precioCanal(sabor(id))})),
-    subtotal, envio, total,
+    entrega, canalContacto, canalVenta, medioPago, cambio, rappiPedidoId,
+    sabores: entries.map(id=>({id, cant:pedidoCart[id], precioUnit:Math.round(precioCanal(sabor(id))*factorDesc)})),
+    subtotal, subtotalBruto, descuentoPct, descuentoValor, envio, total,
     estado: 'pendiente',
     fecha: fmtISO(new Date()),
     hora: new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),
@@ -1370,6 +1464,8 @@ async function crearPedido(){
   document.getElementById('pDireccion').value='';
   document.getElementById('pReferencia').value='';
   document.getElementById('pEnvioManual').value='';
+  document.getElementById('pRappiID').value='';
+  const descSelReset = document.getElementById('pDescuentoRappi'); if(descSelReset) descSelReset.value='0';
   const found = document.getElementById('pFound'); if(found) found.style.display='none';
   pedidoCart = {};
   pintarPickers();
@@ -1387,10 +1483,14 @@ function cancelarCargaPedido(){
   document.getElementById('pReferencia').value='';
   document.getElementById('pEnvioManual').value='';
   document.getElementById('pCambio').value='';
+  document.getElementById('pRappiID').value='';
+  const descSelCancel = document.getElementById('pDescuentoRappi'); if(descSelCancel) descSelCancel.value='0';
   const found = document.getElementById('pFound'); if(found) found.style.display='none';
   pintarPickers();
   renderCart();
   actualizarModoPropio();
+  actualizarDescuentoRappi();
+  actualizarModoRappi();
 }
 
 /* ===================== ADMIN: sabores con 3 precios + activo ===================== */
@@ -1481,10 +1581,10 @@ function renderReportesView(){
     `<div class="barrow"><div class="t"><span>${c}</span><b>${porCV[c].n} · ${fmt$(porCV[c].v)}</b></div><div class="bar"><i style="width:${Math.round(porCV[c].v/maxCV*100)}%;background:var(--navy)"></i></div></div>`
   ).join('');
 
-  const nomCC = {wa:'WhatsApp', manual:'Manual', tel:'Teléfono'};
-  const clrCC = {wa:'var(--wa)', manual:'var(--navy)', tel:'var(--tel)'};
-  const porCC = {wa:{n:0,v:0}, manual:{n:0,v:0}, tel:{n:0,v:0}};
-  listosHoy.forEach(p=>{ const c=p.canalContacto||'manual'; if(porCC[c]){ porCC[c].n++; porCC[c].v+=p.total||0; } });
+  const nomCC = {wa:'WhatsApp', manual:'Manual', tel:'Teléfono', rappi:'Rappi'};
+  const clrCC = {wa:'var(--wa)', manual:'var(--navy)', tel:'var(--tel)', rappi:'var(--rappi)'};
+  const porCC = {wa:{n:0,v:0}, manual:{n:0,v:0}, tel:{n:0,v:0}, rappi:{n:0,v:0}};
+  listosHoy.forEach(p=>{ const c=p.canalContacto || (p.canalVenta==='Rappi'?'rappi':'manual'); if(porCC[c]){ porCC[c].n++; porCC[c].v+=p.total||0; } });
   const maxCC = Math.max(1, ...Object.values(porCC).map(x=>x.v));
   document.getElementById('repCanalContacto').innerHTML = Object.keys(porCC).map(c=>
     `<div class="barrow"><div class="t"><span>${nomCC[c]}</span><b>${porCC[c].n} · ${fmt$(porCC[c].v)}</b></div><div class="bar"><i style="width:${Math.round(porCC[c].v/maxCC*100)}%;background:${clrCC[c]}"></i></div></div>`
@@ -1499,9 +1599,9 @@ function renderReportesView(){
   }).join('') : '<div class="meta" style="padding:8px 0">Todavía no hay ventas hoy.</div>';
 
   const porPago = {};
-  listosHoy.forEach(p=>{ const m=p.medioPago||'Efectivo'; porPago[m]=(porPago[m]||0)+(p.total||0); });
+  listosHoy.forEach(p=>{ const m=p.medioPago || (p.canalVenta==='Rappi'?'Rappi':'Efectivo'); porPago[m]=(porPago[m]||0)+(p.total||0); });
   const maxPago = Math.max(1, ...Object.values(porPago));
-  const clrPago = {Efectivo:'var(--espresso)', MercadoPago:'var(--navy2)', Transferencia:'var(--ddl)'};
+  const clrPago = {Efectivo:'var(--espresso)', MercadoPago:'var(--navy2)', Transferencia:'var(--ddl)', Rappi:'var(--rappi)'};
   document.getElementById('repPago').innerHTML = Object.keys(porPago).length ? Object.keys(porPago).map(m=>
     `<div class="barrow"><div class="t"><span>${m}</span><b>${fmt$(porPago[m])}</b></div><div class="bar"><i style="width:${Math.round(porPago[m]/maxPago*100)}%;background:${clrPago[m]||'var(--navy)'}"></i></div></div>`
   ).join('') : '<div class="meta" style="padding:8px 0">Todavía no hay ventas hoy.</div>';
@@ -1699,7 +1799,7 @@ Object.assign(window, {
   buscarCliente, actualizarPreciosChips, guardarSabor, ajustarPedidoQty,
   editarPedido, cancelarEdicionPedido, ajustarEditQty, actualizarTotalEdicion, guardarPedidoEdicion,
   descargarTicketPDF, marcarSaborSucio, volverAHoy, verCajaFecha, imprimirCajaFecha, toggleExpandPedido,
-  actualizarModoPropio, cancelarCargaPedido, marcarSucio
+  actualizarModoPropio, cancelarCargaPedido, marcarSucio, actualizarDescuentoRappi, actualizarModoRappi
 });
 
 </script>
