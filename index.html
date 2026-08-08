@@ -103,6 +103,7 @@ aparte para revisar antes de fusionar.
   .box h3{font-family:var(--bebas);font-size:17px;letter-spacing:1px;margin-bottom:13px;font-weight:400;color:var(--navy);display:flex;align-items:baseline;gap:8px}
   .field{margin-bottom:12px} label{display:block;font-size:9px;font-weight:700;margin-bottom:5px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
   input,select{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:6px;font-size:12px;font-family:var(--mont);font-weight:600;background:#fff;color:var(--ink);transition:.15s}
+  input:disabled,select:disabled{background:var(--kraft2);color:var(--soft);cursor:not-allowed}
   input:focus,select:focus{outline:0;border-color:var(--navy)}
   .found{font-size:10.5px;font-weight:600;color:var(--wa);margin-top:6px;background:rgba(60,122,85,.07);padding:8px 10px;border-radius:6px;border:1px solid rgba(60,122,85,.18)}
   .pick{display:flex;flex-wrap:wrap;gap:6px}
@@ -269,8 +270,9 @@ aparte para revisar antes de fusionar.
           <div class="field"><label>Referencia / timbre</label><input id="pReferencia" placeholder="Ej: timbre azul, depto 3B"></div>
           <div class="grid2">
             <div class="field"><label>Canal de contacto</label><select id="pCanalContacto"><option value="wa">WhatsApp</option><option value="manual">Manual</option><option value="tel">Teléfono</option></select></div>
-            <div class="field"><label>Canal de venta</label><select id="pCanalVenta" onchange="actualizarPreciosChips()"><option value="Landing">Landing</option><option value="Rappi">Rappi</option><option value="Amigos">Amigos</option></select></div>
+            <div class="field"><label>Canal de venta</label><select id="pCanalVenta" onchange="actualizarPreciosChips();actualizarModoPropio()"><option value="Landing">Landing</option><option value="Rappi">Rappi</option><option value="Amigos">Amigos</option><option value="Propio">Propio (sin cargo)</option></select></div>
           </div>
+          <div class="meta" id="pAvisoPropio" style="display:none;color:var(--bad);margin-top:8px">Consumo propio: solo se descuenta stock a nombre de quien cargues. El resto de los campos no aplica.</div>
         </div>
         <div class="box">
           <h3>② Sabores <span style="font-family:var(--mont);font-size:9.5px;font-weight:600;color:var(--muted);letter-spacing:.4px">— pote 360ml · sin mínimo</span></h3>
@@ -288,12 +290,14 @@ aparte para revisar antes de fusionar.
           <div class="field" style="margin-top:15px"><label>Medio de pago</label><select id="pMedioPago"><option>Efectivo</option><option>Transferencia</option><option>MercadoPago</option></select></div>
           <div class="field"><label>¿Necesita cambio?</label><input id="pCambio" placeholder="cambio para $40.000"></div>
           <div class="field"><label>Costo de envío (opcional)</label><input id="pEnvioManual" type="number" placeholder="Automático" oninput="renderCart()"></div>
+          <div class="meta" id="pAvisoPropio2" style="display:none;color:var(--bad);margin-top:4px">No aplica en consumo propio.</div>
           <div class="resumen">
             <div class="rline"><span id="rSub">Subtotal (0 potes)</span><span id="rSubV">$0</span></div>
             <div class="rline"><span>Envío</span><span id="rEnvio">$1.800</span></div>
             <div class="rline tot"><span>TOTAL</span><span id="rTot">$0</span></div>
           </div>
           <button class="btn btn-pri" style="width:100%;margin-top:15px;padding:12px;font-size:11px" onclick="crearPedido()">Crear pedido → al tablero</button>
+          <a onclick="cancelarCargaPedido()" style="display:block;text-align:center;margin-top:10px;font-size:10.5px;font-weight:700;color:var(--muted);cursor:pointer;text-decoration:underline">Cancelar carga</a>
         </div>
       </div>
     </div>
@@ -496,7 +500,7 @@ function go(id,el){
   closeMenu();
   if(id==='stock') renderStock();
   if(id==='tablero') renderTablero();
-  if(id==='carga'){ pintarPickers(); renderCart(); }
+  if(id==='carga'){ pintarPickers(); renderCart(); actualizarModoPropio(); }
   if(id==='admin') pintarAdminSabores();
   if(id==='reportes') renderReportesView();
   if(id==='historial') renderHistorial();
@@ -522,9 +526,15 @@ let SABORES = []; // antes era const fija, ahora vive en la colección 'sabores'
 function sabor(id){ return SABORES.find(s=>s.id===id); }
 function precioCanalPedido(s, canal){
   if(!s) return 0;
+  if(canal==='Propio') return 0;
   if(canal==='Rappi') return s.precioRappi ?? s.precioLanding ?? 0;
   if(canal==='Amigos') return s.precioAmigos ?? s.precioLanding ?? 0;
   return s.precioLanding ?? 0;
+}
+function envioSegunCanal(totalPotes, manualVal, canal){
+  if(manualVal!==''&&manualVal!=null&&!isNaN(+manualVal)) return +manualVal;
+  if(canal==='Propio') return 0;
+  return envioAuto(totalPotes);
 }
 function precioCanal(s){
   const el = document.getElementById('pCanalVenta');
@@ -666,13 +676,14 @@ function renderLotes(){
 
 function filaEdicionLote(l){
   const opts = SABORES.map(s=>`<option value="${s.id}" ${s.id===l.sabor?'selected':''}>${s.nombre} (${s.linea})</option>`).join('');
+  const sucio = `marcarSucio('btnGuardarLote_${l.id}','btn-ok')`;
   return `<div class="lotrow" style="background:#fff;border-color:var(--navy)">
     <div style="font-weight:700">${l.id}</div>
-    <div style="grid-column:span 2"><select id="editSabor_${l.id}" style="padding:5px 7px;font-size:10.5px">${opts}</select></div>
-    <div><input id="editFecha_${l.id}" type="date" value="${l.fecha}" style="padding:5px 7px;font-size:10.5px"></div>
-    <div><input id="editCant_${l.id}" type="number" min="${l.egresado}" value="${l.cant}" style="padding:5px 7px;font-size:10.5px"></div>
+    <div style="grid-column:span 2"><select id="editSabor_${l.id}" style="padding:5px 7px;font-size:10.5px" onchange="${sucio}">${opts}</select></div>
+    <div><input id="editFecha_${l.id}" type="date" value="${l.fecha}" style="padding:5px 7px;font-size:10.5px" oninput="${sucio}"></div>
+    <div><input id="editCant_${l.id}" type="number" min="${l.egresado}" value="${l.cant}" style="padding:5px 7px;font-size:10.5px" oninput="${sucio}"></div>
     <div style="font-size:9px;color:var(--muted)">${l.egresado>0 ? 'ya egresó '+l.egresado : ''}</div>
-    <div style="display:flex;gap:6px"><button class="btn btn-ok btn-xs" onclick="guardarLoteEdicion('${l.id}')">Guardar</button><button class="btn btn-ghost btn-xs" onclick="cancelarEdicionLote()">Cancelar</button></div>
+    <div style="display:flex;gap:6px"><button class="btn btn-ok btn-xs" id="btnGuardarLote_${l.id}" onclick="guardarLoteEdicion('${l.id}')">Guardar</button><button class="btn btn-ghost btn-xs" onclick="cancelarEdicionLote()">Cancelar</button></div>
   </div>`;
 }
 
@@ -756,18 +767,20 @@ function renderEgresos(){
 function filaEdicionEgreso(e){
   const saborId = e.sabores[0].id;
   const nombreSabor = (sabor(saborId)||{nombre:saborId}).nombre;
+  const sucio = `marcarSucio('btnGuardarEgreso_${e.uid}','btn-ok')`;
   return `<div class="egrow" style="background:#fff;border-color:var(--navy)">
     <div style="font-weight:700">${e.ref}</div>
-    <div><input type="date" id="editEgrFecha_${e.uid}" value="${e.fecha}" style="padding:5px 6px;font-size:9px;width:100%"></div>
+    <div><input type="date" id="editEgrFecha_${e.uid}" value="${e.fecha}" style="padding:5px 6px;font-size:9px;width:100%" oninput="${sucio}"></div>
     <div style="font-size:10px;font-weight:700">${nombreSabor}</div>
-    <div><input type="number" id="editEgrCant_${e.uid}" min="1" value="${e.sabores[0].cant}" style="padding:5px 6px;font-size:10px;width:100%"></div>
-    <div><select id="editEgrCanal_${e.uid}" style="padding:5px 6px;font-size:9px;width:100%">
+    <div><input type="number" id="editEgrCant_${e.uid}" min="1" value="${e.sabores[0].cant}" style="padding:5px 6px;font-size:10px;width:100%" oninput="${sucio}"></div>
+    <div><select id="editEgrCanal_${e.uid}" style="padding:5px 6px;font-size:9px;width:100%" onchange="${sucio}">
       <option ${e.canal==='Rappi'?'selected':''}>Rappi</option>
       <option ${e.canal==='Landing'?'selected':''}>Landing</option>
       <option ${e.canal==='Amigos'?'selected':''}>Amigos</option>
+      <option ${e.canal==='Propio'?'selected':''}>Propio</option>
     </select></div>
     <div style="font-size:8.5px;color:var(--muted)">el lote se recalcula al guardar</div>
-    <div style="display:flex;gap:6px"><button class="btn btn-ok btn-xs" onclick="guardarEgresoEdicion('${e.uid}')">Guardar</button><button class="btn btn-ghost btn-xs" onclick="cancelarEdicionEgreso()">Cancelar</button></div>
+    <div style="display:flex;gap:6px"><button class="btn btn-ok btn-xs" id="btnGuardarEgreso_${e.uid}" onclick="guardarEgresoEdicion('${e.uid}')">Guardar</button><button class="btn btn-ghost btn-xs" onclick="cancelarEdicionEgreso()">Cancelar</button></div>
   </div>`;
 }
 function editarEgreso(uid){ editingEgresoUid = uid; renderEgresos(); }
@@ -822,7 +835,7 @@ function pintarVentaPickers(){
       <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
         <input type="date" id="ventaFecha_${s.id}" value="${fmtISO(new Date())}" style="width:126px;padding:6px 7px;font-size:10px">
         <select id="ventaCanal_${s.id}" style="width:112px;padding:6px 7px;font-size:10px">
-          <option>Rappi</option><option>Landing</option><option>Amigos</option>
+          <option>Rappi</option><option>Landing</option><option>Amigos</option><option>Propio</option>
         </select>
         <button class="qbtn" onclick="ajustarVentaQty('${s.id}',-1)">－</button>
         <span class="qn" id="ventaQty_${s.id}">0</span>
@@ -958,18 +971,22 @@ async function cancelarPedido(id){
 }
 
 /* ---- Editar un pedido ya cargado (pendiente o ya despachado) ---- */
+function refrescarVistaPedidos(){
+  if(document.getElementById('tablero').classList.contains('show')) renderTablero();
+  if(document.getElementById('reportes').classList.contains('show')) renderReportesView();
+}
 function editarPedido(id){
   const p = PEDIDOS.find(x=>x.id===id);
   if(!p) return;
   editingPedidoId = id;
   editCart = {};
   p.sabores.forEach(x=> editCart[x.id] = x.cant);
-  renderTablero();
+  refrescarVistaPedidos();
 }
 function cancelarEdicionPedido(){
   editingPedidoId = null;
   editCart = {};
-  renderTablero();
+  refrescarVistaPedidos();
 }
 function ajustarEditQty(id, delta){
   editCart[id] = Math.max(0, (editCart[id]||0) + delta);
@@ -981,62 +998,77 @@ function precioCanalEdit(s){
   const el = document.getElementById('editCanalVenta_'+editingPedidoId);
   return precioCanalPedido(s, el ? el.value : 'Landing');
 }
+const CAMPOS_EDIT_NO_PROPIO = ['editTel_','editEntrega_','editDireccion_','editReferencia_','editCanalContacto_','editMedioPago_','editCambio_','editEnvio_'];
 function actualizarTotalEdicion(){
   if(!editingPedidoId) return;
-  const totEl = document.getElementById('editTotal_'+editingPedidoId);
+  const id = editingPedidoId;
+  const canalEl = document.getElementById('editCanalVenta_'+id);
+  const esPropio = canalEl && canalEl.value === 'Propio';
+  CAMPOS_EDIT_NO_PROPIO.forEach(prefix=>{
+    const el = document.getElementById(prefix+id);
+    if(!el) return;
+    el.disabled = esPropio;
+    if(esPropio && el.value!=='') el.value = '';
+  });
+  const av = document.getElementById('editAvisoPropio_'+id); if(av) av.style.display = esPropio ? 'block' : 'none';
+
+  const totEl = document.getElementById('editTotal_'+id);
   if(!totEl) return;
-  const entries = Object.keys(editCart).filter(id=>editCart[id]>0);
-  const totalPotes = entries.reduce((a,id)=>a+editCart[id],0);
-  const subtotal = entries.reduce((a,id)=>a+precioCanalEdit(sabor(id))*editCart[id],0);
-  const manualEl = document.getElementById('editEnvio_'+editingPedidoId);
+  const entries = Object.keys(editCart).filter(k=>editCart[k]>0);
+  const totalPotes = entries.reduce((a,k)=>a+editCart[k],0);
+  const subtotal = entries.reduce((a,k)=>a+precioCanalEdit(sabor(k))*editCart[k],0);
+  const manualEl = document.getElementById('editEnvio_'+id);
   const manual = manualEl ? manualEl.value : '';
-  const envio = (manual!==''&&manual!=null&&!isNaN(+manual)) ? +manual : envioAuto(totalPotes);
+  const envio = envioSegunCanal(totalPotes, manual, canalEl ? canalEl.value : 'Landing');
   totEl.innerText = 'Total: '+fmt$(subtotal+envio)+' ('+totalPotes+' potes + envío '+fmt$(envio)+')';
 }
 function formEdicionPedido(p){
+  const sucio = `marcarSucio('btnGuardarPedido_${p.id}','btn-ok')`;
   const chip = s => `<span class="flavq ${((editCart[s.id]||0)>0)?'has':''}" id="editChip_${s.id}">
       <span class="sw-c" style="background:${s.color}"></span>${s.nombre}
-      <button class="qbtn" onclick="ajustarEditQty('${s.id}',-1)">－</button>
+      <button class="qbtn" onclick="ajustarEditQty('${s.id}',-1);${sucio}">－</button>
       <span class="qn" id="editQty_${s.id}">${editCart[s.id]||0}</span>
-      <button class="qbtn" onclick="ajustarEditQty('${s.id}',1)">＋</button>
+      <button class="qbtn" onclick="ajustarEditQty('${s.id}',1);${sucio}">＋</button>
     </span>`;
   const avisoListo = p.estado==='listo'
     ? '<div class="meta" style="color:var(--bad);margin:6px 0">⚠ Este pedido ya está despachado — si cambiás sabores/cantidades, se repone el stock viejo y se descuenta el nuevo automáticamente.</div>'
     : '';
   return `<div class="order" style="background:#fff;border-color:var(--navy)">
     <div class="ohead"><span class="onum">${p.numero}</span><span class="badge badge-warn">Editando</span></div>
-    <div class="field" style="margin-top:8px"><label>Nombre</label><input id="editNombre_${p.id}" value="${(p.cliente&&p.cliente.nombre)||''}"></div>
+    <div class="field" style="margin-top:8px"><label>Nombre</label><input id="editNombre_${p.id}" value="${(p.cliente&&p.cliente.nombre)||''}" oninput="${sucio}"></div>
     <div class="grid2">
-      <div class="field"><label>Teléfono</label><input id="editTel_${p.id}" value="${(p.cliente&&p.cliente.telefono)||''}"></div>
-      <div class="field"><label>Entrega</label><select id="editEntrega_${p.id}"><option ${p.entrega==='Delivery'?'selected':''}>Delivery</option><option ${p.entrega==='Retira'?'selected':''}>Retira</option></select></div>
+      <div class="field"><label>Teléfono</label><input id="editTel_${p.id}" value="${(p.cliente&&p.cliente.telefono)||''}" oninput="${sucio}"></div>
+      <div class="field"><label>Entrega</label><select id="editEntrega_${p.id}" onchange="${sucio}"><option ${p.entrega==='Delivery'?'selected':''}>Delivery</option><option ${p.entrega==='Retira'?'selected':''}>Retira</option></select></div>
     </div>
-    <div class="field"><label>Dirección</label><input id="editDireccion_${p.id}" value="${(p.cliente&&p.cliente.direccion)||''}"></div>
-    <div class="field"><label>Referencia</label><input id="editReferencia_${p.id}" value="${(p.cliente&&p.cliente.referencia)||''}"></div>
+    <div class="field"><label>Dirección</label><input id="editDireccion_${p.id}" value="${(p.cliente&&p.cliente.direccion)||''}" oninput="${sucio}"></div>
+    <div class="field"><label>Referencia</label><input id="editReferencia_${p.id}" value="${(p.cliente&&p.cliente.referencia)||''}" oninput="${sucio}"></div>
     <div class="grid2">
-      <div class="field"><label>Canal de contacto</label><select id="editCanalContacto_${p.id}">
+      <div class="field"><label>Canal de contacto</label><select id="editCanalContacto_${p.id}" onchange="${sucio}">
         <option value="wa" ${p.canalContacto==='wa'?'selected':''}>WhatsApp</option>
         <option value="manual" ${p.canalContacto==='manual'?'selected':''}>Manual</option>
         <option value="tel" ${p.canalContacto==='tel'?'selected':''}>Teléfono</option>
       </select></div>
-      <div class="field"><label>Canal de venta</label><select id="editCanalVenta_${p.id}" onchange="actualizarTotalEdicion()">
+      <div class="field"><label>Canal de venta</label><select id="editCanalVenta_${p.id}" onchange="actualizarTotalEdicion();${sucio}">
         <option value="Landing" ${p.canalVenta==='Landing'?'selected':''}>Landing</option>
         <option value="Rappi" ${p.canalVenta==='Rappi'?'selected':''}>Rappi</option>
         <option value="Amigos" ${p.canalVenta==='Amigos'?'selected':''}>Amigos</option>
+        <option value="Propio" ${p.canalVenta==='Propio'?'selected':''}>Propio (sin cargo)</option>
       </select></div>
     </div>
+    <div class="meta" id="editAvisoPropio_${p.id}" style="display:none;color:var(--bad);margin:2px 0 6px">Consumo propio: el resto de los campos no aplica.</div>
     <div class="grid2">
-      <div class="field"><label>Medio de pago</label><select id="editMedioPago_${p.id}">
+      <div class="field"><label>Medio de pago</label><select id="editMedioPago_${p.id}" onchange="${sucio}">
         <option ${p.medioPago==='Efectivo'?'selected':''}>Efectivo</option>
         <option ${p.medioPago==='Transferencia'?'selected':''}>Transferencia</option>
         <option ${p.medioPago==='MercadoPago'?'selected':''}>MercadoPago</option>
       </select></div>
-      <div class="field"><label>Costo de envío</label><input id="editEnvio_${p.id}" type="number" value="${p.envio}" oninput="actualizarTotalEdicion()"></div>
+      <div class="field"><label>Costo de envío</label><input id="editEnvio_${p.id}" type="number" value="${p.envio}" oninput="actualizarTotalEdicion();${sucio}"></div>
     </div>
-    <div class="field"><label>Cambio</label><input id="editCambio_${p.id}" value="${p.cambio||''}"></div>
+    <div class="field"><label>Cambio</label><input id="editCambio_${p.id}" value="${p.cambio||''}" oninput="${sucio}"></div>
     <div class="pick" style="margin:8px 0">${SABORES.map(chip).join('')}</div>
     <div class="meta" id="editTotal_${p.id}" style="font-weight:700;margin-bottom:6px"></div>
     ${avisoListo}
-    <div class="actions"><button class="btn btn-ok" onclick="guardarPedidoEdicion('${p.id}')">Guardar</button><button class="btn btn-ghost" onclick="cancelarEdicionPedido()">Cancelar</button></div>
+    <div class="actions"><button class="btn btn-ok" id="btnGuardarPedido_${p.id}" onclick="guardarPedidoEdicion('${p.id}')">Guardar</button><button class="btn btn-ghost" onclick="cancelarEdicionPedido()">Cancelar</button></div>
   </div>`;
 }
 async function guardarPedidoEdicion(id){
@@ -1045,20 +1077,21 @@ async function guardarPedidoEdicion(id){
   const entries = Object.keys(editCart).filter(k=>editCart[k]>0);
   if(entries.length===0){ alert('El pedido necesita al menos un sabor (con ＋/－).'); return; }
 
-  const nombre = document.getElementById('editNombre_'+id).value || 'Cliente';
-  const tel = (document.getElementById('editTel_'+id).value||'').trim();
-  const direccion = document.getElementById('editDireccion_'+id).value||'';
-  const referencia = document.getElementById('editReferencia_'+id).value||'';
-  const entrega = document.getElementById('editEntrega_'+id).value;
-  const canalContacto = document.getElementById('editCanalContacto_'+id).value;
   const canalVenta = document.getElementById('editCanalVenta_'+id).value;
-  const medioPago = document.getElementById('editMedioPago_'+id).value;
-  const cambio = document.getElementById('editCambio_'+id).value||'';
+  const esPropio = canalVenta === 'Propio';
+  const nombre = document.getElementById('editNombre_'+id).value || 'Cliente';
+  const tel = esPropio ? '' : (document.getElementById('editTel_'+id).value||'').trim();
+  const direccion = esPropio ? '' : document.getElementById('editDireccion_'+id).value||'';
+  const referencia = esPropio ? '' : document.getElementById('editReferencia_'+id).value||'';
+  const entrega = esPropio ? 'Retira' : document.getElementById('editEntrega_'+id).value;
+  const canalContacto = esPropio ? 'manual' : document.getElementById('editCanalContacto_'+id).value;
+  const medioPago = esPropio ? '' : document.getElementById('editMedioPago_'+id).value;
+  const cambio = esPropio ? '' : document.getElementById('editCambio_'+id).value||'';
   const envioManual = document.getElementById('editEnvio_'+id).value;
 
   const totalPotes = entries.reduce((a,k)=>a+editCart[k],0);
   const subtotal = entries.reduce((a,k)=>a+precioCanalPedido(sabor(k),canalVenta)*editCart[k],0);
-  const envio = (envioManual!==''&&envioManual!=null&&!isNaN(+envioManual)) ? +envioManual : envioAuto(totalPotes);
+  const envio = envioSegunCanal(totalPotes, envioManual, canalVenta);
   const total = subtotal+envio;
   const nuevosSabores = entries.map(k=>({id:k, cant:editCart[k], precioUnit:precioCanalPedido(sabor(k),canalVenta)}));
 
@@ -1246,6 +1279,20 @@ function actualizarPreciosChips(){
   });
   renderCart();
 }
+const CAMPOS_NO_PROPIO = ['pTel','pEntrega','pDireccion','pReferencia','pCanalContacto','pMedioPago','pCambio','pEnvioManual'];
+function actualizarModoPropio(){
+  const canalEl = document.getElementById('pCanalVenta');
+  const esPropio = canalEl && canalEl.value === 'Propio';
+  CAMPOS_NO_PROPIO.forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.disabled = esPropio;
+    if(esPropio) el.value = '';
+  });
+  const found = document.getElementById('pFound'); if(found && esPropio) found.style.display = 'none';
+  const av1 = document.getElementById('pAvisoPropio'); if(av1) av1.style.display = esPropio ? 'block' : 'none';
+  const av2 = document.getElementById('pAvisoPropio2'); if(av2) av2.style.display = esPropio ? 'block' : 'none';
+}
 function ajustarPedidoQty(id, delta){
   pedidoCart[id] = Math.max(0, (pedidoCart[id]||0) + delta);
   const qtyEl = document.getElementById('pQty_'+id); if(qtyEl) qtyEl.innerText = pedidoCart[id];
@@ -1258,8 +1305,8 @@ function envioAuto(totalPotes){
 function envioActual(totalPotes){
   const manualEl = document.getElementById('pEnvioManual');
   const manual = manualEl ? manualEl.value : '';
-  if(manual!==''&&manual!=null && !isNaN(+manual)) return +manual;
-  return envioAuto(totalPotes);
+  const canalEl = document.getElementById('pCanalVenta');
+  return envioSegunCanal(totalPotes, manual, canalEl ? canalEl.value : 'Landing');
 }
 function renderCart(){
   const entries = Object.keys(pedidoCart).filter(id=>pedidoCart[id]>0);
@@ -1286,15 +1333,16 @@ function siguienteNumeroPedido(){
 async function crearPedido(){
   const entries = Object.keys(pedidoCart).filter(id=>pedidoCart[id]>0);
   if(entries.length===0){ alert('Elegí al menos un sabor (con ＋/－).'); return; }
-  const tel = (document.getElementById('pTel').value||'').trim();
-  const nombre = document.getElementById('pNombre').value || 'Cliente';
-  const direccion = document.getElementById('pDireccion').value||'';
-  const referencia = document.getElementById('pReferencia').value||'';
-  const entrega = document.getElementById('pEntrega').value;
-  const canalContacto = document.getElementById('pCanalContacto').value;
   const canalVenta = document.getElementById('pCanalVenta').value;
-  const medioPago = document.getElementById('pMedioPago').value;
-  const cambio = document.getElementById('pCambio').value||'';
+  const esPropio = canalVenta === 'Propio';
+  const nombre = document.getElementById('pNombre').value || 'Cliente';
+  const tel = esPropio ? '' : (document.getElementById('pTel').value||'').trim();
+  const direccion = esPropio ? '' : document.getElementById('pDireccion').value||'';
+  const referencia = esPropio ? '' : document.getElementById('pReferencia').value||'';
+  const entrega = esPropio ? 'Retira' : document.getElementById('pEntrega').value;
+  const canalContacto = esPropio ? 'manual' : document.getElementById('pCanalContacto').value;
+  const medioPago = esPropio ? '' : document.getElementById('pMedioPago').value;
+  const cambio = esPropio ? '' : document.getElementById('pCambio').value||'';
 
   const totalPotes = entries.reduce((a,id)=>a+pedidoCart[id],0);
   const subtotal = entries.reduce((a,id)=>a+precioCanal(sabor(id))*pedidoCart[id],0);
@@ -1328,6 +1376,22 @@ async function crearPedido(){
   renderCart();
   go('tablero', document.getElementById('navTablero'));
 }
+function cancelarCargaPedido(){
+  if(Object.keys(pedidoCart).some(id=>pedidoCart[id]>0)){
+    if(!confirm('¿Cancelar esta carga? No se va a guardar nada.')) return;
+  }
+  pedidoCart = {};
+  document.getElementById('pTel').value='';
+  document.getElementById('pNombre').value='';
+  document.getElementById('pDireccion').value='';
+  document.getElementById('pReferencia').value='';
+  document.getElementById('pEnvioManual').value='';
+  document.getElementById('pCambio').value='';
+  const found = document.getElementById('pFound'); if(found) found.style.display='none';
+  pintarPickers();
+  renderCart();
+  actualizarModoPropio();
+}
 
 /* ===================== ADMIN: sabores con 3 precios + activo ===================== */
 function pintarAdminSabores(){
@@ -1344,13 +1408,22 @@ function pintarAdminSabores(){
   document.getElementById('admSabCl').innerHTML = SABORES.filter(s=>s.linea==='Clásicos').map(row).join('');
   document.getElementById('admSabDa').innerHTML = SABORES.filter(s=>s.linea==='De Autor').map(row).join('');
 }
-function marcarSaborSucio(id){
-  const btn = document.getElementById('admGuardar_'+id);
+/* ---- Feedback visual genérico: botón "Guardar" pasa a ámbar apenas se toca algo sin guardar ---- */
+function marcarSucio(btnId, claseBase){
+  const btn = document.getElementById(btnId);
   if(!btn) return;
   btn.classList.add('btn-warn');
-  btn.classList.remove('btn-pri');
+  btn.classList.remove(claseBase);
   btn.innerText = 'Guardar ●';
 }
+function marcarLimpio(btnId, claseBase){
+  const btn = document.getElementById(btnId);
+  if(!btn) return;
+  btn.classList.remove('btn-warn');
+  btn.classList.add(claseBase);
+  btn.innerText = 'Guardar';
+}
+function marcarSaborSucio(id){ marcarSucio('admGuardar_'+id, 'btn-pri'); }
 async function guardarSabor(id){
   const nombre = document.getElementById('admNombre_'+id).value.trim();
   if(!nombre){ alert('El nombre no puede quedar vacío.'); return; }
@@ -1359,8 +1432,7 @@ async function guardarSabor(id){
   const amigos = +document.getElementById('admAmigos_'+id).value || 0;
   const activo = document.getElementById('admActivo_'+id).classList.contains('on');
   await setDoc(doc(db,'sabores', id), { nombre, precioRappi:rappi, precioLanding:landing, precioAmigos:amigos, activo }, {merge:true});
-  const btn = document.getElementById('admGuardar_'+id);
-  if(btn){ btn.classList.remove('btn-warn'); btn.classList.add('btn-pri'); btn.innerText = 'Guardar'; }
+  marcarLimpio('admGuardar_'+id, 'btn-pri');
 }
 
 /* ===================== REPORTES: Caja del día, calculada en vivo ===================== */
@@ -1402,7 +1474,7 @@ function renderReportesView(){
     <div class="barrow"><div class="t"><span>Clásicos</span><b>${porLinea['Clásicos'].n} potes · ${fmt$(porLinea['Clásicos'].v)}</b></div><div class="bar"><i style="width:${Math.round(porLinea['Clásicos'].v/maxLinea*100)}%;background:var(--ddl)"></i></div></div>
     <div class="barrow"><div class="t"><span>De Autor</span><b>${porLinea['De Autor'].n} potes · ${fmt$(porLinea['De Autor'].v)}</b></div><div class="bar"><i style="width:${Math.round(porLinea['De Autor'].v/maxLinea*100)}%;background:var(--navy)"></i></div></div>`;
 
-  const porCV = {Rappi:{n:0,v:0}, Landing:{n:0,v:0}, Amigos:{n:0,v:0}};
+  const porCV = {Rappi:{n:0,v:0}, Landing:{n:0,v:0}, Amigos:{n:0,v:0}, Propio:{n:0,v:0}};
   listosHoy.forEach(p=>{ const c=p.canalVenta||'Landing'; if(!porCV[c]) porCV[c]={n:0,v:0}; porCV[c].n++; porCV[c].v+=p.total||0; });
   const maxCV = Math.max(1, ...Object.values(porCV).map(x=>x.v));
   document.getElementById('repCanalVenta').innerHTML = Object.keys(porCV).map(c=>
@@ -1433,6 +1505,7 @@ function renderReportesView(){
   document.getElementById('repPago').innerHTML = Object.keys(porPago).length ? Object.keys(porPago).map(m=>
     `<div class="barrow"><div class="t"><span>${m}</span><b>${fmt$(porPago[m])}</b></div><div class="bar"><i style="width:${Math.round(porPago[m]/maxPago*100)}%;background:${clrPago[m]||'var(--navy)'}"></i></div></div>`
   ).join('') : '<div class="meta" style="padding:8px 0">Todavía no hay ventas hoy.</div>';
+  if(editingPedidoId) actualizarTotalEdicion();
 }
 let expandidosDia = new Set();
 function pedidoDiaHTML(p){
@@ -1625,7 +1698,8 @@ Object.assign(window, {
   setStockMin, setDiasLimite, toggleMenu, closeMenu,
   buscarCliente, actualizarPreciosChips, guardarSabor, ajustarPedidoQty,
   editarPedido, cancelarEdicionPedido, ajustarEditQty, actualizarTotalEdicion, guardarPedidoEdicion,
-  descargarTicketPDF, marcarSaborSucio, volverAHoy, verCajaFecha, imprimirCajaFecha, toggleExpandPedido
+  descargarTicketPDF, marcarSaborSucio, volverAHoy, verCajaFecha, imprimirCajaFecha, toggleExpandPedido,
+  actualizarModoPropio, cancelarCargaPedido, marcarSucio
 });
 
 </script>
