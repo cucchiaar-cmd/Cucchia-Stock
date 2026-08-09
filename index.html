@@ -709,7 +709,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           <div id="cartLines"></div>
           <div class="field" style="margin-top:15px"><label>Medio de pago</label><select id="pMedioPago"><option>Efectivo</option><option>Transferencia</option><option>MercadoPago</option></select></div>
           <div class="field"><label>¿Necesita cambio?</label><input id="pCambio" placeholder="cambio para $40.000"></div>
-          <div class="field"><label>Costo de envío (opcional)</label><input id="pEnvioManual" type="number" placeholder="Automático" oninput="renderCart()"></div>
+          <div class="field"><label>Envío</label><select id="pEnvio" onchange="renderCart()"><option value="sin">Sin envío (retira)</option><option value="con" id="pEnvioConOpt">Con envío (+$1.800)</option></select></div>
           <div class="meta" id="pAvisoPropio2" style="display:none;color:var(--bad);margin-top:4px">No aplica en consumo propio.</div>
           <div class="resumen">
             <div class="rline"><span id="rSub">Subtotal (0 potes)</span><span id="rSubV">$0</span></div>
@@ -819,9 +819,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     <div id="a-conf" class="atab">
       <div class="grid2">
         <div class="box"><h3>Envío</h3>
-          <div class="field"><label>Modo</label><select><option>Importe fijo</option><option>Gratis</option></select></div>
-          <div class="field"><label>Costo</label><input value="$ 1.800"></div>
-          <div class="field"><label>Gratis a partir de (potes)</label><input value="3"></div></div>
+          <div class="field"><label>Costo de envío (con cargo)</label><input id="cfgEnvio" type="number" value="1800" onchange="setCostoEnvio(this.value)"></div>
+          <div class="sub" style="text-transform:none;letter-spacing:.1px">Se usa cuando en "Cargar pedido" (o al editar uno) se elige "Con envío". Por ahora Cucchia no tiene logística propia, así que el default en la carga es "Sin envío" (solo retiro).</div></div>
         <div class="box"><h3>Horario</h3>
           <div class="grid2"><div class="field"><label>Pedidos — abre</label><input value="15:00"></div>
             <div class="field"><label>Pedidos — cierra</label><input value="23:00"></div></div>
@@ -983,11 +982,7 @@ function precioCanalPedido(s, canal){
   if(canal==='Amigos') return s.precioAmigos ?? s.precioLanding ?? 0;
   return s.precioLanding ?? 0;
 }
-function envioSegunCanal(totalPotes, manualVal, canal){
-  if(manualVal!==''&&manualVal!=null&&!isNaN(+manualVal)) return +manualVal;
-  if(canal==='Propio' || canal==='Rappi') return 0;
-  return envioAuto(totalPotes);
-}
+
 function precioCanal(s){
   const el = document.getElementById('pCanalVenta');
   return precioCanalPedido(s, el ? el.value : 'Landing');
@@ -999,6 +994,7 @@ let EGRESOS = [];
 let PEDIDOS = [];
 let STOCK_MIN = 5;
 let DIAS_LIMITE = 60;
+let COSTO_ENVIO = 1800;
 let ventaCart = {};
 let editingLoteId = null;
 let editingEgresoUid = null;
@@ -1323,6 +1319,17 @@ async function setStockMin(val){
   const n = +val; if(!n || n<0) return;
   await setDoc(refConfig, {stockMin:n}, {merge:true});
 }
+async function setCostoEnvio(val){
+  const n = Math.max(0, +val||0);
+  COSTO_ENVIO = n;
+  await setDoc(refConfig, {costoEnvio:n}, {merge:true});
+  actualizarLabelEnvio();
+}
+function actualizarLabelEnvio(){
+  const opt = document.getElementById('pEnvioConOpt');
+  if(opt) opt.textContent = 'Con envío (+'+fmt$(COSTO_ENVIO)+')';
+  renderCart();
+}
 async function setDiasLimite(val){
   const n = +val; if(!n || n<0) return;
   await setDoc(refConfig, {diasLimite:n}, {merge:true});
@@ -1339,7 +1346,8 @@ function tarjetaPedido(p, esListo){
     const s = sabor(x.id);
     const nombre = s? s.nombre : x.id;
     const color = s? s.color : 'var(--navy)';
-    return `<div class="pote"><span class="sw-c" style="background:${color}"></span> ${nombre}${x.cant>1?' x'+x.cant:''} <span class="ml">360ml</span></div>`;
+    const precio = x.precioUnit!=null ? x.precioUnit : precioCanalPedido(s, p.canalVenta);
+    return `<div class="pote"><span class="sw-c" style="background:${color}"></span> ${nombre}${x.cant>1?' x'+x.cant:''} <span class="ml">360ml · ${fmt$(precio*x.cant)}</span></div>`;
   }).join('');
   const cliNombre = (p.cliente&&p.cliente.nombre) || 'Cliente';
   if(esListo){
@@ -1464,7 +1472,7 @@ function actualizarTotalEdicion(){
     const el = document.getElementById(prefix+id);
     if(!el) return;
     el.disabled = esPropio;
-    if(esPropio && el.value!=='') el.value = '';
+    if(esPropio && el.value!=='') el.value = (prefix==='editEnvio_' ? 'sin' : '');
   });
   const av = document.getElementById('editAvisoPropio_'+id); if(av) av.style.display = esPropio ? 'block' : 'none';
 
@@ -1473,7 +1481,7 @@ function actualizarTotalEdicion(){
     const el = document.getElementById(prefix+id);
     if(!el) return;
     el.disabled = esPropio || esRappi;
-    if((esPropio||esRappi) && el.value!=='') el.value = '';
+    if((esPropio||esRappi) && el.value!=='') el.value = (prefix==='editEnvio_' ? 'sin' : '');
   });
   const descWrap = document.getElementById('editWrapDescuento_'+id);
   const descSel = document.getElementById('editDescuento_'+id);
@@ -1493,9 +1501,9 @@ function actualizarTotalEdicion(){
   const descuentoPct = (esRappi && descSel) ? (+descSel.value||0) : 0;
   const descuentoValor = Math.round(subtotalBruto*descuentoPct/100);
   const subtotal = subtotalBruto - descuentoValor;
-  const manualEl = document.getElementById('editEnvio_'+id);
-  const manual = manualEl ? manualEl.value : '';
-  const envio = envioSegunCanal(totalPotes, manual, canalEl ? canalEl.value : 'Landing');
+  const envioSelEl = document.getElementById('editEnvio_'+id);
+  const envioSel = envioSelEl ? envioSelEl.value : 'sin';
+  const envio = envioSegunCanal(envioSel, canalEl ? canalEl.value : 'Landing');
   totEl.innerText = 'Total: '+fmt$(subtotal+envio)+' ('+totalPotes+' potes'+(descuentoPct>0?' · -'+descuentoPct+'% desc.':'')+' + envío '+fmt$(envio)+')';
 }
 function formEdicionPedido(p){
@@ -1541,7 +1549,7 @@ function formEdicionPedido(p){
         <option ${p.medioPago==='Transferencia'?'selected':''}>Transferencia</option>
         <option ${p.medioPago==='MercadoPago'?'selected':''}>MercadoPago</option>
       </select></div>
-      <div class="field"><label>Costo de envío</label><input id="editEnvio_${p.id}" type="number" value="${p.envio}" oninput="actualizarTotalEdicion();${sucio}"></div>
+      <div class="field"><label>Envío</label><select id="editEnvio_${p.id}" onchange="actualizarTotalEdicion();${sucio}"><option value="sin" ${(!p.envio)?'selected':''}>Sin envío (retira)</option><option value="con" ${(p.envio>0)?'selected':''}>Con envío (+${fmt$(COSTO_ENVIO)})</option></select></div>
     </div>
     <div class="field"><label>Cambio</label><input id="editCambio_${p.id}" value="${p.cambio||''}" oninput="${sucio}"></div>
     <div class="pick" style="margin:8px 0">${SABORES.map(chip).join('')}</div>
@@ -1567,7 +1575,7 @@ async function guardarPedidoEdicion(id){
   const canalContacto = esPropio ? 'manual' : (esRappi ? null : document.getElementById('editCanalContacto_'+id).value);
   const medioPago = (esPropio||esRappi) ? '' : document.getElementById('editMedioPago_'+id).value;
   const cambio = (esPropio||esRappi) ? '' : document.getElementById('editCambio_'+id).value||'';
-  const envioManual = document.getElementById('editEnvio_'+id).value;
+  const envioSel = document.getElementById('editEnvio_'+id).value;
   const rappiPedidoId = esRappi ? (document.getElementById('editRappiID_'+id).value||'').trim() : '';
 
   const totalPotes = entries.reduce((a,k)=>a+editCart[k],0);
@@ -1577,7 +1585,7 @@ async function guardarPedidoEdicion(id){
   const descuentoValor = Math.round(subtotalBruto*descuentoPct/100);
   const subtotal = subtotalBruto - descuentoValor;
   const factorDesc = descuentoPct>0 ? (1-descuentoPct/100) : 1;
-  const envio = envioSegunCanal(totalPotes, envioManual, canalVenta);
+  const envio = envioSegunCanal(envioSel, canalVenta);
   const total = subtotal+envio;
   const nuevosSabores = entries.map(k=>({id:k, cant:editCart[k], precioUnit:Math.round(precioCanalPedido(sabor(k),canalVenta)*factorDesc)}));
 
@@ -1633,7 +1641,8 @@ function ticket(id){
   const canalTxt = p.canalContacto==='wa'?'WhatsApp':p.canalContacto==='manual'?'Manual':p.canalContacto==='tel'?'Teléfono':'Rappi';
   const potesHtml = p.sabores.map(x=>{
     const s = sabor(x.id); const nombre = s?s.nombre:x.id;
-    return `<div class="trow"><span>${x.cant}× ${nombre} · 360ml</span></div>`;
+    const precio = x.precioUnit!=null ? x.precioUnit : precioCanalPedido(s, p.canalVenta);
+    return `<div class="trow"><span>${x.cant}× ${nombre} · 360ml</span><span>${fmt$(precio*x.cant)}</span></div>`;
   }).join('');
   const dirHtml = (p.cliente&&p.cliente.direccion) ? `<div class="trow"><b>Dirección</b><span>${p.cliente.direccion}${p.cliente.referencia?(' · '+p.cliente.referencia):''}</span></div>` : '';
   document.getElementById('ticketBody').innerHTML = `
@@ -1670,7 +1679,11 @@ function descargarTicketPDF(){
   const filas = [['Fecha', fmtFecha(p.fecha)+(p.hora?(' · '+p.hora):'')], ['Canal', canalTxt], ['Cliente', (p.cliente&&p.cliente.nombre)||'—']];
   if(p.rappiPedidoId) filas.push(['N° Rappi', p.rappiPedidoId]);
   if(dirTxt) filas.push(['Dirección', dirTxt]);
-  const potesTxt = p.sabores.map(x=>{ const s=sabor(x.id); return x.cant+'× '+(s?s.nombre:x.id)+' · 360ml'; });
+  const potesFilas = p.sabores.map(x=>{
+    const s = sabor(x.id);
+    const precio = x.precioUnit!=null ? x.precioUnit : precioCanalPedido(s, p.canalVenta);
+    return [x.cant+'× '+(s?s.nombre:x.id)+' · 360ml', fmt$(precio*x.cant)];
+  });
 
   const W = 80, M = 5, usable = W - M*2, lineH = 4.8;
   const LOGO_H = 22*290/320;
@@ -1679,13 +1692,13 @@ function descargarTicketPDF(){
   const tmp = new jsPDF({unit:'mm', format:[W, 300]});
   tmp.setFont('courier','normal'); tmp.setFontSize(9);
   const filasWrap = filas.map(([lab,val])=>[lab, tmp.splitTextToSize(String(val), usable-22)]);
-  const potesWrap = potesTxt.map(t=>tmp.splitTextToSize(t, usable));
+  const potesWrap = potesFilas.map(([lab,val])=>[tmp.splitTextToSize(lab, usable-22), val]);
 
   const tieneDescuento = !!p.descuentoPct;
   let alto = M + LOGO_H + 3 + 5 + 6 + 4;
   filasWrap.forEach(([,vlines])=>{ alto += Math.max(1,vlines.length)*lineH; });
   alto += 4;
-  potesWrap.forEach(vlines=>{ alto += vlines.length*lineH; });
+  potesWrap.forEach(([vlines])=>{ alto += Math.max(1,vlines.length)*lineH; });
   alto += 4 + (tieneDescuento?4:3)*lineH + M;
 
   // Paso 2: doc final, con el alto exacto que necesita este pedido
@@ -1713,7 +1726,13 @@ function descargarTicketPDF(){
   doc.line(M,y,W-M,y); y += 4;
 
   doc.setFont('courier','normal');
-  potesWrap.forEach(vlines=>{ vlines.forEach(ln=>{ doc.text(ln, M, y); y += lineH; }); });
+  potesWrap.forEach(([vlines,valor])=>{
+    vlines.forEach((ln,i)=>{
+      doc.text(ln, M, y);
+      if(i===0) doc.text(valor, W-M, y, {align:'right'});
+      y += lineH;
+    });
+  });
   doc.line(M,y,W-M,y); y += 4;
 
   doc.text('Subtotal', M, y); doc.text(fmt$(tieneDescuento?p.subtotalBruto:p.subtotal), W-M, y, {align:'right'}); y += lineH;
@@ -1772,7 +1791,7 @@ function actualizarPreciosChips(){
   });
   renderCart();
 }
-const CAMPOS_NO_PROPIO = ['pTel','pEntrega','pDireccion','pReferencia','pCanalContacto','pMedioPago','pCambio','pEnvioManual'];
+const CAMPOS_NO_PROPIO = ['pTel','pEntrega','pDireccion','pReferencia','pCanalContacto','pMedioPago','pCambio','pEnvio'];
 function actualizarModoPropio(){
   const canalEl = document.getElementById('pCanalVenta');
   const esPropio = canalEl && canalEl.value === 'Propio';
@@ -1780,7 +1799,7 @@ function actualizarModoPropio(){
     const el = document.getElementById(id);
     if(!el) return;
     el.disabled = esPropio;
-    if(esPropio) el.value = '';
+    if(esPropio) el.value = (id==='pEnvio' ? 'sin' : '');
   });
   const found = document.getElementById('pFound'); if(found && esPropio) found.style.display = 'none';
   const av1 = document.getElementById('pAvisoPropio'); if(av1) av1.style.display = esPropio ? 'block' : 'none';
@@ -1800,7 +1819,7 @@ function descuentoActual(){
   const sel = document.getElementById('pDescuentoRappi');
   return sel ? (+sel.value || 0) : 0;
 }
-const CAMPOS_NO_RAPPI = ['pTel','pDireccion','pReferencia','pCanalContacto','pMedioPago','pCambio','pEnvioManual'];
+const CAMPOS_NO_RAPPI = ['pTel','pDireccion','pReferencia','pCanalContacto','pMedioPago','pCambio','pEnvio'];
 function actualizarModoRappi(){
   const canalEl = document.getElementById('pCanalVenta');
   const esRappi = canalEl && canalEl.value === 'Rappi';
@@ -1809,7 +1828,7 @@ function actualizarModoRappi(){
     const el = document.getElementById(id);
     if(!el) return;
     el.disabled = esRappi || esPropio;
-    if(esRappi) el.value = '';
+    if(esRappi) el.value = (id==='pEnvio' ? 'sin' : '');
   });
   const wrapId = document.getElementById('wrapRappiID'); if(wrapId) wrapId.style.display = esRappi ? '' : 'none';
   if(!esRappi){ const idEl = document.getElementById('pRappiID'); if(idEl) idEl.value=''; }
@@ -1823,14 +1842,19 @@ function ajustarPedidoQty(id, delta){
   const chipEl = document.getElementById('pChip_'+id); if(chipEl) chipEl.classList.toggle('has', pedidoCart[id]>0);
   renderCart();
 }
-function envioAuto(totalPotes){
-  return totalPotes>=3 ? 0 : (totalPotes>0 ? 1800 : 0);
+// Envío: costo fijo configurable en Admin → Configuración (config/stock.costoEnvio).
+// Por defecto "Sin envío" (Cucchia no tiene logística propia todavía, solo Retira);
+// se activa manualmente por pedido eligiendo "Con envío" en Cargar/Editar pedido.
+// (09/08/2026 — reemplaza el cálculo automático viejo por potes, a pedido de Dany.)
+function envioSegunCanal(seleccion, canal){
+  if(canal==='Propio' || canal==='Rappi') return 0;
+  return seleccion==='con' ? COSTO_ENVIO : 0;
 }
-function envioActual(totalPotes){
-  const manualEl = document.getElementById('pEnvioManual');
-  const manual = manualEl ? manualEl.value : '';
+function envioActual(){
+  const el = document.getElementById('pEnvio');
+  const seleccion = el ? el.value : 'sin';
   const canalEl = document.getElementById('pCanalVenta');
-  return envioSegunCanal(totalPotes, manual, canalEl ? canalEl.value : 'Landing');
+  return envioSegunCanal(seleccion, canalEl ? canalEl.value : 'Landing');
 }
 function renderCart(){
   const entries = Object.keys(pedidoCart).filter(id=>pedidoCart[id]>0);
@@ -1844,9 +1868,7 @@ function renderCart(){
   const descuentoPct = descuentoActual();
   const descuentoValor = Math.round(subtotalBruto*descuentoPct/100);
   const subtotal = subtotalBruto - descuentoValor;
-  const envio = envioActual(totalPotes);
-  const manualEl = document.getElementById('pEnvioManual');
-  if(manualEl) manualEl.placeholder = 'Auto: '+(envioAuto(totalPotes)===0?'Gratis':fmt$(envioAuto(totalPotes)));
+  const envio = envioActual();
   document.getElementById('rSub').innerText = 'Subtotal ('+totalPotes+' potes)';
   document.getElementById('rSubV').innerText = fmt$(subtotalBruto);
   const descLine = document.getElementById('rDescLine');
@@ -1885,7 +1907,7 @@ async function crearPedido(){
   const descuentoValor = Math.round(subtotalBruto*descuentoPct/100);
   const subtotal = subtotalBruto - descuentoValor;
   const factorDesc = descuentoPct>0 ? (1-descuentoPct/100) : 1;
-  const envio = envioActual(totalPotes);
+  const envio = envioActual();
   const total = subtotal+envio;
   const numero = siguienteNumeroPedido();
 
@@ -1908,7 +1930,7 @@ async function crearPedido(){
   document.getElementById('pNombre').value='';
   document.getElementById('pDireccion').value='';
   document.getElementById('pReferencia').value='';
-  document.getElementById('pEnvioManual').value='';
+  const pEnvioReset = document.getElementById('pEnvio'); if(pEnvioReset) pEnvioReset.value='sin';
   document.getElementById('pRappiID').value='';
   const descSelReset = document.getElementById('pDescuentoRappi'); if(descSelReset) descSelReset.value='0';
   const found = document.getElementById('pFound'); if(found) found.style.display='none';
@@ -1926,7 +1948,7 @@ function cancelarCargaPedido(){
   document.getElementById('pNombre').value='';
   document.getElementById('pDireccion').value='';
   document.getElementById('pReferencia').value='';
-  document.getElementById('pEnvioManual').value='';
+  const pEnvioCancel = document.getElementById('pEnvio'); if(pEnvioCancel) pEnvioCancel.value='sin';
   document.getElementById('pCambio').value='';
   document.getElementById('pRappiID').value='';
   const descSelCancel = document.getElementById('pDescuentoRappi'); if(descSelCancel) descSelCancel.value='0';
@@ -2342,27 +2364,28 @@ async function seedInitialDataIfNeeded(){
   ];
   const batch = writeBatch(db);
   INITIAL_LOTES.forEach(l => batch.set(doc(db,'lotes',l.id), {sabor:l.sabor, fecha:l.fecha, cant:l.cant, egresado:0}));
-  batch.set(refConfig, {stockMin:5, diasLimite:60});
+  batch.set(refConfig, {stockMin:5, diasLimite:60, costoEnvio:1800});
   batch.set(refSeed, {at: serverTimestamp()});
   await batch.commit();
 }
 async function seedSaboresIfNeeded(){
   const seedSnap = await getDoc(refSeedSab);
   if(seedSnap.exists()) return;
+  // Precios reales tomados de "Cucchia - Lista de Precios Consolidada.xlsx", hoja "Resumen General" (snapshot 08/08/2026)
   const INITIAL_SABORES = [
-    {id:'ddl',       nombre:'DDL Granizado',           linea:'Clásicos', color:'var(--ddl)',       precio:9000},
-    {id:'choco',     nombre:'Chocolate (gel cítrico)',  linea:'Clásicos', color:'var(--choco)',     precio:10000},
-    {id:'frutilla',  nombre:'Frutilla a la Crema',      linea:'Clásicos', color:'var(--frutilla)',  precio:9000},
-    {id:'americana', nombre:'Americana',                linea:'Clásicos', color:'var(--americana)', precio:9000},
-    {id:'nuez',      nombre:'Crema de Nuez',            linea:'Clásicos', color:'var(--nuez)',      precio:10000},
-    {id:'espresso',  nombre:'Espresso Almond',          linea:'De Autor', color:'var(--espresso)',  precio:12500},
-    {id:'sambayon',  nombre:'Sambayón',                 linea:'De Autor', color:'var(--sambayon)',  precio:12500},
-    {id:'limon',     nombre:'Limón Botánico',           linea:'De Autor', color:'var(--limon)',     precio:10000},
+    {id:'ddl',       nombre:'DDL Granizado',           linea:'Clásicos', color:'var(--ddl)',       precioLanding:11000, precioAmigos:9515,  precioRappi:11000},
+    {id:'choco',     nombre:'Chocolate (gel cítrico)',  linea:'Clásicos', color:'var(--choco)',     precioLanding:11000, precioAmigos:9515,  precioRappi:12000},
+    {id:'frutilla',  nombre:'Frutilla a la Crema',      linea:'Clásicos', color:'var(--frutilla)',  precioLanding:9500,  precioAmigos:8075,  precioRappi:10500},
+    {id:'americana', nombre:'Americana',                linea:'Clásicos', color:'var(--americana)', precioLanding:9500,  precioAmigos:8075,  precioRappi:10500},
+    {id:'nuez',      nombre:'Crema de Nuez',            linea:'Clásicos', color:'var(--nuez)',      precioLanding:11000, precioAmigos:9515,  precioRappi:12000},
+    {id:'espresso',  nombre:'Espresso Almond',          linea:'De Autor', color:'var(--espresso)',  precioLanding:11000, precioAmigos:9350,  precioRappi:12500},
+    {id:'sambayon',  nombre:'Sambayón',                 linea:'De Autor', color:'var(--sambayon)',  precioLanding:12000, precioAmigos:10200, precioRappi:13000},
+    {id:'limon',     nombre:'Limón Botánico',           linea:'De Autor', color:'var(--limon)',     precioLanding:9500,  precioAmigos:8075,  precioRappi:10000},
   ];
   const batch = writeBatch(db);
   INITIAL_SABORES.forEach(s => batch.set(doc(db,'sabores',s.id), {
     nombre:s.nombre, linea:s.linea, color:s.color, activo:true,
-    precioRappi:s.precio, precioLanding:s.precio, precioAmigos:s.precio
+    precioRappi:s.precioRappi, precioLanding:s.precioLanding, precioAmigos:s.precioAmigos
   }));
   batch.set(refSeedSab, {at: serverTimestamp()});
   await batch.commit();
@@ -2414,6 +2437,9 @@ function iniciarListeners(){
       if(d.diasLimite!=null) DIAS_LIMITE = d.diasLimite;
       const cfgMinEl=document.getElementById('cfgMin'); if(cfgMinEl) cfgMinEl.value=STOCK_MIN;
       const cfgDiasEl=document.getElementById('cfgDias'); if(cfgDiasEl) cfgDiasEl.value=DIAS_LIMITE;
+      if(d.costoEnvio!=null) COSTO_ENVIO = d.costoEnvio;
+      const cfgEnvioEl=document.getElementById('cfgEnvio'); if(cfgEnvioEl) cfgEnvioEl.value=COSTO_ENVIO;
+      actualizarLabelEnvio();
     }
     loaded.config = true;
     if(dataReady && document.getElementById('stock').classList.contains('show')) renderStock();
@@ -2463,7 +2489,7 @@ Object.assign(window, {
   editarLote, eliminarLote, guardarLoteEdicion, cancelarEdicionLote,
   registrarIngresoFila, editarEgreso, deshacerEgreso, guardarEgresoEdicion, cancelarEdicionEgreso,
   venderRapidoUno, ajustarVentaQty, registrarVentaFila,
-  setStockMin, setDiasLimite, toggleMenu, closeMenu,
+  setStockMin, setDiasLimite, setCostoEnvio, toggleMenu, closeMenu,
   buscarCliente, actualizarPreciosChips, guardarSabor, ajustarPedidoQty,
   editarPedido, cancelarEdicionPedido, ajustarEditQty, actualizarTotalEdicion, guardarPedidoEdicion,
   descargarTicketPDF, marcarSaborSucio, volverAHoy, verCajaFecha, imprimirCajaFecha, toggleExpandPedido,
