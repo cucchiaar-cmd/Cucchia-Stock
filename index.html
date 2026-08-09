@@ -447,7 +447,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     /* sabores activos — 5 Clásicos + 3 De Autor */
     --ddl:#C4622D; --choco:#4A2418; --frutilla:#C2536B; --americana:#B8792A; --nuez:#8B5E3C;
     --espresso:#7B4F35; --sambayon:#D4A82A; --limon:#6B7A35;
-    --bad:#B23A3A; --rappi:#FF441F;
+    --bad:#B23A3A; --rappi:#FF441F; --warn:#C98A2E;
     --bebas:'Bebas Neue',sans-serif; --mont:'Montserrat',system-ui,sans-serif; --play:'Playfair Display',serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -572,8 +572,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .stockrow .val{font-family:var(--bebas);font-size:17px;color:var(--navy);letter-spacing:.4px}
   .stockhead{display:grid;grid-template-columns:1.5fr .7fr .7fr .7fr .9fr .9fr .9fr;gap:10px;padding:0 15px;margin-bottom:8px}
   .stockhead span{font-size:8.5px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
-  .lotrow{display:grid;grid-template-columns:.7fr 1.4fr .8fr .9fr .7fr .8fr 1.2fr;gap:8px;align-items:center;background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:9px 13px;margin-bottom:6px;font-size:10.8px;font-weight:600}
-  .lothead{display:grid;grid-template-columns:.7fr 1.4fr .8fr .9fr .7fr .8fr 1.2fr;gap:8px;padding:0 13px;margin-bottom:7px}
+  .lotrow{display:grid;grid-template-columns:.6fr 1.2fr .65fr .8fr .6fr .6fr .6fr .7fr 1.1fr;gap:8px;align-items:center;background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:9px 13px;margin-bottom:6px;font-size:10.8px;font-weight:600}
+  .lothead{display:grid;grid-template-columns:.6fr 1.2fr .65fr .8fr .6fr .6fr .6fr .7fr 1.1fr;gap:8px;padding:0 13px;margin-bottom:7px}
   .lothead span{font-size:8.5px;font-weight:700;letter-spacing:.8px;color:var(--muted);text-transform:uppercase}
   .egrow{display:grid;grid-template-columns:.7fr .8fr 1.4fr .6fr .8fr 1.1fr .8fr;gap:8px;align-items:center;background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:9px 13px;margin-bottom:6px;font-size:10.8px;font-weight:600}
   .eghead{display:grid;grid-template-columns:.7fr .8fr 1.4fr .6fr .8fr 1.1fr .8fr;gap:8px;padding:0 13px;margin-bottom:7px}
@@ -757,8 +757,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         <div class="grupo-lbl">Línea De Autor</div>
         <div id="ingPickDa"></div>
       </div>
+      <div class="box">
+        <h3>Historial de ingresos <span style="font-family:var(--mont);font-size:9.5px;font-weight:600;color:var(--muted)">— total de potes que entraron a stock, filtrable por sabor</span></h3>
+        <div class="field" style="max-width:280px"><label>Sabor</label><select id="ingHistSabor" onchange="renderLotes()"><option value="">Todos los sabores</option></select></div>
+        <div class="kpis" style="grid-template-columns:repeat(2,1fr);margin-top:10px">
+          <div class="kpi"><span class="emoji">●</span><div class="n" id="ingHistTotal">0</div><div class="l">Potes ingresados</div></div>
+          <div class="kpi"><span class="emoji">▦</span><div class="n" id="ingHistLotes">0</div><div class="l">Lotes registrados</div></div>
+        </div>
+      </div>
       <div class="lothead">
-        <span>Lote</span><span>Sabor</span><span>Línea</span><span>Fecha</span><span>Inicial</span><span>Alerta</span><span>Acciones</span>
+        <span>Lote</span><span>Sabor</span><span>Línea</span><span>Fecha</span><span>Ingresado</span><span>Egresado</span><span>Saldo</span><span>Alerta</span><span>Acciones</span>
       </div>
       <div id="lotesTable"></div>
     </div>
@@ -874,20 +882,29 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 
   <!-- ====== DASHBOARD ====== -->
   <section id="dashboard" class="section">
-    <div class="topbar"><div><h1>Dashboard</h1><div class="sub">Panorama acumulado del negocio, no solo del día — se arma solo con los pedidos que ya cargás</div></div></div>
+    <div class="topbar"><div><h1>Dashboard</h1><div class="sub">Panorama acumulado del negocio, no solo del día — se arma solo con los pedidos que ya cargás</div></div>
+      <div class="no-print" style="display:flex;gap:8px;align-items:center">
+        <label style="font-family:var(--mont);font-size:9.5px;font-weight:700;color:var(--muted);letter-spacing:.4px">VER EN</label>
+        <select id="dashMetrica" onchange="renderDashboard()" style="font-family:var(--mont);font-weight:700;font-size:10.5px;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:#fff;color:var(--navy);cursor:pointer">
+          <option value="valor">$ Vendido</option>
+          <option value="potes">Potes vendidos</option>
+        </select>
+      </div>
+    </div>
     <div class="grid2">
       <div class="box"><h3>Ventas por semana</h3><div style="height:220px;margin-top:10px"><canvas id="chartSemana"></canvas></div><div id="dashSemanaVacio"></div></div>
       <div class="box"><h3>Ventas por mes</h3><div style="height:220px;margin-top:10px"><canvas id="chartMes"></canvas></div><div id="dashMesVacio"></div></div>
     </div>
     <div class="grid2">
       <div class="box"><h3>Por canal <span style="font-family:var(--mont);font-size:9.5px;font-weight:600;color:var(--muted)">— últimas 8 semanas</span></h3><div style="height:220px;margin-top:10px"><canvas id="chartCanal"></canvas></div></div>
-      <div class="box"><h3>Participación por sabor <span style="font-family:var(--mont);font-size:9.5px;font-weight:600;color:var(--muted)">— por $ vendido, acumulado</span></h3><div style="height:260px;margin-top:10px"><canvas id="chartSabores"></canvas></div><div id="dashSaboresVacio"></div></div>
+      <div class="box"><h3>Participación por sabor <span style="font-family:var(--mont);font-size:9.5px;font-weight:600;color:var(--muted)">— acumulado</span></h3><div style="height:260px;margin-top:10px"><canvas id="chartSabores"></canvas></div><div id="dashSaboresVacio"></div></div>
     </div>
     <div class="box">
       <h3>Consumo propio acumulado</h3>
       <div class="kpis" style="margin-top:10px">
         <div class="kpi"><span class="emoji">●</span><div class="n" id="dashPropioPotes">0</div><div class="l">Potes propios / regalados</div></div>
         <div class="kpi"><span class="emoji">◆</span><div class="n" id="dashPropioValor">$0</div><div class="l">Valor de referencia (precio Landing actual)</div></div>
+        <div class="kpi" id="dashPropioPctBox"><span class="emoji">◐</span><div class="n" id="dashPropioPct">0%</div><div class="l">% sobre total despachado</div></div>
       </div>
     </div>
   </section>
@@ -1097,8 +1114,25 @@ function nextLoteId(){
   LOTES.forEach(l=>{ const m = /^L(\d+)$/.exec(l.id); if(m) max = Math.max(max, +m[1]); });
   return 'L'+String(max+1).padStart(3,'0');
 }
+function pintarFiltroIngresos(){
+  const sel = document.getElementById('ingHistSabor');
+  if(!sel) return;
+  const actual = sel.value;
+  sel.innerHTML = '<option value="">Todos los sabores</option>' + SABORES.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+  sel.value = actual;
+}
 function renderLotes(){
-  const rows = [...LOTES].sort((a,b)=>{
+  pintarFiltroIngresos();
+  const filtroEl = document.getElementById('ingHistSabor');
+  const filtroSabor = filtroEl ? filtroEl.value : '';
+  const lotesFiltrados = filtroSabor ? LOTES.filter(l=>l.sabor===filtroSabor) : LOTES;
+
+  const totEl = document.getElementById('ingHistTotal');
+  if(totEl) totEl.innerText = lotesFiltrados.reduce((a,l)=>a+l.cant,0);
+  const cantEl = document.getElementById('ingHistLotes');
+  if(cantEl) cantEl.innerText = lotesFiltrados.length;
+
+  const rows = [...lotesFiltrados].sort((a,b)=>{
     const ia = ordenCatalogo(a.sabor), ib = ordenCatalogo(b.sabor);
     if(ia!==ib) return ia-ib;
     return new Date(a.fecha)-new Date(b.fecha);
@@ -1115,7 +1149,9 @@ function renderLotes(){
       <div data-label="Sabor" style="display:flex;align-items:center;gap:6px"><span class="sw-c" style="background:${s.color}"></span>${s.nombre}</div>
       <div data-label="Línea">${s.linea}</div>
       <div data-label="Fecha">${fmtFecha(l.fecha)}</div>
-      <div data-label="Inicial">${l.cant}</div>
+      <div data-label="Ingresado">${l.cant}</div>
+      <div data-label="Egresado">${l.egresado}</div>
+      <div data-label="Saldo">${saldo}</div>
       <div data-label="Alerta">${alerta}</div>
       <div data-label="Acciones" style="display:flex;gap:6px"><button class="btn btn-ghost btn-xs" onclick="editarLote('${l.id}')">Editar</button><button class="btn btn-danger btn-xs" onclick="eliminarLote('${l.id}')">Eliminar</button></div>
     </div>`;
@@ -1130,7 +1166,9 @@ function filaEdicionLote(l){
     <div style="grid-column:span 2"><select id="editSabor_${l.id}" style="padding:5px 7px;font-size:10.5px" onchange="${sucio}">${opts}</select></div>
     <div><input id="editFecha_${l.id}" type="date" value="${l.fecha}" style="padding:5px 7px;font-size:10.5px" oninput="${sucio}"></div>
     <div><input id="editCant_${l.id}" type="number" min="${l.egresado}" value="${l.cant}" style="padding:5px 7px;font-size:10.5px" oninput="${sucio}"></div>
-    <div style="font-size:9px;color:var(--muted)">${l.egresado>0 ? 'ya egresó '+l.egresado : ''}</div>
+    <div style="font-size:9px;color:var(--muted)">${l.egresado}</div>
+    <div style="font-size:9px;color:var(--muted)">${l.cant-l.egresado}</div>
+    <div></div>
     <div style="display:flex;gap:6px"><button class="btn btn-ok btn-xs" id="btnGuardarLote_${l.id}" onclick="guardarLoteEdicion('${l.id}')">Guardar</button><button class="btn btn-ghost btn-xs" onclick="cancelarEdicionLote()">Cancelar</button></div>
   </div>`;
 }
@@ -2255,13 +2293,20 @@ function renderDashboard(){
   const navy = resolveCSSColor('var(--navy)');
   const ddl = resolveCSSColor('var(--ddl)');
   const line = resolveCSSColor('var(--line)');
+  // Selector "Ver en $ / Ver en potes" — un solo control que cambia los 4 gráficos, sin duplicarlos
+  const metricaEl = document.getElementById('dashMetrica');
+  const esPotes = metricaEl ? metricaEl.value === 'potes' : false;
+  const val = o => esPotes ? o.potes : o.v;
+  const fmtVal = n => esPotes ? (n+' potes') : fmt$(n);
+  const tickVal = n => esPotes ? n : fmt$(n);
 
   // Ventas por semana (últimas 8 con datos) — línea
   const porSemana = {};
   listos.forEach(p=>{
     const k = inicioSemana(p.fechaListo);
-    if(!porSemana[k]) porSemana[k] = {n:0, v:0};
+    if(!porSemana[k]) porSemana[k] = {n:0, v:0, potes:0};
     porSemana[k].n++; porSemana[k].v += (p.total||0);
+    porSemana[k].potes += p.sabores.reduce((a,x)=>a+x.cant,0);
   });
   const semanas = Object.keys(porSemana).sort().slice(-8);
   toggleVacio('chartSemana','dashSemanaVacio', semanas.length>0);
@@ -2270,11 +2315,11 @@ function renderDashboard(){
     chartSemanaInst = new Chart(document.getElementById('chartSemana'), {
       type:'line',
       data:{ labels: semanas.map(k=>'Sem. '+fmtFecha(k)),
-        datasets:[{ label:'Ventas', data: semanas.map(k=>porSemana[k].v), borderColor:navy, backgroundColor:navy+'22', fill:true, tension:.3, pointRadius:4, pointBackgroundColor:navy }] },
+        datasets:[{ label: esPotes?'Potes':'Ventas', data: semanas.map(k=>val(porSemana[k])), borderColor:navy, backgroundColor:navy+'22', fill:true, tension:.3, pointRadius:4, pointBackgroundColor:navy }] },
       options:{ responsive:true, maintainAspectRatio:false,
         plugins:{ legend:{display:false}, tooltip:{ callbacks:{
-          label:(c)=>fmt$(c.parsed.y)+' · '+porSemana[semanas[c.dataIndex]].n+' pedidos' } } },
-        scales:{ y:{ beginAtZero:true, grid:{color:line}, ticks:{callback:v=>fmt$(v)} }, x:{ grid:{display:false} } } }
+          label:(c)=>fmtVal(c.parsed.y)+' · '+porSemana[semanas[c.dataIndex]].n+' pedidos' } } },
+        scales:{ y:{ beginAtZero:true, grid:{color:line}, ticks:{callback:v=>tickVal(v)} }, x:{ grid:{display:false} } } }
     });
   }
 
@@ -2282,8 +2327,9 @@ function renderDashboard(){
   const porMes = {};
   listos.forEach(p=>{
     const k = p.fechaListo.slice(0,7);
-    if(!porMes[k]) porMes[k] = {n:0, v:0};
+    if(!porMes[k]) porMes[k] = {n:0, v:0, potes:0};
     porMes[k].n++; porMes[k].v += (p.total||0);
+    porMes[k].potes += p.sabores.reduce((a,x)=>a+x.cant,0);
   });
   const meses = Object.keys(porMes).sort().slice(-6);
   toggleVacio('chartMes','dashMesVacio', meses.length>0);
@@ -2292,21 +2338,22 @@ function renderDashboard(){
     chartMesInst = new Chart(document.getElementById('chartMes'), {
       type:'bar',
       data:{ labels: meses.map(labelMes),
-        datasets:[{ label:'Ventas', data: meses.map(k=>porMes[k].v), backgroundColor:ddl, borderRadius:4, maxBarThickness:46 }] },
+        datasets:[{ label: esPotes?'Potes':'Ventas', data: meses.map(k=>val(porMes[k])), backgroundColor:ddl, borderRadius:4, maxBarThickness:46 }] },
       options:{ responsive:true, maintainAspectRatio:false,
         plugins:{ legend:{display:false}, tooltip:{ callbacks:{
-          label:(c)=>fmt$(c.parsed.y)+' · '+porMes[meses[c.dataIndex]].n+' pedidos' } } },
-        scales:{ y:{ beginAtZero:true, grid:{color:line}, ticks:{callback:v=>fmt$(v)} }, x:{ grid:{display:false} } } }
+          label:(c)=>fmtVal(c.parsed.y)+' · '+porMes[meses[c.dataIndex]].n+' pedidos' } } },
+        scales:{ y:{ beginAtZero:true, grid:{color:line}, ticks:{callback:v=>tickVal(v)} }, x:{ grid:{display:false} } } }
     });
   }
 
   // Por canal, últimas 8 semanas con datos — barras
-  const porCanal = {Rappi:{n:0,v:0}, Landing:{n:0,v:0}, Amigos:{n:0,v:0}, Propio:{n:0,v:0}};
+  const porCanal = {Rappi:{n:0,v:0,potes:0}, Landing:{n:0,v:0,potes:0}, Amigos:{n:0,v:0,potes:0}, Propio:{n:0,v:0,potes:0}};
   listos.forEach(p=>{
     if(!semanas.includes(inicioSemana(p.fechaListo))) return;
     const c = p.canalVenta || 'Landing';
-    if(!porCanal[c]) porCanal[c] = {n:0,v:0};
+    if(!porCanal[c]) porCanal[c] = {n:0,v:0,potes:0};
     porCanal[c].n++; porCanal[c].v += (p.total||0);
+    porCanal[c].potes += p.sabores.reduce((a,x)=>a+x.cant,0);
   });
   const canales = Object.keys(porCanal);
   const hayCanal = canales.some(c=>porCanal[c].n>0);
@@ -2316,25 +2363,29 @@ function renderDashboard(){
     chartCanalInst = new Chart(document.getElementById('chartCanal'), {
       type:'bar',
       data:{ labels: canales,
-        datasets:[{ label:'Ventas', data: canales.map(c=>porCanal[c].v), backgroundColor:[navy,ddl,resolveCSSColor('var(--frutilla)'),resolveCSSColor('var(--limon)')], borderRadius:4, maxBarThickness:56 }] },
+        datasets:[{ label: esPotes?'Potes':'Ventas', data: canales.map(c=>val(porCanal[c])), backgroundColor:[navy,ddl,resolveCSSColor('var(--frutilla)'),resolveCSSColor('var(--limon)')], borderRadius:4, maxBarThickness:56 }] },
       options:{ responsive:true, maintainAspectRatio:false,
         plugins:{ legend:{display:false}, tooltip:{ callbacks:{
-          label:(c)=>fmt$(c.parsed.y)+' · '+porCanal[canales[c.dataIndex]].n+' pedidos' } } },
-        scales:{ y:{ beginAtZero:true, grid:{color:line}, ticks:{callback:v=>fmt$(v)} }, x:{ grid:{display:false} } } }
+          label:(c)=>fmtVal(c.parsed.y)+' · '+porCanal[canales[c.dataIndex]].n+' pedidos' } } },
+        scales:{ y:{ beginAtZero:true, grid:{color:line}, ticks:{callback:v=>tickVal(v)} }, x:{ grid:{display:false} } } }
     });
   }
 
-  // Participación por sabor, por $ vendido acumulado — barras horizontales
-  const ventaSabor = {};
-  let totalVendidoSabores = 0;
+  // Participación por sabor, acumulado — barras horizontales (por $ o por potes, según el selector)
+  const ventaSabor = {}, potesSabor = {};
+  let totalVendidoSabores = 0, totalPotesSabores = 0;
   listos.forEach(p=>p.sabores.forEach(x=>{
     const s = sabor(x.id);
     const precio = x.precioUnit!=null ? x.precioUnit : precioCanalPedido(s, p.canalVenta);
     const monto = x.cant * precio;
     ventaSabor[x.id] = (ventaSabor[x.id]||0) + monto;
+    potesSabor[x.id] = (potesSabor[x.id]||0) + x.cant;
     totalVendidoSabores += monto;
+    totalPotesSabores += x.cant;
   }));
-  const topSabores = Object.keys(ventaSabor).map(id=>({id, v:ventaSabor[id]})).sort((a,b)=>b.v-a.v).slice(0,8);
+  const mapaSabor = esPotes ? potesSabor : ventaSabor;
+  const totalSaboresMetrica = esPotes ? totalPotesSabores : totalVendidoSabores;
+  const topSabores = Object.keys(mapaSabor).map(id=>({id, v:mapaSabor[id]})).sort((a,b)=>b.v-a.v).slice(0,8);
   toggleVacio('chartSabores','dashSaboresVacio', topSabores.length>0);
   if(chartSaboresInst) chartSaboresInst.destroy();
   if(topSabores.length){
@@ -2344,17 +2395,33 @@ function renderDashboard(){
         datasets:[{ label:'Participación', data: topSabores.map(t=>t.v), backgroundColor: topSabores.map(t=>resolveCSSColor((sabor(t.id)||{}).color)), borderRadius:4, maxBarThickness:22 }] },
       options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
         plugins:{ legend:{display:false}, tooltip:{ callbacks:{
-          label:(c)=>fmt$(c.parsed.x)+' · '+(totalVendidoSabores>0?Math.round(c.parsed.x/totalVendidoSabores*100):0)+'% del total' } } },
-        scales:{ x:{ beginAtZero:true, grid:{color:line}, ticks:{callback:v=>fmt$(v)} }, y:{ grid:{display:false} } } }
+          label:(c)=>fmtVal(c.parsed.x)+' · '+(totalSaboresMetrica>0?Math.round(c.parsed.x/totalSaboresMetrica*100):0)+'% del total' } } },
+        scales:{ x:{ beginAtZero:true, grid:{color:line}, ticks:{callback:v=>tickVal(v)} }, y:{ grid:{display:false} } } }
     });
   }
 
   // Consumo propio acumulado (valor de referencia a precio Landing actual, no es el precio histórico real cobrado)
+  // % sobre el total INGRESADO histórico (todo lo que entró a stock alguna vez, colección LOTES) — no sobre
+  // lo despachado/vendido. Es el presupuesto de degustación de Dany: "de los potes que produje, ¿cuántos
+  // puedo regalar antes de pasarme del 10%?". Semáforo: amarillo desde 10%, rojo desde 12%.
   const propios = listos.filter(p=>p.canalVenta==='Propio');
   const potesPropios = propios.reduce((a,p)=>a+p.sabores.reduce((b,x)=>b+x.cant,0),0);
   const valorRef = propios.reduce((a,p)=>a+p.sabores.reduce((b,x)=>b+x.cant*precioCanalPedido(sabor(x.id),'Landing'),0),0);
+  const totalIngresado = LOTES.reduce((a,l)=>a+l.cant,0);
+  const pctPropio = totalIngresado>0 ? (potesPropios/totalIngresado*100) : 0;
+  const pctPropioColor = pctPropio>=12 ? 'var(--bad)' : (pctPropio>=10 ? 'var(--warn)' : 'var(--wa)');
+  const potesRestantes = Math.round(totalIngresado*0.10 - potesPropios);
   document.getElementById('dashPropioPotes').innerText = potesPropios;
   document.getElementById('dashPropioValor').innerText = fmt$(valorRef);
+  const pctEl = document.getElementById('dashPropioPct');
+  if(pctEl){
+    pctEl.innerText = pctPropio.toFixed(1)+'%';
+    pctEl.style.color = pctPropioColor;
+    const pctBox = document.getElementById('dashPropioPctBox');
+    if(pctBox) pctBox.title = potesRestantes>=0
+      ? ('Te quedan '+potesRestantes+' potes para regalar antes de tocar el 10% de '+totalIngresado+' potes ingresados en total.')
+      : ('Ya te pasaste '+Math.abs(potesRestantes)+' potes del 10% de '+totalIngresado+' potes ingresados en total.');
+  }
 }
 
 /* ===================== FIRESTORE: semilla inicial + listeners en vivo ===================== */
@@ -2498,7 +2565,7 @@ Object.assign(window, {
   editarLote, eliminarLote, guardarLoteEdicion, cancelarEdicionLote,
   registrarIngresoFila, editarEgreso, deshacerEgreso, guardarEgresoEdicion, cancelarEdicionEgreso,
   venderRapidoUno, ajustarVentaQty, registrarVentaFila,
-  setStockMin, setDiasLimite, setCostoEnvio, toggleMenu, closeMenu,
+  setStockMin, setDiasLimite, setCostoEnvio, renderDashboard, renderLotes, toggleMenu, closeMenu,
   buscarCliente, actualizarPreciosChips, guardarSabor, ajustarPedidoQty,
   editarPedido, cancelarEdicionPedido, ajustarEditQty, actualizarTotalEdicion, guardarPedidoEdicion,
   descargarTicketPDF, marcarSaborSucio, volverAHoy, verCajaFecha, imprimirCajaFecha, toggleExpandPedido,
