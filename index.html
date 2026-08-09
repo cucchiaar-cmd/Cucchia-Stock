@@ -1498,6 +1498,14 @@ function actualizarTotalEdicion(){
   const entries = Object.keys(editCart).filter(k=>editCart[k]>0);
   const totalPotes = entries.reduce((a,k)=>a+editCart[k],0);
   const subtotalBruto = entries.reduce((a,k)=>a+precioCanalEdit(sabor(k))*editCart[k],0);
+  const linesEl = document.getElementById('editCartLines_'+id);
+  if(linesEl){
+    const lines = entries.map(k=>{
+      const s = sabor(k); const cant = editCart[k];
+      return `<div class="cartline"><span><span class="sw-c" style="background:${s.color};display:inline-block;vertical-align:middle;margin-right:7px"></span>${s.nombre} · 360ml${cant>1?' x'+cant:''}</span><span class="price">${fmt$(precioCanalEdit(s)*cant)}</span></div>`;
+    }).join('');
+    linesEl.innerHTML = lines || '<div class="meta" style="padding:4px 0">Sin sabores elegidos.</div>';
+  }
   const descuentoPct = (esRappi && descSel) ? (+descSel.value||0) : 0;
   const descuentoValor = Math.round(subtotalBruto*descuentoPct/100);
   const subtotal = subtotalBruto - descuentoValor;
@@ -1553,6 +1561,7 @@ function formEdicionPedido(p){
     </div>
     <div class="field"><label>Cambio</label><input id="editCambio_${p.id}" value="${p.cambio||''}" oninput="${sucio}"></div>
     <div class="pick" style="margin:8px 0">${SABORES.map(chip).join('')}</div>
+    <div id="editCartLines_${p.id}" style="margin:8px 0"></div>
     <div class="meta" id="editTotal_${p.id}" style="font-weight:700;margin-bottom:6px"></div>
     ${avisoListo}
     <div class="actions"><button class="btn btn-ok" id="btnGuardarPedido_${p.id}" onclick="guardarPedidoEdicion('${p.id}')">Guardar</button><button class="btn btn-ghost" onclick="cancelarEdicionPedido()">Cancelar</button></div>
