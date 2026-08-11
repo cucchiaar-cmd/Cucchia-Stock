@@ -955,6 +955,7 @@ const refSeed      = doc(db,'meta','seed');
 const refSeedSab   = doc(db,'meta','seedSabores');
 const refSeedPromosRappi = doc(db,'meta','seedPromosRappi');
 function fmtISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function fechaArgentinaISO(d){ return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Argentina/Buenos_Aires',year:'numeric',month:'2-digit',day:'2-digit'}).format(d||new Date()); }
 
 /* ===================== NAV / TABS ===================== */
 function go(id,el){
@@ -1482,7 +1483,7 @@ async function done(id){
       cantTotal: p.sabores.reduce((a,x)=>a+x.cant,0), canal: p.canalVenta || 'Landing',
       lotes: usadosTotal, faltante: faltanteTotal, ts: serverTimestamp()
     });
-    batch.update(doc(db,'pedidos', id), { estado:'listo', tsListo: serverTimestamp(), fechaListo: fmtISO(new Date()) });
+    batch.update(doc(db,'pedidos', id), { estado:'listo', tsListo: serverTimestamp(), fechaListo: fechaArgentinaISO() });
     await batch.commit();
     if(faltanteTotal>0){
       alert('⚠ Stock insuficiente para: '+nombresFaltantes.join(', ')+'. Se despachó igual con lo disponible — revisá el lote antes de confirmar con el cliente.');
@@ -2179,7 +2180,7 @@ function renderReportesView(){
   const listosHoy = PEDIDOS.filter(p=>p.estado==='listo' && p.fechaListo===hoy);
 
   const vendidoHoy = listosHoy.reduce((a,p)=>a+(p.total||0),0);
-  const potesHoy = listosHoy.reduce((a,p)=>a+p.sabores.reduce((b,x)=>b+x.cant,0),0);
+  const potesHoy = listosHoy.filter(p=>p.canalVenta!=='Propio').reduce((a,p)=>a+p.sabores.reduce((b,x)=>b+x.cant,0),0);
   const ticketProm = listosHoy.length ? Math.round(listosHoy.reduce((a,p)=>a+(p.subtotal||0),0)/listosHoy.length) : 0;
   document.getElementById('repVendido').innerText = fmt$(vendidoHoy);
   document.getElementById('repPedidos').innerText = listosHoy.length;
@@ -2204,20 +2205,20 @@ function renderReportesView(){
     <div class="barrow"><div class="t"><span>Clásicos</span><b>${porLinea['Clásicos'].n} potes · ${fmt$(porLinea['Clásicos'].v)}</b></div><div class="bar"><i style="width:${Math.round(porLinea['Clásicos'].v/maxLinea*100)}%;background:var(--ddl)"></i></div></div>
     <div class="barrow"><div class="t"><span>De Autor</span><b>${porLinea['De Autor'].n} potes · ${fmt$(porLinea['De Autor'].v)}</b></div><div class="bar"><i style="width:${Math.round(porLinea['De Autor'].v/maxLinea*100)}%;background:var(--navy)"></i></div></div>`;
 
-  const porCV = {Rappi:{n:0,v:0}, Landing:{n:0,v:0}, Amigos:{n:0,v:0}, Propio:{n:0,v:0}};
-  listosHoy.forEach(p=>{ const c=p.canalVenta||'Landing'; if(!porCV[c]) porCV[c]={n:0,v:0}; porCV[c].n++; porCV[c].v+=p.total||0; });
-  const maxCV = Math.max(1, ...Object.values(porCV).map(x=>x.v));
+  const porCV = {Rappi:{n:0,v:0,potes:0}, Landing:{n:0,v:0,potes:0}, Amigos:{n:0,v:0,potes:0}, Propio:{n:0,v:0,potes:0}};
+  listosHoy.forEach(p=>{ const c=p.canalVenta||'Landing'; if(!porCV[c]) porCV[c]={n:0,v:0,potes:0}; porCV[c].n++; porCV[c].v+=p.total||0; porCV[c].potes+=p.sabores.reduce((a,x)=>a+x.cant,0); });
+  const maxCV = Math.max(1, ...Object.values(porCV).map(x=>x.potes));
   document.getElementById('repCanalVenta').innerHTML = Object.keys(porCV).map(c=>
-    `<div class="barrow"><div class="t"><span>${c}</span><b>${porCV[c].n} · ${fmt$(porCV[c].v)}</b></div><div class="bar"><i style="width:${Math.round(porCV[c].v/maxCV*100)}%;background:var(--navy)"></i></div></div>`
+    `<div class="barrow"><div class="t"><span>${c}</span><b>${porCV[c].potes} · ${fmt$(porCV[c].v)}</b></div><div class="bar"><i style="width:${Math.round(porCV[c].potes/maxCV*100)}%;background:var(--navy)"></i></div></div>`
   ).join('');
 
   const nomCC = {wa:'WhatsApp', manual:'Manual', tel:'Teléfono', rappi:'Rappi'};
   const clrCC = {wa:'var(--wa)', manual:'var(--navy)', tel:'var(--tel)', rappi:'var(--rappi)'};
-  const porCC = {wa:{n:0,v:0}, manual:{n:0,v:0}, tel:{n:0,v:0}, rappi:{n:0,v:0}};
-  listosHoy.forEach(p=>{ const c=p.canalContacto || (p.canalVenta==='Rappi'?'rappi':'manual'); if(porCC[c]){ porCC[c].n++; porCC[c].v+=p.total||0; } });
+  const porCC = {wa:{n:0,v:0,potes:0}, manual:{n:0,v:0,potes:0}, tel:{n:0,v:0,potes:0}, rappi:{n:0,v:0,potes:0}};
+  listosHoy.forEach(p=>{ const c=p.canalContacto || (p.canalVenta==='Rappi'?'rappi':'manual'); if(porCC[c]){ porCC[c].n++; porCC[c].v+=p.total||0; porCC[c].potes+=p.sabores.reduce((a,x)=>a+x.cant,0); } });
   const maxCC = Math.max(1, ...Object.values(porCC).map(x=>x.v));
   document.getElementById('repCanalContacto').innerHTML = Object.keys(porCC).map(c=>
-    `<div class="barrow"><div class="t"><span>${nomCC[c]}</span><b>${porCC[c].n} · ${fmt$(porCC[c].v)}</b></div><div class="bar"><i style="width:${Math.round(porCC[c].v/maxCC*100)}%;background:${clrCC[c]}"></i></div></div>`
+    `<div class="barrow"><div class="t"><span>${nomCC[c]}</span><b>${porCC[c].potes} · ${fmt$(porCC[c].v)}</b></div><div class="bar"><i style="width:${Math.round(porCC[c].v/maxCC*100)}%;background:${clrCC[c]}"></i></div></div>`
   ).join('');
 
   const conteoSabor = {};
@@ -2361,7 +2362,7 @@ function renderDashboard(){
     const k = inicioSemana(p.fechaListo);
     if(!porSemana[k]) porSemana[k] = {n:0, v:0, potes:0};
     porSemana[k].n++; porSemana[k].v += (p.total||0);
-    porSemana[k].potes += p.sabores.reduce((a,x)=>a+x.cant,0);
+    if(p.canalVenta !== 'Propio') porSemana[k].potes += p.sabores.reduce((a,x)=>a+x.cant,0);
   });
   const semanas = Object.keys(porSemana).sort().slice(-8);
   toggleVacio('chartSemana','dashSemanaVacio', semanas.length>0);
@@ -2384,7 +2385,7 @@ function renderDashboard(){
     const k = p.fechaListo.slice(0,7);
     if(!porMes[k]) porMes[k] = {n:0, v:0, potes:0};
     porMes[k].n++; porMes[k].v += (p.total||0);
-    porMes[k].potes += p.sabores.reduce((a,x)=>a+x.cant,0);
+    if(p.canalVenta !== 'Propio') porMes[k].potes += p.sabores.reduce((a,x)=>a+x.cant,0);
   });
   const meses = Object.keys(porMes).sort().slice(-6);
   toggleVacio('chartMes','dashMesVacio', meses.length>0);
@@ -2434,9 +2435,11 @@ function renderDashboard(){
     const precio = x.precioUnit!=null ? x.precioUnit : precioCanalPedido(s, p.canalVenta);
     const monto = x.cant * precio;
     ventaSabor[x.id] = (ventaSabor[x.id]||0) + monto;
-    potesSabor[x.id] = (potesSabor[x.id]||0) + x.cant;
     totalVendidoSabores += monto;
-    totalPotesSabores += x.cant;
+    if(p.canalVenta !== 'Propio'){
+      potesSabor[x.id] = (potesSabor[x.id]||0) + x.cant;
+      totalPotesSabores += x.cant;
+    }
   }));
   const mapaSabor = esPotes ? potesSabor : ventaSabor;
   const totalSaboresMetrica = esPotes ? totalPotesSabores : totalVendidoSabores;
@@ -2626,6 +2629,11 @@ Object.assign(window, {
   descargarTicketPDF, marcarSaborSucio, volverAHoy, verCajaFecha, imprimirCajaFecha, toggleExpandPedido,
   actualizarModoPropio, cancelarCargaPedido, marcarSucio, actualizarDescuentoRappi, actualizarModoRappi,
   guardarPromoRappi, agregarPromoRappi, eliminarPromoRappi, marcarPromoRappiSucio
+});
+Object.defineProperties(window, {
+  PEDIDOS: { get: () => PEDIDOS, configurable:true },
+  LOTES: { get: () => LOTES, configurable:true },
+  EGRESOS: { get: () => EGRESOS, configurable:true }
 });
 
 </script>
