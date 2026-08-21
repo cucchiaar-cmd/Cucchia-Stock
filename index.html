@@ -677,6 +677,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       <div>
         <div class="box">
           <h3>① Cliente</h3>
+          <div class="field"><label>Fecha del pedido</label><input id="pFecha" type="date">
+            <div class="meta" style="margin-top:3px">Dejala en hoy para un pedido nuevo. Cambiala solo para cargar algo atrasado de un día anterior.</div></div>
           <div class="field"><label>Teléfono</label><input id="pTel" placeholder="11 1234-5678" oninput="buscarCliente()">
             <div class="found" id="pFound" style="display:none"></div></div>
           <div class="grid2">
@@ -689,9 +691,14 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
             <div class="field"><label>Canal de contacto</label><select id="pCanalContacto"><option value="wa">WhatsApp</option><option value="manual">Manual</option><option value="tel">Teléfono</option></select></div>
             <div class="field"><label>Canal de venta</label><select id="pCanalVenta" onchange="actualizarPreciosChips();actualizarModoPropio();actualizarDescuentoRappi();actualizarModoRappi()"><option value="Landing">Landing</option><option value="Rappi">Rappi</option><option value="Amigos">Amigos</option><option value="Propio">Propio (sin cargo)</option></select></div>
           </div>
-          <div class="field" id="wrapDescuentoRappi" style="display:none"><label>Descuento Rappi</label><select id="pDescuentoRappi" onchange="renderCart()"><option value="0">Sin descuento</option></select></div>
+          <div class="field" id="wrapDescuentoRappi" style="display:none">
+            <label style="display:flex;align-items:center;gap:9px;text-transform:none;font-size:13px;font-weight:700;color:var(--navy);letter-spacing:0;margin-bottom:0">
+              <span class="sw" id="pRappiVip" onclick="this.classList.toggle('on');renderCart()"><i></i></span> Cliente Rappi Pro (VIP)
+            </label>
+            <div class="meta" style="margin-top:4px">Prendido: el pedido toma las promociones marcadas "Solo clientes VIP". Apagado: toma las promociones comunes.</div>
+          </div>
           <div class="field" id="wrapRappiID" style="display:none"><label>N° de pedido Rappi</label><input id="pRappiID" placeholder="Ej: 4821 — para ubicarlo en la app"></div>
-          <div class="meta" id="pAvisoRappi" style="display:none;color:var(--bad);margin-top:4px">Pedido de Rappi: dirección, medio de pago, cambio y envío los gestiona Rappi. Acá alcanza con sabores, descuento y el N° de pedido.</div>
+          <div class="meta" id="pAvisoRappi" style="display:none;color:var(--bad);margin-top:4px">Pedido de Rappi: dirección, medio de pago, cambio y envío los gestiona Rappi. Acá alcanza con sabores, VIP y el N° de pedido.</div>
           <div class="meta" id="pAvisoPropio" style="display:none;color:var(--bad);margin-top:8px">Consumo propio: solo se descuenta stock a nombre de quien cargues. El resto de los campos no aplica.</div>
         </div>
         <div class="box">
@@ -751,7 +758,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         <div class="sub" style="text-transform:none;letter-spacing:.1px">No hay vida útil documentada en el proyecto — 60 días es el valor que definió Dany, igual que en la planilla.</div>
       </div>
       <div class="box">
-        <h3>Registrar ingreso <span style="font-family:var(--mont);font-size:9.5px;font-weight:600;color:var(--muted)">— tanda de producción o compra a Julio · un botón por sabor, se registra al toque</span></h3>
+        <h3>Registrar ingreso <span style="font-family:var(--mont);font-size:9.5px;font-weight:600;color:var(--muted)">— un botón por sabor, se registra al toque</span></h3>
         <div class="grupo-lbl">Línea Clásicos</div>
         <div id="ingPickCl"></div>
         <div class="grupo-lbl">Línea De Autor</div>
@@ -772,13 +779,6 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     </div>
 
     <div id="s-egr" class="atab">
-      <div class="box">
-        <h3>Venta rápida <span style="font-family:var(--mont);font-size:9.5px;font-weight:600;color:var(--muted)">— para cargar a mano lo vendido en Rappi (sin integración todavía) u otro canal. Fecha y canal van por fila.</span></h3>
-        <div class="grupo-lbl">Línea Clásicos</div>
-        <div id="ventaPickCl"></div>
-        <div class="grupo-lbl">Línea De Autor</div>
-        <div id="ventaPickDa"></div>
-      </div>
       <div class="eghead">
         <span>Pedido/Ref.</span><span>Fecha</span><span>Sabor(es)</span><span>Cant.</span><span>Canal</span><span>Lote(s) usados</span><span>Acciones</span>
       </div>
@@ -819,9 +819,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     </div>
 
     <div id="a-rappi" class="atab">
-      <p class="sub" style="margin-bottom:14px;text-transform:none;letter-spacing:.2px">Los descuentos que tenés armados en Rappi → Promociones. Cargalos acá con el mismo % para que aparezcan como opción al elegir canal Rappi en Cargar pedido. Cuando una promo termina en Rappi, apagala acá (no hace falta borrarla) — y si Rappi la reactiva más adelante, la volvés a prender.</p>
+      <p class="sub" style="margin-bottom:14px;text-transform:none;letter-spacing:.2px">Una fila por promoción, igual que armás promociones en Rappi: título, %, a qué sabores aplica, y si es para clientes comunes o Pro/VIP (no se mezclan — un pedido VIP solo toma las promos VIP, uno común solo las comunes). Un sabor sin ninguna promo activa se vende a precio de lista. Cuando una promo termina en Rappi, apagala acá (no hace falta borrarla) — y si Rappi la reactiva más adelante, la volvés a prender.</p>
       <div id="admPromosRappi"></div>
-      <button class="btn btn-gold" style="margin-top:12px" onclick="agregarPromoRappi()">+ Nuevo descuento Rappi</button>
+      <button class="btn btn-gold" style="margin-top:12px" onclick="agregarPromoRappi()">+ Nueva promoción</button>
     </div>
 
     <div id="a-conf" class="atab">
@@ -953,7 +953,6 @@ const colPromosRappi = collection(db,'promosRappi');
 const refConfig    = doc(db,'config','stock');
 const refSeed      = doc(db,'meta','seed');
 const refSeedSab   = doc(db,'meta','seedSabores');
-const refSeedPromosRappi = doc(db,'meta','seedPromosRappi');
 function fmtISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 function fechaArgentinaISO(d){ return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Argentina/Buenos_Aires',year:'numeric',month:'2-digit',day:'2-digit'}).format(d||new Date()); }
 
@@ -968,7 +967,7 @@ function go(id,el){
   if(id==='stock') renderStock();
   if(id==='tablero') renderTablero();
   if(id==='carga'){ pintarPickers(); renderCart(); actualizarModoPropio(); }
-  if(id==='admin') pintarAdminSabores();
+  if(id==='admin'){ pintarAdminSabores(); pintarAdminPromosRappi(); }
   if(id==='reportes') renderReportesView();
   if(id==='historial') renderHistorial();
   if(id==='dashboard') renderDashboard();
@@ -991,8 +990,20 @@ function closeMenu(){
 
 /* ===================== CATÁLOGO — sincronizado con Firestore ===================== */
 let SABORES = []; // antes era const fija, ahora vive en la colección 'sabores'
-let PROMOS_RAPPI = []; // descuentos Rappi configurables desde Admin, viven en la colección 'promosRappi'
 function sabor(id){ return SABORES.find(s=>s.id===id); }
+// Descuentos Rappi: lista de promociones independientes (colección 'promosRappi'), cada una con
+// título, %, a qué sabores aplica (checklist) y un tipo de cliente: VIP o común — NUNCA ambos.
+// Un cliente VIP solo ve las promos marcadas VIP; un cliente común solo ve las marcadas común.
+// No se suman entre sí (decisión de Dany, 20/08/2026: "habrá descuento para VIP o para comunes").
+let PROMOS_RAPPI = [];
+function descuentoLineaRappi(saborId, esVip){
+  return PROMOS_RAPPI.reduce((total,p)=>{
+    if(p.activo===false) return total;
+    if(!Array.isArray(p.sabores) || !p.sabores.includes(saborId)) return total;
+    if(!!p.vip !== esVip) return total; // la promo es o para VIP o para común, no se mezclan
+    return total + (+p.pct || 0);
+  }, 0);
+}
 function precioCanalPedido(s, canal){
   if(!s) return 0;
   if(canal==='Propio') return 0;
@@ -1013,7 +1024,6 @@ let PEDIDOS = [];
 let STOCK_MIN = 5;
 let DIAS_LIMITE = 60;
 let COSTO_ENVIO = 1800;
-let ventaCart = {};
 let editingLoteId = null;
 let editingEgresoUid = null;
 let editingPedidoId = null;
@@ -1037,11 +1047,16 @@ function diasEntre(fechaISO){
   return Math.round((HOY - f) / 86400000);
 }
 
+// Lotes de 360ml son el producto real de venta; los de 250ml son tandas de prueba/degustación/regalo
+// (Dany los carga aparte a propósito) y NO deben salir por una venta real ni contar en el stock vendible.
+// Los lotes viejos sin el campo `capacidad` se tratan como 360ml (así no rompe nada ya cargado antes de esto).
+function esCapacidadVenta(l){ return (l.capacidad || 360) === 360; }
+
 function consumirStockLocal(saborId, cantidad, lotesBase){
   const base = lotesBase || LOTES;
   let restante = cantidad;
   const usados = [];
-  const lotesSabor = base.filter(l => l.sabor===saborId && (l.cant - l.egresado) > 0)
+  const lotesSabor = base.filter(l => l.sabor===saborId && esCapacidadVenta(l) && (l.cant - l.egresado) > 0)
                           .sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
   for(const l of lotesSabor){
     if(restante<=0) break;
@@ -1064,14 +1079,14 @@ async function persistirEgreso(datos){
 }
 
 function saldoSabor(saborId){
-  const lotes = LOTES.filter(l=>l.sabor===saborId);
+  const lotes = LOTES.filter(l=>l.sabor===saborId && esCapacidadVenta(l));
   const inicial = lotes.reduce((a,l)=>a+l.cant,0);
   const egresado = lotes.reduce((a,l)=>a+l.egresado,0);
   return {inicial, egresado, final: inicial-egresado};
 }
 
 function loteMasViejoConStock(saborId){
-  const lotes = LOTES.filter(l=>l.sabor===saborId && (l.cant-l.egresado)>0)
+  const lotes = LOTES.filter(l=>l.sabor===saborId && esCapacidadVenta(l) && (l.cant-l.egresado)>0)
                       .sort((a,b)=> new Date(a.fecha)-new Date(b.fecha));
   return lotes[0] || null;
 }
@@ -1085,7 +1100,7 @@ function renderStock(){
   const enAlerta = SABORES.filter(s=>saldoSabor(s.id).final < STOCK_MIN).length;
   const valorInmovilizado = SABORES.reduce((a,s)=>a + saldoSabor(s.id).final * (s.precioLanding||0), 0);
   let loteMasViejoDias = 0;
-  LOTES.forEach(l=>{ if((l.cant-l.egresado)>0){ const d=diasEntre(l.fecha); if(d>loteMasViejoDias) loteMasViejoDias=d; } });
+  LOTES.forEach(l=>{ if(esCapacidadVenta(l) && (l.cant-l.egresado)>0){ const d=diasEntre(l.fecha); if(d>loteMasViejoDias) loteMasViejoDias=d; } });
   document.getElementById('stockKpis').innerHTML = `
     <div class="kpi"><span class="emoji">●</span><div class="n">${totalPotes}</div><div class="l">Potes en stock</div></div>
     <div class="kpi"><span class="emoji">⚠</span><div class="n">${enAlerta}</div><div class="l">Sabores en alerta</div></div>
@@ -1152,9 +1167,10 @@ function renderLotes(){
     const saldo = l.cant - l.egresado;
     const vencido = saldo>0 && dias>DIAS_LIMITE;
     const alerta = vencido ? '<span class="badge badge-warn">⚠ '+dias+'d</span>' : '<span class="badge badge-ok">'+dias+'d</span>';
+    const tagCap = !esCapacidadVenta(l) ? ' <span class="typetag" style="background:var(--warn);color:#fff">250ml · prueba/regalo</span>' : '';
     return `<div class="lotrow">
       <div data-label="Lote" style="font-weight:700">${l.id}</div>
-      <div data-label="Sabor" style="display:flex;align-items:center;gap:6px"><span class="sw-c" style="background:${s.color}"></span>${s.nombre}</div>
+      <div data-label="Sabor" style="display:flex;align-items:center;gap:6px"><span class="sw-c" style="background:${s.color}"></span>${s.nombre}${tagCap}</div>
       <div data-label="Línea">${s.linea}</div>
       <div data-label="Fecha">${fmtFecha(l.fecha)}</div>
       <div data-label="Ingresado">${l.cant}</div>
@@ -1176,7 +1192,10 @@ function filaEdicionLote(l){
     <div><input id="editCant_${l.id}" type="number" min="${l.egresado}" value="${l.cant}" style="padding:5px 7px;font-size:10.5px" oninput="${sucio}"></div>
     <div style="font-size:9px;color:var(--muted)">${l.egresado}</div>
     <div style="font-size:9px;color:var(--muted)">${l.cant-l.egresado}</div>
-    <div></div>
+    <div><select id="editCap_${l.id}" style="padding:5px 6px;font-size:9.5px" onchange="${sucio}">
+      <option value="360" ${esCapacidadVenta(l)?'selected':''}>360ml</option>
+      <option value="250" ${!esCapacidadVenta(l)?'selected':''}>250ml</option>
+    </select></div>
     <div style="display:flex;gap:6px"><button class="btn btn-ok btn-xs" id="btnGuardarLote_${l.id}" onclick="guardarLoteEdicion('${l.id}')">Guardar</button><button class="btn btn-ghost btn-xs" onclick="cancelarEdicionLote()">Cancelar</button></div>
   </div>`;
 }
@@ -1188,12 +1207,14 @@ async function guardarLoteEdicion(id){
   const nuevoSabor = document.getElementById('editSabor_'+id).value;
   const nuevaFecha = document.getElementById('editFecha_'+id).value;
   const nuevaCant = +document.getElementById('editCant_'+id).value;
+  const capEl = document.getElementById('editCap_'+id);
+  const nuevaCapacidad = capEl ? +capEl.value : (l.capacidad||360);
   if(!nuevaCant || nuevaCant < l.egresado){
     alert('La cantidad no puede ser menor a lo que ya se egresó de este lote ('+l.egresado+' potes).');
     return;
   }
   editingLoteId = null;
-  await updateDoc(doc(db,'lotes',id), {sabor:nuevoSabor, fecha:nuevaFecha, cant:nuevaCant});
+  await updateDoc(doc(db,'lotes',id), {sabor:nuevoSabor, fecha:nuevaFecha, cant:nuevaCant, capacidad:nuevaCapacidad});
 }
 async function eliminarLote(id){
   const l = LOTES.find(x=>x.id===id);
@@ -1212,6 +1233,10 @@ function pintarIngresoPickers(){
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <input type="date" id="ingFecha_${s.id}" value="${fmtISO(new Date())}" style="width:132px;padding:6px 8px;font-size:10.5px">
         <input type="number" id="ingCant_${s.id}" min="1" value="20" style="width:64px;padding:6px 8px;font-size:10.5px;text-align:center">
+        <select id="ingCap_${s.id}" style="padding:6px 8px;font-size:10.5px" title="Capacidad del pote">
+          <option value="360">360ml (venta)</option>
+          <option value="250">250ml (prueba/regalo)</option>
+        </select>
         <button class="btn btn-pri btn-xs" onclick="registrarIngresoFila('${s.id}')">Registrar</button>
       </div>
     </div>`;
@@ -1221,11 +1246,13 @@ function pintarIngresoPickers(){
 async function registrarIngresoFila(saborId){
   const cantEl = document.getElementById('ingCant_'+saborId);
   const fechaEl = document.getElementById('ingFecha_'+saborId);
+  const capEl = document.getElementById('ingCap_'+saborId);
   const cant = +cantEl.value;
   const fecha = fechaEl.value || fmtISO(new Date());
+  const capacidad = capEl ? +capEl.value : 360;
   if(!cant || cant<=0){ alert('Cargá una cantidad válida.'); return; }
   const id = nextLoteId();
-  await setDoc(doc(db,'lotes',id), {sabor:saborId, fecha, cant, egresado:0});
+  await setDoc(doc(db,'lotes',id), {sabor:saborId, fecha, cant, egresado:0, capacidad});
 }
 
 /* ---- Egresos ---- */
@@ -1335,48 +1362,6 @@ async function venderRapidoUno(saborId){
   } finally { stockOpEnCurso = false; }
 }
 
-function pintarVentaPickers(){
-  const row = s => `<div class="listrow" id="ventaChip_${s.id}" style="flex-wrap:wrap">
-      <div class="nm"><span class="sw-c" style="background:${s.color}"></span>${s.nombre} <span class="typetag">${s.linea}</span></div>
-      <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">
-        <input type="date" id="ventaFecha_${s.id}" value="${fmtISO(new Date())}" style="width:126px;padding:6px 7px;font-size:10px">
-        <select id="ventaCanal_${s.id}" style="width:112px;padding:6px 7px;font-size:10px">
-          <option>Rappi</option><option>Landing</option><option>Amigos</option><option>Propio</option>
-        </select>
-        <button class="qbtn" onclick="ajustarVentaQty('${s.id}',-1)">－</button>
-        <span class="qn" id="ventaQty_${s.id}">0</span>
-        <button class="qbtn" onclick="ajustarVentaQty('${s.id}',1)">＋</button>
-        <button class="btn btn-pri btn-xs" onclick="registrarVentaFila('${s.id}')">Registrar</button>
-      </div>
-    </div>`;
-  document.getElementById('ventaPickCl').innerHTML = SABORES.filter(s=>s.linea==='Clásicos').map(row).join('');
-  document.getElementById('ventaPickDa').innerHTML = SABORES.filter(s=>s.linea==='De Autor').map(row).join('');
-}
-function ajustarVentaQty(id, delta){
-  ventaCart[id] = Math.max(0, (ventaCart[id]||0) + delta);
-  document.getElementById('ventaQty_'+id).innerText = ventaCart[id];
-  document.getElementById('ventaChip_'+id).style.borderColor = ventaCart[id]>0 ? 'var(--navy)' : 'var(--line)';
-  document.getElementById('ventaChip_'+id).style.background = ventaCart[id]>0 ? 'var(--kraft2)' : 'var(--paper)';
-}
-async function registrarVentaFila(id){
-  const cant = ventaCart[id]||0;
-  if(cant<=0){ alert('Sumá al menos 1 pote con ＋ antes de registrar.'); return; }
-  if(stockOpEnCurso){ alert('Esperá un segundo — todavía se está terminando de procesar la acción anterior.'); return; }
-  stockOpEnCurso = true;
-  try{
-    const canal = document.getElementById('ventaCanal_'+id).value;
-    const fecha = document.getElementById('ventaFecha_'+id).value || fmtISO(new Date());
-    const {usados, faltante} = consumirStockLocal(id, cant);
-    const ref = nextEgresoNum('V');
-    ventaCart[id] = 0;
-    const qtyEl = document.getElementById('ventaQty_'+id); if(qtyEl) qtyEl.innerText = '0';
-    const chipEl = document.getElementById('ventaChip_'+id);
-    if(chipEl){ chipEl.style.borderColor='var(--line)'; chipEl.style.background='var(--paper)'; }
-    await persistirEgreso({ref, fecha, sabores:[{id,cant}], cantTotal:cant, canal, usados, faltante});
-    if(faltante>0) alert('⚠ No había stock suficiente de '+(sabor(id)||{nombre:id}).nombre+'. Se descontó lo disponible.');
-  } finally { stockOpEnCurso = false; }
-}
-
 async function setStockMin(val){
   const n = +val; if(!n || n<0) return;
   await setDoc(refConfig, {stockMin:n}, {merge:true});
@@ -1478,12 +1463,14 @@ async function done(id){
     usadosTotal.forEach(u=> batch.update(doc(db,'lotes',u.lote), { egresado: increment(u.cant) }));
     const egresoRef = doc(colEgresos);
     batch.set(egresoRef, {
-      ref: p.numero, fecha: fmtISO(new Date()),
+      ref: p.numero, fecha: p.fecha || fechaArgentinaISO(),
       sabores: Object.keys(conteo).map(id2=>({id:id2,cant:conteo[id2]})),
       cantTotal: p.sabores.reduce((a,x)=>a+x.cant,0), canal: p.canalVenta || 'Landing',
       lotes: usadosTotal, faltante: faltanteTotal, ts: serverTimestamp()
     });
-    batch.update(doc(db,'pedidos', id), { estado:'listo', tsListo: serverTimestamp(), fechaListo: fechaArgentinaISO() });
+    // fechaListo hereda la fecha del pedido (que puede ser de un día anterior si se cargó atrasado) en vez
+    // de usar siempre "hoy" — así Caja del día / Dashboard lo cuentan en el día que realmente correspondía.
+    batch.update(doc(db,'pedidos', id), { estado:'listo', tsListo: serverTimestamp(), fechaListo: p.fecha || fechaArgentinaISO() });
     await batch.commit();
     if(faltanteTotal>0){
       alert('⚠ Stock insuficiente para: '+nombresFaltantes.join(', ')+'. Se despachó igual con lo disponible — revisá el lote antes de confirmar con el cliente.');
@@ -1574,9 +1561,10 @@ function actualizarTotalEdicion(){
     if((esPropio||esRappi) && el.value!=='') el.value = (prefix==='editEnvio_' ? 'sin' : '');
   });
   const descWrap = document.getElementById('editWrapDescuento_'+id);
-  const descSel = document.getElementById('editDescuento_'+id);
+  const vipSw = document.getElementById('editRappiVip_'+id);
   if(descWrap) descWrap.style.display = esRappi ? '' : 'none';
-  if(descSel && !esRappi) descSel.value = '0';
+  if(vipSw && !esRappi) vipSw.classList.remove('on');
+  const esVip = (esRappi && vipSw) ? vipSw.classList.contains('on') : false;
   const idWrap = document.getElementById('editWrapRappiID_'+id);
   if(idWrap) idWrap.style.display = esRappi ? '' : 'none';
   const idField = document.getElementById('editRappiID_'+id);
@@ -1596,13 +1584,15 @@ function actualizarTotalEdicion(){
     }).join('');
     linesEl.innerHTML = lines || '<div class="meta" style="padding:4px 0">Sin sabores elegidos.</div>';
   }
-  const descuentoPct = (esRappi && descSel) ? (+descSel.value||0) : 0;
-  const descuentoValor = Math.round(subtotalBruto*descuentoPct/100);
+  const descuentoValor = esRappi ? entries.reduce((a,k)=>{
+    const s = sabor(k); const pct = descuentoLineaRappi(k, esVip);
+    return a + Math.round(precioCanalEdit(s)*editCart[k]*pct/100);
+  }, 0) : 0;
   const subtotal = subtotalBruto - descuentoValor;
   const envioSelEl = document.getElementById('editEnvio_'+id);
   const envioSel = envioSelEl ? envioSelEl.value : 'sin';
   const envio = envioSegunCanal(envioSel, canalEl ? canalEl.value : 'Landing');
-  totEl.innerText = 'Total: '+fmt$(subtotal+envio)+' ('+totalPotes+' potes'+(descuentoPct>0?' · -'+descuentoPct+'% desc.':'')+' + envío '+fmt$(envio)+')';
+  totEl.innerText = 'Total: '+fmt$(subtotal+envio)+' ('+totalPotes+' potes'+(descuentoValor>0?' · -'+fmt$(descuentoValor)+' desc.':'')+' + envío '+fmt$(envio)+')';
 }
 function formEdicionPedido(p){
   const sucio = `marcarSucio('btnGuardarPedido_${p.id}','btn-ok')`;
@@ -1617,7 +1607,9 @@ function formEdicionPedido(p){
     : '';
   return `<div class="order" style="background:#fff;border-color:var(--navy)">
     <div class="ohead"><span class="onum">${p.numero}</span><span class="badge badge-warn">Editando</span></div>
-    <div class="field" style="margin-top:8px"><label>Nombre</label><input id="editNombre_${p.id}" value="${(p.cliente&&p.cliente.nombre)||''}" oninput="${sucio}"></div>
+    <div class="field" style="margin-top:8px"><label>Fecha del pedido</label><input id="editFecha_${p.id}" type="date" value="${p.fecha||''}" oninput="${sucio}">
+      <div class="meta" style="margin-top:3px">Si el pedido ya está despachado, corregir acá también corrige el día en que cuenta para Caja del día y Dashboard.</div></div>
+    <div class="field"><label>Nombre</label><input id="editNombre_${p.id}" value="${(p.cliente&&p.cliente.nombre)||''}" oninput="${sucio}"></div>
     <div class="grid2">
       <div class="field"><label>Teléfono</label><input id="editTel_${p.id}" value="${(p.cliente&&p.cliente.telefono)||''}" oninput="${sucio}"></div>
       <div class="field"><label>Entrega</label><select id="editEntrega_${p.id}" onchange="${sucio}"><option ${p.entrega==='Delivery'?'selected':''}>Delivery</option><option ${p.entrega==='Retira'?'selected':''}>Retira</option></select></div>
@@ -1637,7 +1629,12 @@ function formEdicionPedido(p){
         <option value="Propio" ${p.canalVenta==='Propio'?'selected':''}>Propio (sin cargo)</option>
       </select></div>
     </div>
-    <div class="field" id="editWrapDescuento_${p.id}" style="display:none"><label>Descuento Rappi</label><select id="editDescuento_${p.id}" onchange="actualizarTotalEdicion();${sucio}">${opcionesDescuentoRappi(p.descuentoPct||0)}</select></div>
+    <div class="field" id="editWrapDescuento_${p.id}" style="display:none">
+      <label style="display:flex;align-items:center;gap:9px;text-transform:none;font-size:13px;font-weight:700;color:var(--navy);letter-spacing:0;margin-bottom:0">
+        <span class="sw ${p.esVip?'on':''}" id="editRappiVip_${p.id}" onclick="this.classList.toggle('on');actualizarTotalEdicion();${sucio}"><i></i></span> Cliente Rappi Pro (VIP)
+      </label>
+      <div class="meta" style="margin-top:4px">Prendido: toma las promociones "Solo clientes VIP". Apagado: toma las promociones comunes.</div>
+    </div>
     <div class="field" id="editWrapRappiID_${p.id}" style="display:none"><label>N° de pedido Rappi</label><input id="editRappiID_${p.id}" value="${p.rappiPedidoId||''}" oninput="${sucio}"></div>
     <div class="meta" id="editAvisoRappi_${p.id}" style="display:none;color:var(--bad);margin:2px 0 6px">Pedido de Rappi: dirección, medio de pago, cambio y envío los gestiona Rappi.</div>
     <div class="meta" id="editAvisoPropio_${p.id}" style="display:none;color:var(--bad);margin:2px 0 6px">Consumo propio: el resto de los campos no aplica.</div>
@@ -1669,6 +1666,8 @@ async function guardarPedidoEdicion(id){
   const canalVenta = document.getElementById('editCanalVenta_'+id).value;
   const esPropio = canalVenta === 'Propio';
   const esRappi = canalVenta === 'Rappi';
+  const fechaEl = document.getElementById('editFecha_'+id);
+  const fecha = (fechaEl && fechaEl.value) ? fechaEl.value : (p.fecha || fechaArgentinaISO());
   const nombre = document.getElementById('editNombre_'+id).value || 'Cliente';
   const tel = (esPropio||esRappi) ? '' : (document.getElementById('editTel_'+id).value||'').trim();
   const direccion = (esPropio||esRappi) ? '' : document.getElementById('editDireccion_'+id).value||'';
@@ -1682,14 +1681,19 @@ async function guardarPedidoEdicion(id){
 
   const totalPotes = entries.reduce((a,k)=>a+editCart[k],0);
   const subtotalBruto = entries.reduce((a,k)=>a+precioCanalPedido(sabor(k),canalVenta)*editCart[k],0);
-  const descSelEl = document.getElementById('editDescuento_'+id);
-  const descuentoPct = (canalVenta==='Rappi' && descSelEl) ? (+descSelEl.value||0) : 0;
-  const descuentoValor = Math.round(subtotalBruto*descuentoPct/100);
-  const subtotal = subtotalBruto - descuentoValor;
-  const factorDesc = descuentoPct>0 ? (1-descuentoPct/100) : 1;
+  const vipSwEl = document.getElementById('editRappiVip_'+id);
+  const esVip = (canalVenta==='Rappi' && vipSwEl) ? vipSwEl.classList.contains('on') : false;
+  const nuevosSabores = entries.map(k=>{
+    const s = sabor(k);
+    const bruto = precioCanalPedido(s, canalVenta);
+    const pctLinea = canalVenta==='Rappi' ? descuentoLineaRappi(k, esVip) : 0;
+    return {id:k, cant:editCart[k], precioUnit:Math.round(bruto*(1-pctLinea/100))};
+  });
+  const subtotal = nuevosSabores.reduce((a,x)=>a+x.precioUnit*x.cant,0);
+  const descuentoValor = subtotalBruto - subtotal;
+  const descuentoPct = subtotalBruto>0 ? Math.round(descuentoValor/subtotalBruto*1000)/10 : 0;
   const envio = envioSegunCanal(envioSel, canalVenta);
   const total = subtotal+envio;
-  const nuevosSabores = entries.map(k=>({id:k, cant:editCart[k], precioUnit:Math.round(precioCanalPedido(sabor(k),canalVenta)*factorDesc)}));
 
   const batch = writeBatch(db);
   let faltanteTotal = 0;
@@ -1713,7 +1717,7 @@ async function guardarPedidoEdicion(id){
       usadosTotal.forEach(u=> batch.update(doc(db,'lotes',u.lote), { egresado: increment(u.cant) }));
       batch.update(doc(db,'egresos', egresoAsociado.uid), {
         sabores: Object.keys(conteoNuevo).map(k2=>({id:k2,cant:conteoNuevo[k2]})),
-        cantTotal: totalPotes, canal: canalVenta, lotes: usadosTotal, faltante: faltanteTotal
+        cantTotal: totalPotes, canal: canalVenta, lotes: usadosTotal, faltante: faltanteTotal, fecha
       });
     } else {
       alert('No encontré el egreso de stock asociado a este pedido (puede haberse borrado a mano). El pedido se actualiza igual, pero revisá el stock a mano en Stock → Egresos.');
@@ -1725,7 +1729,8 @@ async function guardarPedidoEdicion(id){
   }
   batch.update(doc(db,'pedidos', id), {
     cliente: {telefono:tel, nombre, direccion, referencia},
-    entrega, canalContacto, canalVenta, medioPago, cambio, rappiPedidoId,
+    entrega, canalContacto, canalVenta, medioPago, cambio, rappiPedidoId, esVip, fecha,
+    ...(p.estado==='listo' ? {fechaListo: fecha} : {}),
     sabores: nuevosSabores, subtotal, subtotalBruto, descuentoPct, descuentoValor, envio, total
   });
 
@@ -1761,8 +1766,8 @@ function ticket(id){
     <div class="tdiv"></div>
     ${potesHtml}
     <div class="tdiv"></div>
-    <div class="trow"><span>Subtotal</span><span>${fmt$(p.descuentoPct?p.subtotalBruto:p.subtotal)}</span></div>
-    ${p.descuentoPct ? `<div class="trow"><span>Descuento Rappi (${p.descuentoPct}%)</span><span>-${fmt$(p.descuentoValor||0)}</span></div>` : ''}
+    <div class="trow"><span>Subtotal</span><span>${fmt$(p.descuentoValor?p.subtotalBruto:p.subtotal)}</span></div>
+    ${p.descuentoValor ? `<div class="trow"><span>Descuento Rappi</span><span>-${fmt$(p.descuentoValor||0)}</span></div>` : ''}
     <div class="trow"><span>Envío</span><span>${p.envio ? fmt$(p.envio) : 'Gratis'}</span></div>
     <div class="trow" style="font-weight:bold;font-size:14px;margin-top:4px"><span>TOTAL</span><span>${fmt$(p.total)}</span></div>
   `;
@@ -1797,7 +1802,7 @@ function descargarTicketPDF(){
   const filasWrap = filas.map(([lab,val])=>[lab, tmp.splitTextToSize(String(val), usable-22)]);
   const potesWrap = potesFilas.map(([lab,val])=>[tmp.splitTextToSize(lab, usable-22), val]);
 
-  const tieneDescuento = !!p.descuentoPct;
+  const tieneDescuento = !!(p.descuentoValor && p.descuentoValor>0);
   let alto = M + LOGO_H + 3 + 5 + 6 + 4;
   filasWrap.forEach(([,vlines])=>{ alto += Math.max(1,vlines.length)*lineH; });
   alto += 4;
@@ -1840,7 +1845,7 @@ function descargarTicketPDF(){
 
   doc.text('Subtotal', M, y); doc.text(fmt$(tieneDescuento?p.subtotalBruto:p.subtotal), W-M, y, {align:'right'}); y += lineH;
   if(tieneDescuento){
-    doc.text('Desc. Rappi ('+p.descuentoPct+'%)', M, y); doc.text('-'+fmt$(p.descuentoValor||0), W-M, y, {align:'right'}); y += lineH;
+    doc.text('Descuento Rappi', M, y); doc.text('-'+fmt$(p.descuentoValor||0), W-M, y, {align:'right'}); y += lineH;
   }
   doc.text('Envío', M, y); doc.text(p.envio ? fmt$(p.envio) : 'Gratis', W-M, y, {align:'right'}); y += lineH;
   doc.setFont('courier','bold'); doc.setFontSize(11);
@@ -1913,14 +1918,14 @@ function actualizarDescuentoRappi(){
   const wrap = document.getElementById('wrapDescuentoRappi');
   const esRappi = canalEl && canalEl.value === 'Rappi';
   if(wrap) wrap.style.display = esRappi ? '' : 'none';
-  if(!esRappi){ const sel = document.getElementById('pDescuentoRappi'); if(sel) sel.value = '0'; }
+  if(!esRappi){ const sw = document.getElementById('pRappiVip'); if(sw) sw.classList.remove('on'); }
   renderCart();
 }
-function descuentoActual(){
+function esVipActual(){
   const canalEl = document.getElementById('pCanalVenta');
-  if(!canalEl || canalEl.value !== 'Rappi') return 0;
-  const sel = document.getElementById('pDescuentoRappi');
-  return sel ? (+sel.value || 0) : 0;
+  if(!canalEl || canalEl.value !== 'Rappi') return false;
+  const sw = document.getElementById('pRappiVip');
+  return sw ? sw.classList.contains('on') : false;
 }
 const CAMPOS_NO_RAPPI = ['pTel','pDireccion','pReferencia','pCanalContacto','pMedioPago','pCambio','pEnvio'];
 function actualizarModoRappi(){
@@ -1968,16 +1973,21 @@ function renderCart(){
   }).join('');
   document.getElementById('cartLines').innerHTML = lines || '<div class="meta" style="padding:8px 0">Elegí sabores arriba (con ＋/－) para armar el pedido.</div>';
   const subtotalBruto = entries.reduce((a,id)=>a+precioCanal(sabor(id))*pedidoCart[id],0);
-  const descuentoPct = descuentoActual();
-  const descuentoValor = Math.round(subtotalBruto*descuentoPct/100);
+  const canalEl0 = document.getElementById('pCanalVenta');
+  const esRappi = canalEl0 && canalEl0.value === 'Rappi';
+  const esVip = esVipActual();
+  const descuentoValor = esRappi ? entries.reduce((a,id)=>{
+    const s = sabor(id); const pct = descuentoLineaRappi(id, esVip);
+    return a + Math.round(precioCanal(s)*pedidoCart[id]*pct/100);
+  }, 0) : 0;
   const subtotal = subtotalBruto - descuentoValor;
   const envio = envioActual();
   document.getElementById('rSub').innerText = 'Subtotal ('+totalPotes+' potes)';
   document.getElementById('rSubV').innerText = fmt$(subtotalBruto);
   const descLine = document.getElementById('rDescLine');
   if(descLine){
-    descLine.style.display = descuentoPct>0 ? '' : 'none';
-    document.getElementById('rDescLabel').innerText = 'Descuento Rappi ('+descuentoPct+'%)';
+    descLine.style.display = descuentoValor>0 ? '' : 'none';
+    document.getElementById('rDescLabel').innerText = 'Descuento Rappi';
     document.getElementById('rDescV').innerText = '-'+fmt$(descuentoValor);
   }
   document.getElementById('rEnvio').innerText = envio===0 ? 'Gratis 🎉' : fmt$(envio);
@@ -1994,6 +2004,7 @@ async function crearPedido(){
   const canalVenta = document.getElementById('pCanalVenta').value;
   const esPropio = canalVenta === 'Propio';
   const esRappi = canalVenta === 'Rappi';
+  const esVip = esRappi ? esVipActual() : false;
   const nombre = document.getElementById('pNombre').value || 'Cliente';
   const tel = (esPropio||esRappi) ? '' : (document.getElementById('pTel').value||'').trim();
   const direccion = (esPropio||esRappi) ? '' : document.getElementById('pDireccion').value||'';
@@ -2006,13 +2017,22 @@ async function crearPedido(){
 
   const totalPotes = entries.reduce((a,id)=>a+pedidoCart[id],0);
   const subtotalBruto = entries.reduce((a,id)=>a+precioCanal(sabor(id))*pedidoCart[id],0);
-  const descuentoPct = descuentoActual();
-  const descuentoValor = Math.round(subtotalBruto*descuentoPct/100);
-  const subtotal = subtotalBruto - descuentoValor;
-  const factorDesc = descuentoPct>0 ? (1-descuentoPct/100) : 1;
+  // Cada línea usa las promos que apliquen a SU sabor y al tipo de cliente (VIP o común) — no
+  // hay un % plano para todo el pedido, así se pueden mezclar productos con y sin promo en el mismo pedido.
+  const nuevosSabores = entries.map(id=>{
+    const s = sabor(id);
+    const bruto = precioCanal(s);
+    const pctLinea = esRappi ? descuentoLineaRappi(id, esVip) : 0;
+    return {id, cant:pedidoCart[id], precioUnit:Math.round(bruto*(1-pctLinea/100))};
+  });
+  const subtotal = nuevosSabores.reduce((a,x)=>a+x.precioUnit*x.cant,0);
+  const descuentoValor = subtotalBruto - subtotal;
+  const descuentoPct = subtotalBruto>0 ? Math.round(descuentoValor/subtotalBruto*1000)/10 : 0; // % efectivo/promedio, solo informativo
   const envio = envioActual();
   const total = subtotal+envio;
   const numero = siguienteNumeroPedido();
+  const fechaEl = document.getElementById('pFecha');
+  const fecha = (fechaEl && fechaEl.value) ? fechaEl.value : fechaArgentinaISO();
 
   if(tel){
     await setDoc(doc(db,'clientes', tel), { nombre, direccion, referencia, actualizado: serverTimestamp() }, {merge:true});
@@ -2020,11 +2040,11 @@ async function crearPedido(){
   await addDoc(colPedidos, {
     numero,
     cliente: {telefono:tel, nombre, direccion, referencia},
-    entrega, canalContacto, canalVenta, medioPago, cambio, rappiPedidoId,
-    sabores: entries.map(id=>({id, cant:pedidoCart[id], precioUnit:Math.round(precioCanal(sabor(id))*factorDesc)})),
+    entrega, canalContacto, canalVenta, medioPago, cambio, rappiPedidoId, esVip,
+    sabores: nuevosSabores,
     subtotal, subtotalBruto, descuentoPct, descuentoValor, envio, total,
     estado: 'pendiente',
-    fecha: fmtISO(new Date()),
+    fecha,
     hora: new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),
     ts: serverTimestamp()
   });
@@ -2033,9 +2053,10 @@ async function crearPedido(){
   document.getElementById('pNombre').value='';
   document.getElementById('pDireccion').value='';
   document.getElementById('pReferencia').value='';
+  if(fechaEl) fechaEl.value = fechaArgentinaISO();
   const pEnvioReset = document.getElementById('pEnvio'); if(pEnvioReset) pEnvioReset.value='sin';
   document.getElementById('pRappiID').value='';
-  const descSelReset = document.getElementById('pDescuentoRappi'); if(descSelReset) descSelReset.value='0';
+  const swVipReset = document.getElementById('pRappiVip'); if(swVipReset) swVipReset.classList.remove('on');
   const found = document.getElementById('pFound'); if(found) found.style.display='none';
   pedidoCart = {};
   pintarPickers();
@@ -2051,10 +2072,11 @@ function cancelarCargaPedido(){
   document.getElementById('pNombre').value='';
   document.getElementById('pDireccion').value='';
   document.getElementById('pReferencia').value='';
+  const pFechaCancel = document.getElementById('pFecha'); if(pFechaCancel) pFechaCancel.value = fechaArgentinaISO();
   const pEnvioCancel = document.getElementById('pEnvio'); if(pEnvioCancel) pEnvioCancel.value='sin';
   document.getElementById('pCambio').value='';
   document.getElementById('pRappiID').value='';
-  const descSelCancel = document.getElementById('pDescuentoRappi'); if(descSelCancel) descSelCancel.value='0';
+  const swVipCancel = document.getElementById('pRappiVip'); if(swVipCancel) swVipCancel.classList.remove('on');
   const found = document.getElementById('pFound'); if(found) found.style.display='none';
   pintarPickers();
   renderCart();
@@ -2105,65 +2127,89 @@ async function guardarSabor(id){
   marcarLimpio('admGuardar_'+id, 'btn-pri');
 }
 
-/* ===================== ADMIN: descuentos Rappi (configurables, sin tocar el código) ===================== */
+/* ===================== ADMIN: descuentos Rappi — lista de promos (título + % + sabores + VIP/común) ===================== */
 function filaPromoRappi(p){
   const activo = p.activo!==false;
-  return `<div class="listrow" id="admPromoRappi_${p.id}" style="flex-wrap:wrap;align-items:center">
-    <div class="nm"><input class="name-in" id="admPromoNombre_${p.id}" value="${p.nombre||''}" oninput="marcarPromoRappiSucio('${p.id}')" placeholder="Ej: VIP"></div>
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <div class="priceWrap"><input class="price-in" id="admPromoPct_${p.id}" value="${p.pct??0}" oninput="marcarPromoRappiSucio('${p.id}')" style="width:52px;text-align:right"> %</div>
-      <span class="sw ${activo?'on':''}" id="admPromoActivo_${p.id}" onclick="this.classList.toggle('on');marcarPromoRappiSucio('${p.id}')" title="Disponible para elegir al cargar un pedido Rappi"><i></i></span>
+  const esVip = p.vip===true;
+  const saboresSel = Array.isArray(p.sabores) ? p.sabores : [];
+  const todosMarcados = SABORES.length>0 && SABORES.every(s=>saboresSel.includes(s.id));
+  // Estilo de chip escrito 100% inline (no depende de .flavq ni de la regla global "label{}") para que
+  // no haya sorpresas de CSS heredado: rectángulo redondeado, beige oscuro (var(--kraft2)) para que
+  // despegue del fondo de la fila, borde+fondo más oscuro (var(--line)) al tildar, y "Todos" siempre
+  // en navy sólido. Sin caja blanca contenedora — los chips van directo sobre el fondo de la fila.
+  const chipBase = 'display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);border-radius:6px;padding:8px 10px;font-family:var(--mont);font-size:10.5px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;white-space:nowrap;cursor:pointer;background:var(--kraft2);color:var(--navy);box-sizing:border-box';
+  const chipTodos = `<label style="${chipBase};background:var(--navy);border-color:var(--navy);color:#fff">
+      <input type="checkbox" id="admPromoSabTodos_${p.id}" ${todosMarcados?'checked':''} onchange="marcarTodosSaboresPromo('${p.id}', this.checked)" style="margin:0">Todos
+    </label>`;
+  const chips = SABORES.map(s=>{
+    const on = saboresSel.includes(s.id);
+    return `<label id="admPromoSabWrap_${p.id}_${s.id}" style="${chipBase}${on?';background:var(--line);border-color:var(--navy)':''}">
+      <input type="checkbox" id="admPromoSab_${p.id}_${s.id}" ${on?'checked':''} onchange="const w=document.getElementById('admPromoSabWrap_${p.id}_${s.id}');w.style.background=this.checked?'var(--line)':'var(--kraft2)';w.style.borderColor=this.checked?'var(--navy)':'var(--line)';marcarPromoRappiSucio('${p.id}')" style="margin:0">${s.nombre}
+    </label>`;
+  }).join('');
+  return `<div class="listrow" id="admPromoRappi_${p.id}" style="flex-direction:column;align-items:stretch;gap:12px">
+    <div class="nm"><input class="name-in" id="admPromoNombre_${p.id}" value="${p.nombre||''}" oninput="marcarPromoRappiSucio('${p.id}')" placeholder="Título de la promo (ej: 2x1 Verano)"></div>
+    <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap">
+      <div class="priceWrap">Dto <input class="price-in" id="admPromoPct_${p.id}" value="${p.pct??0}" oninput="marcarPromoRappiSucio('${p.id}')" style="width:52px"> %</div>
+      <div class="priceWrap">Aplica a
+        <select id="admPromoTipo_${p.id}" onchange="marcarPromoRappiSucio('${p.id}')" style="padding:6px 8px;border-radius:6px;border:1px solid var(--line);font-family:var(--mont);font-size:11px;font-weight:700;color:var(--navy);background:#fff">
+          <option value="todos" ${!esVip?'selected':''}>Todos los usuarios</option>
+          <option value="vip" ${esVip?'selected':''}>PRO</option>
+        </select>
+      </div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.3px;color:var(--muted);text-transform:uppercase;cursor:pointer">
+        <span class="sw ${activo?'on':''}" id="admPromoActivo_${p.id}" onclick="this.classList.toggle('on');marcarPromoRappiSucio('${p.id}')"><i></i></span> Activa
+      </label>
       <button class="btn btn-pri btn-xs" id="admPromoGuardar_${p.id}" onclick="guardarPromoRappi('${p.id}')">Guardar</button>
       <button class="btn btn-danger btn-xs" onclick="eliminarPromoRappi('${p.id}')">Eliminar</button>
     </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;padding-top:10px;border-top:1px solid var(--line)">${chipTodos}${chips}</div>
   </div>`;
+}
+// El checkbox "Todos" no puede referenciar SABORES directo desde el atributo onchange del HTML: ese
+// atributo corre en el scope global del navegador, no en el scope del <script type="module"> donde
+// vive SABORES — tira ReferenceError silencioso y ningún sabor se tilda. Por eso va como función
+// normal, igual que el resto de las acciones de la interfaz (expuesta vía Object.assign(window,...)).
+function marcarTodosSaboresPromo(promoId, checked){
+  SABORES.forEach(s=>{
+    const c = document.getElementById('admPromoSab_'+promoId+'_'+s.id);
+    if(c){ c.checked = checked; c.dispatchEvent(new Event('change')); }
+  });
+  marcarPromoRappiSucio(promoId);
 }
 function pintarAdminPromosRappi(){
   const el = document.getElementById('admPromosRappi');
   if(!el) return;
-  el.innerHTML = PROMOS_RAPPI.length ? PROMOS_RAPPI.map(filaPromoRappi).join('') : '<div class="meta" style="padding:8px 0">Todavía no cargaste ningún descuento. Usá "+ Nuevo descuento Rappi".</div>';
+  el.innerHTML = PROMOS_RAPPI.length ? PROMOS_RAPPI.map(filaPromoRappi).join('') : '<div class="meta" style="padding:8px 0">Todavía no cargaste ninguna promoción. Usá "+ Nueva promoción".</div>';
 }
 function marcarPromoRappiSucio(id){ marcarSucio('admPromoGuardar_'+id, 'btn-pri'); }
 async function guardarPromoRappi(id){
   const nombreEl = document.getElementById('admPromoNombre_'+id);
   const pctEl = document.getElementById('admPromoPct_'+id);
+  const tipoEl = document.getElementById('admPromoTipo_'+id);
   const activoEl = document.getElementById('admPromoActivo_'+id);
-  if(!nombreEl || !pctEl || !activoEl) return;
+  if(!nombreEl || !pctEl || !tipoEl || !activoEl) return;
   const nombre = nombreEl.value.trim();
-  if(!nombre){ alert('El nombre no puede quedar vacío.'); return; }
+  if(!nombre){ alert('El título no puede quedar vacío.'); return; }
   const pct = +pctEl.value || 0;
-  if(pct<=0 || pct>=100){ alert('El % tiene que ser mayor a 0 y menor a 100.'); return; }
+  const vip = tipoEl.value === 'vip';
   const activo = activoEl.classList.contains('on');
-  await setDoc(doc(db,'promosRappi', id), { nombre, pct, activo }, {merge:true});
+  const sabores = SABORES.filter(s=>{
+    const chk = document.getElementById('admPromoSab_'+id+'_'+s.id);
+    return chk && chk.checked;
+  }).map(s=>s.id);
+  if(sabores.length===0){
+    if(!confirm('No tildaste ningún sabor — esta promo no se va a aplicar a nada. ¿Guardar igual?')) return;
+  }
+  await setDoc(doc(db,'promosRappi', id), { nombre, pct, vip, activo, sabores }, {merge:true});
   marcarLimpio('admPromoGuardar_'+id, 'btn-pri');
 }
 async function agregarPromoRappi(){
-  await addDoc(colPromosRappi, { nombre:'Nueva promo', pct:10, activo:true, ts: serverTimestamp() });
+  await addDoc(colPromosRappi, { nombre:'Nueva promoción', pct:10, vip:false, activo:true, sabores:[], ts: serverTimestamp() });
 }
 async function eliminarPromoRappi(id){
-  if(!confirm('¿Eliminar este descuento? Los pedidos ya cargados con este % no cambian, solo desaparece como opción para pedidos nuevos.')) return;
+  if(!confirm('¿Eliminar esta promoción? Los pedidos ya cargados con este descuento no cambian, solo deja de aplicarse a pedidos nuevos.')) return;
   await deleteDoc(doc(db,'promosRappi', id));
-}
-function opcionesDescuentoRappi(selectedPct){
-  const pct = +selectedPct || 0;
-  const activos = PROMOS_RAPPI.filter(p=>p.activo!==false);
-  let matched = pct===0;
-  let opts = `<option value="0" ${pct===0?'selected':''}>Sin descuento</option>`;
-  activos.forEach(p=>{
-    const pctNum = +p.pct||0;
-    if(pctNum===pct) matched = true;
-    opts += `<option value="${pctNum}" ${pctNum===pct?'selected':''}>${pctNum}% ${p.nombre||''}</option>`;
-  });
-  if(!matched && pct>0){
-    opts += `<option value="${pct}" selected>${pct}% (ya no está en la lista)</option>`;
-  }
-  return opts;
-}
-function pintarSelectDescuentoRappi(){
-  const el = document.getElementById('pDescuentoRappi');
-  if(!el) return;
-  const actual = +el.value || 0;
-  el.innerHTML = opcionesDescuentoRappi(actual);
 }
 
 /* ===================== REPORTES: Caja del día, calculada en vivo ===================== */
@@ -2497,7 +2543,7 @@ async function seedInitialDataIfNeeded(){
     {id:'L008', sabor:'frutilla',  fecha:'2026-06-14', cant:19},
   ];
   const batch = writeBatch(db);
-  INITIAL_LOTES.forEach(l => batch.set(doc(db,'lotes',l.id), {sabor:l.sabor, fecha:l.fecha, cant:l.cant, egresado:0}));
+  INITIAL_LOTES.forEach(l => batch.set(doc(db,'lotes',l.id), {sabor:l.sabor, fecha:l.fecha, cant:l.cant, egresado:0, capacidad:360}));
   batch.set(refConfig, {stockMin:5, diasLimite:60, costoEnvio:1800});
   batch.set(refSeed, {at: serverTimestamp()});
   await batch.commit();
@@ -2524,25 +2570,12 @@ async function seedSaboresIfNeeded(){
   batch.set(refSeedSab, {at: serverTimestamp()});
   await batch.commit();
 }
-async function seedPromosRappiIfNeeded(){
-  const seedSnap = await getDoc(refSeedPromosRappi);
-  if(seedSnap.exists()) return;
-  const INITIAL_PROMOS = [
-    {id:'general', nombre:'General', pct:10, activo:true},
-    {id:'vip',     nombre:'VIP',     pct:13, activo:true},
-  ];
-  const batch = writeBatch(db);
-  INITIAL_PROMOS.forEach(p => batch.set(doc(db,'promosRappi',p.id), { nombre:p.nombre, pct:p.pct, activo:p.activo }));
-  batch.set(refSeedPromosRappi, {at: serverTimestamp()});
-  await batch.commit();
-}
-
 function checkAllLoaded(){
   if(dataReady || !Object.values(loaded).every(Boolean)) return;
   dataReady = true;
+  const pFechaInit = document.getElementById('pFecha'); if(pFechaInit && !pFechaInit.value) pFechaInit.value = fechaArgentinaISO();
   renderStock();
   pintarIngresoPickers();
-  pintarVentaPickers();
   renderTablero();
   pintarPickers(); renderCart();
   pintarAdminSabores();
@@ -2586,14 +2619,14 @@ function iniciarListeners(){
       if(document.getElementById('stock').classList.contains('show')) renderStock();
       if(document.getElementById('tablero').classList.contains('show')) renderTablero();
       if(document.getElementById('reportes').classList.contains('show')) renderReportesView();
+      if(document.getElementById('admin').classList.contains('show')) pintarAdminPromosRappi();
     }
     checkAllLoaded();
   });
   onSnapshot(colPromosRappi, snap=>{
-    PROMOS_RAPPI = snap.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>(+a.pct||0)-(+b.pct||0));
+    PROMOS_RAPPI = snap.docs.map(d=>({id:d.id, ...d.data()}));
     loaded.promosRappi = true;
-    pintarSelectDescuentoRappi();
-    if(dataReady) pintarAdminPromosRappi();
+    if(dataReady && document.getElementById('admin').classList.contains('show')) pintarAdminPromosRappi();
     checkAllLoaded();
   });
   onSnapshot(query(colPedidos, orderBy('ts','desc')), snap=>{
@@ -2614,7 +2647,6 @@ function iniciarListeners(){
 document.addEventListener('DOMContentLoaded', async function(){
   await seedInitialDataIfNeeded();
   await seedSaboresIfNeeded();
-  await seedPromosRappiIfNeeded();
   iniciarListeners();
 });
 
@@ -2622,13 +2654,13 @@ Object.assign(window, {
   go, atab, filt, done, ticket, closeT, crearPedido, renderCart, cancelarPedido, eliminarPedidoDespachado,
   editarLote, eliminarLote, guardarLoteEdicion, cancelarEdicionLote,
   registrarIngresoFila, editarEgreso, deshacerEgreso, guardarEgresoEdicion, cancelarEdicionEgreso,
-  venderRapidoUno, ajustarVentaQty, registrarVentaFila,
+  venderRapidoUno,
   setStockMin, setDiasLimite, setCostoEnvio, renderDashboard, renderLotes, toggleMenu, closeMenu,
   buscarCliente, actualizarPreciosChips, guardarSabor, ajustarPedidoQty,
   editarPedido, cancelarEdicionPedido, ajustarEditQty, actualizarTotalEdicion, guardarPedidoEdicion,
   descargarTicketPDF, marcarSaborSucio, volverAHoy, verCajaFecha, imprimirCajaFecha, toggleExpandPedido,
   actualizarModoPropio, cancelarCargaPedido, marcarSucio, actualizarDescuentoRappi, actualizarModoRappi,
-  guardarPromoRappi, agregarPromoRappi, eliminarPromoRappi, marcarPromoRappiSucio
+  guardarPromoRappi, agregarPromoRappi, eliminarPromoRappi, marcarPromoRappiSucio, marcarTodosSaboresPromo
 });
 Object.defineProperties(window, {
   PEDIDOS: { get: () => PEDIDOS, configurable:true },
