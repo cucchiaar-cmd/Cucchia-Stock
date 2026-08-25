@@ -567,10 +567,10 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .badge{font-size:8.5px;font-weight:700;letter-spacing:.6px;padding:3px 9px;border-radius:20px;text-transform:uppercase}
   .badge-ok{background:rgba(60,122,85,.13);color:var(--wa)}
   .badge-warn{background:rgba(178,58,58,.13);color:var(--bad)}
-  .stockrow{display:grid;grid-template-columns:1.5fr .7fr .7fr .7fr .9fr .9fr .9fr;gap:10px;align-items:center;background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:11px 15px;margin-bottom:7px}
+  .stockrow{display:grid;grid-template-columns:1.5fr .7fr .7fr .7fr .9fr .9fr;gap:10px;align-items:center;background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:11px 15px;margin-bottom:7px}
   .stockrow .lbl9{font-size:8px;font-weight:700;letter-spacing:1px;color:var(--soft);text-transform:uppercase;margin-bottom:2px}
   .stockrow .val{font-family:var(--bebas);font-size:17px;color:var(--navy);letter-spacing:.4px}
-  .stockhead{display:grid;grid-template-columns:1.5fr .7fr .7fr .7fr .9fr .9fr .9fr;gap:10px;padding:0 15px;margin-bottom:8px}
+  .stockhead{display:grid;grid-template-columns:1.5fr .7fr .7fr .7fr .9fr .9fr;gap:10px;padding:0 15px;margin-bottom:8px}
   .stockhead span{font-size:8.5px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
   .lotrow{display:grid;grid-template-columns:.6fr 1.2fr .65fr .8fr .6fr .6fr .6fr .7fr 1.1fr;gap:8px;align-items:center;background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:9px 13px;margin-bottom:6px;font-size:10.8px;font-weight:600}
   .lothead{display:grid;grid-template-columns:.6fr 1.2fr .65fr .8fr .6fr .6fr .6fr .7fr 1.1fr;gap:8px;padding:0 13px;margin-bottom:7px}
@@ -738,12 +738,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       <div class="tab active" onclick="atab('s-dash',this)">Dashboard</div>
       <div class="tab" onclick="atab('s-ing',this)">Ingresos</div>
       <div class="tab" onclick="atab('s-egr',this)">Egresos</div>
+      <div class="tab" onclick="atab('s-audit',this)">Auditoría</div>
     </div>
 
     <div id="s-dash" class="atab show">
       <div class="kpis" id="stockKpis"></div>
       <div class="stockhead">
-        <span>Sabor</span><span>Inicial</span><span>Egresado</span><span>Final</span><span>Alerta stock</span><span>Lote a despachar</span><span>Venta rápida</span>
+        <span>Sabor</span><span>Inicial</span><span>Egresado</span><span>Final</span><span>Alerta stock</span><span>Lote a despachar</span>
       </div>
       <div id="stockTable"></div>
     </div>
@@ -783,6 +784,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         <span>Pedido/Ref.</span><span>Fecha</span><span>Sabor(es)</span><span>Cant.</span><span>Canal</span><span>Lote(s) usados</span><span>Acciones</span>
       </div>
       <div id="egresosTable"></div>
+    </div>
+
+    <div id="s-audit" class="atab">
+      <div class="box">
+        <h3>Auditoría de stock <span style="font-family:var(--mont);font-size:9.5px;font-weight:600;color:var(--muted)">— línea de tiempo de ingresos y egresos por sabor, para cruzar contra el conteo físico</span></h3>
+        <div class="field" style="max-width:280px"><label>Sabor</label><select id="auditSabor" onchange="renderAuditoria()"><option value="">Elegí un sabor…</option></select></div>
+        <div class="kpis" id="auditKpis" style="grid-template-columns:repeat(3,1fr);margin-top:12px"></div>
+      </div>
+      <div id="auditTable"></div>
     </div>
   </section>
 
@@ -1068,16 +1078,6 @@ function consumirStockLocal(saborId, cantidad, lotesBase){
   return {usados, faltante: restante};
 }
 
-async function persistirEgreso(datos){
-  const {ref, fecha, sabores, cantTotal, canal, usados, faltante} = datos;
-  const batch = writeBatch(db);
-  usados.forEach(u=>{ batch.update(doc(db,'lotes',u.lote), { egresado: increment(u.cant) }); });
-  const egresoRef = doc(colEgresos);
-  batch.set(egresoRef, { ref, fecha, sabores, cantTotal, canal, lotes:usados, faltante, ts: serverTimestamp() });
-  await batch.commit();
-  return egresoRef.id;
-}
-
 function saldoSabor(saborId){
   const lotes = LOTES.filter(l=>l.sabor===saborId && esCapacidadVenta(l));
   const inicial = lotes.reduce((a,l)=>a+l.cant,0);
@@ -1093,6 +1093,48 @@ function loteMasViejoConStock(saborId){
 
 function fmt$(n){ return '$'+Math.round(n||0).toLocaleString('es-AR'); }
 function fmtFecha(iso){ if(!iso) return '—'; const [y,m,d]=iso.split('-'); return d+'/'+m+'/'+y; }
+
+/* ---- Auditoría de stock: línea de tiempo ingresos/egresos por sabor, para cazar divergencias ---- */
+function pintarAuditSaborSelect(){
+  const el = document.getElementById('auditSabor');
+  if(!el) return;
+  const actual = el.value;
+  el.innerHTML = '<option value="">Elegí un sabor…</option>' + SABORES.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
+  el.value = actual;
+}
+function renderAuditoria(){
+  const kpis = document.getElementById('auditKpis');
+  const tabla = document.getElementById('auditTable');
+  if(!kpis || !tabla) return;
+  const saborId = document.getElementById('auditSabor').value;
+  if(!saborId){ kpis.innerHTML=''; tabla.innerHTML=''; return; }
+  const lotesSabor = LOTES.filter(l=>l.sabor===saborId && esCapacidadVenta(l));
+  const eventos = [];
+  lotesSabor.forEach(l=>{ eventos.push({fecha:l.fecha, tipo:'Ingreso', cant:l.cant, ref:'Lote '+l.id, orden:0}); });
+  EGRESOS.forEach(e=>{
+    (e.lotes||[]).forEach(u=>{
+      const lote = LOTES.find(l=>l.id===u.lote);
+      if(lote && lote.sabor===saborId && esCapacidadVenta(lote)){
+        eventos.push({fecha:e.fecha, tipo:'Egreso', cant:-(u.cant||0), ref:(e.ref||e.uid)+' · lote '+u.lote, orden:1});
+      }
+    });
+  });
+  eventos.sort((a,b)=> (new Date(a.fecha)-new Date(b.fecha)) || (a.orden-b.orden));
+  let saldo = 0;
+  const filas = eventos.map(ev=>{
+    saldo += ev.cant;
+    const signo = ev.cant>0 ? '+' : '';
+    const color = ev.tipo==='Ingreso' ? 'var(--wa)' : 'var(--bad)';
+    return `<div class="listrow"><div class="nm">${fmtFecha(ev.fecha)} <span class="typetag" style="background:${color};color:#fff">${ev.tipo}</span> ${ev.ref}</div><div style="display:flex;gap:16px;align-items:center"><b class="price">${signo}${ev.cant}</b><span class="meta">saldo corrido: ${saldo}</span></div></div>`;
+  }).join('');
+  tabla.innerHTML = filas || '<div class="meta" style="padding:8px 4px">Sin movimientos para este sabor.</div>';
+  const totalIng = lotesSabor.reduce((a,l)=>a+l.cant,0);
+  const totalEgr = lotesSabor.reduce((a,l)=>a+l.egresado,0);
+  kpis.innerHTML = `
+    <div class="kpi"><span class="emoji">●</span><div class="n">${totalIng}</div><div class="l">Total ingresado</div></div>
+    <div class="kpi"><span class="emoji">●</span><div class="n">${totalEgr}</div><div class="l">Total egresado</div></div>
+    <div class="kpi"><span class="emoji">●</span><div class="n">${totalIng-totalEgr}</div><div class="l">Saldo calculado hoy</div></div>`;
+}
 
 /* ---- Dashboard ---- */
 function renderStock(){
@@ -1122,7 +1164,6 @@ function renderStock(){
       <div class="val" data-label="Final">${final}</div>
       <div data-label="Alerta stock">${alerta}</div>
       <div data-label="Lote a despachar" style="font-size:10px;font-weight:600;color:var(--muted)">${loteTxt}</div>
-      <div data-label="Venta rápida"><button class="btn btn-gold btn-xs" onclick="venderRapidoUno('${s.id}')" title="Descuenta 1 pote, canal Rappi">－1 Rappi</button></div>
     </div>`;
   }).join('');
 
@@ -1256,12 +1297,6 @@ async function registrarIngresoFila(saborId){
 }
 
 /* ---- Egresos ---- */
-function nextEgresoNum(prefix){
-  let max = 0;
-  const re = new RegExp('^'+prefix+'(\\d+)$');
-  EGRESOS.forEach(e=>{ const m = re.exec(e.ref); if(m) max = Math.max(max, +m[1]); });
-  return prefix+String(max+1).padStart(3,'0');
-}
 function renderEgresos(){
   if(EGRESOS.length===0){
     document.getElementById('egresosTable').innerHTML = '<div class="meta" style="padding:8px 4px">Todavía no hay egresos registrados.</div>';
@@ -1348,17 +1383,6 @@ async function deshacerEgreso(uid){
     e.lotes.forEach(u=>{ batch.update(doc(db,'lotes',u.lote), { egresado: increment(-u.cant) }); });
     batch.delete(doc(db,'egresos', uid));
     await batch.commit();
-  } finally { stockOpEnCurso = false; }
-}
-
-async function venderRapidoUno(saborId){
-  if(stockOpEnCurso){ alert('Esperá un segundo — todavía se está terminando de procesar la acción anterior.'); return; }
-  stockOpEnCurso = true;
-  try{
-    const {usados, faltante} = consumirStockLocal(saborId, 1);
-    const ref = nextEgresoNum('V');
-    await persistirEgreso({ref, fecha: fmtISO(new Date()), sabores:[{id:saborId,cant:1}], cantTotal:1, canal:'Rappi', usados, faltante});
-    if(faltante>0){ alert('⚠ No había stock de '+(sabor(saborId)||{nombre:saborId}).nombre+'.'); }
   } finally { stockOpEnCurso = false; }
 }
 
@@ -2580,21 +2604,36 @@ function checkAllLoaded(){
   pintarPickers(); renderCart();
   pintarAdminSabores();
   pintarAdminPromosRappi();
+  pintarAuditSaborSelect();
   renderReportesView();
   actualizarVendidoHoy();
 }
 
 function iniciarListeners(){
   onSnapshot(colLotes, snap=>{
-    LOTES = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    // Normalizado acá, en el único punto de entrada de LOTES: si algún documento en Firestore
+    // quedó sin "egresado" o "cant" (por ejemplo por una edición manual en la consola de Firebase),
+    // un simple "l.cant - l.egresado" da NaN y esa NaN se arrastra silenciosamente a todos los
+    // cálculos que usan ese lote (saldo del sabor, consumo FIFO, KPIs de Stock) — puede hacer que
+    // el sistema subestime el stock real o ignore lotes enteros sin ningún error visible.
+    LOTES = snap.docs.map(d=>{
+      const l = {id:d.id, ...d.data()};
+      return {...l, cant: l.cant||0, egresado: l.egresado||0};
+    });
     loaded.lotes = true;
-    if(dataReady && document.getElementById('stock').classList.contains('show')) renderStock();
+    if(dataReady && document.getElementById('stock').classList.contains('show')){ renderStock(); renderAuditoria(); }
     checkAllLoaded();
   });
   onSnapshot(query(colEgresos, orderBy('ts','desc')), snap=>{
-    EGRESOS = snap.docs.map(d=>({uid:d.id, ...d.data()}));
+    // Mismo criterio que en LOTES: si un egreso quedara sin "lotes" (array de {lote,cant} usado para
+    // revertir stock al editar/eliminar/deshacer), un .forEach sobre undefined tira error y corta
+    // a mitad de camino una operación que ya venía escribiendo cambios — normalizamos a [] acá.
+    EGRESOS = snap.docs.map(d=>{
+      const e = {uid:d.id, ...d.data()};
+      return {...e, lotes: Array.isArray(e.lotes) ? e.lotes : [], cantTotal: e.cantTotal||0};
+    });
     loaded.egresos = true;
-    if(dataReady && document.getElementById('stock').classList.contains('show')) renderStock();
+    if(dataReady && document.getElementById('stock').classList.contains('show')){ renderStock(); renderAuditoria(); }
     checkAllLoaded();
   });
   onSnapshot(refConfig, snap=>{
@@ -2620,6 +2659,7 @@ function iniciarListeners(){
       if(document.getElementById('tablero').classList.contains('show')) renderTablero();
       if(document.getElementById('reportes').classList.contains('show')) renderReportesView();
       if(document.getElementById('admin').classList.contains('show')) pintarAdminPromosRappi();
+      if(document.getElementById('stock').classList.contains('show')) pintarAuditSaborSelect();
     }
     checkAllLoaded();
   });
@@ -2654,13 +2694,13 @@ Object.assign(window, {
   go, atab, filt, done, ticket, closeT, crearPedido, renderCart, cancelarPedido, eliminarPedidoDespachado,
   editarLote, eliminarLote, guardarLoteEdicion, cancelarEdicionLote,
   registrarIngresoFila, editarEgreso, deshacerEgreso, guardarEgresoEdicion, cancelarEdicionEgreso,
-  venderRapidoUno,
   setStockMin, setDiasLimite, setCostoEnvio, renderDashboard, renderLotes, toggleMenu, closeMenu,
   buscarCliente, actualizarPreciosChips, guardarSabor, ajustarPedidoQty,
   editarPedido, cancelarEdicionPedido, ajustarEditQty, actualizarTotalEdicion, guardarPedidoEdicion,
   descargarTicketPDF, marcarSaborSucio, volverAHoy, verCajaFecha, imprimirCajaFecha, toggleExpandPedido,
   actualizarModoPropio, cancelarCargaPedido, marcarSucio, actualizarDescuentoRappi, actualizarModoRappi,
-  guardarPromoRappi, agregarPromoRappi, eliminarPromoRappi, marcarPromoRappiSucio, marcarTodosSaboresPromo
+  guardarPromoRappi, agregarPromoRappi, eliminarPromoRappi, marcarPromoRappiSucio, marcarTodosSaboresPromo,
+  renderAuditoria
 });
 Object.defineProperties(window, {
   PEDIDOS: { get: () => PEDIDOS, configurable:true },
