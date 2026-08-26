@@ -637,7 +637,6 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     <a id="navTablero" class="active" onclick="go('tablero',this)"><span class="ico">▤</span> Tablero</a>
     <a id="navReportes" onclick="go('reportes',this)"><span class="ico">▦</span> Caja del día</a>
     <a onclick="go('stock',this)"><span class="ico">◧</span> Stock</a>
-    <a id="navHistorial" onclick="go('historial',this)"><span class="ico">▥</span> Historial</a>
     <a onclick="go('dashboard',this)"><span class="ico">◈</span> Dashboard</a>
     <a onclick="go('admin',this)"><span class="ico">❖</span> Administración</a>
   </nav>
@@ -839,6 +838,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         <div class="box"><h3>Envío</h3>
           <div class="field"><label>Costo de envío (con cargo)</label><input id="cfgEnvio" type="number" value="1800" onchange="setCostoEnvio(this.value)"></div>
           <div class="sub" style="text-transform:none;letter-spacing:.1px">Se usa cuando en "Cargar pedido" (o al editar uno) se elige "Con envío". Por ahora Cucchia no tiene logística propia, así que el default en la carga es "Sin envío" (solo retiro).</div></div>
+        <div class="box"><h3>Rappi</h3>
+          <div class="field"><label>Comisión Rappi (%)</label><input id="cfgComisionRappi" type="number" value="33" onchange="setComisionRappi(this.value)"></div>
+          <div class="sub" style="text-transform:none;letter-spacing:.1px">Se usa para calcular la conciliación Rappi (bruto vs. neto) en Caja del día y en el Dashboard. Al despachar un pedido Rappi, el % vigente en ese momento queda fijo en ese pedido — si cambiás este número después, no afecta los pedidos ya despachados.</div></div>
         <div class="box"><h3>Horario</h3>
           <div class="grid2"><div class="field"><label>Pedidos — abre</label><input value="15:00"></div>
             <div class="field"><label>Pedidos — cierra</label><input value="23:00"></div></div>
@@ -863,30 +865,49 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         <button class="btn btn-ghost" id="btnVolverHoy" style="display:none" onclick="volverAHoy()">← Volver a hoy</button>
         <button class="btn btn-pri" onclick="window.print()">Imprimir cierre</button>
       </div></div>
-    <div class="kpis">
-      <div class="kpi"><span class="emoji">◆</span><div class="n" id="repVendido">$0</div><div class="l">Vendido</div></div>
-      <div class="kpi"><span class="emoji">▦</span><div class="n" id="repPedidos">0</div><div class="l">Pedidos</div></div>
-      <div class="kpi"><span class="emoji">△</span><div class="n" id="repTicket">$0</div><div class="l">Ticket promedio (sin envío)</div></div>
-      <div class="kpi"><span class="emoji">●</span><div class="n" id="repPotes">0</div><div class="l">Potes vendidos</div></div>
+    <div class="tabs no-print">
+      <div class="tab active" id="repTabDia" onclick="atab('rep-dia',this)">Día</div>
+      <div class="tab" id="repTabHistorial" onclick="atab('rep-historial',this)">Historial</div>
     </div>
-    <div class="box">
-      <h3>Pedidos del día</h3>
-      <div id="repPedidosDia" style="margin-top:10px"></div>
-    </div>
-    <div class="grid2">
-      <div class="box"><h3>Por línea</h3><div id="repLinea"></div></div>
-      <div class="box"><h3>Por canal de venta</h3><div id="repCanalVenta"></div></div>
-      <div class="box"><h3>Por canal de contacto</h3><div id="repCanalContacto"></div></div>
-      <div class="box"><h3>Sabores top</h3><div id="repSabores"></div></div>
-      <div class="box"><h3>Por medio de pago</h3><div id="repPago"></div></div>
-    </div>
-  </section>
 
-  <!-- ====== HISTORIAL ====== -->
-  <section id="historial" class="section">
-    <div class="topbar"><div><h1>Historial de cierres</h1><div class="sub">Cada día que despachaste al menos un pedido, para revisar o volver a imprimir</div></div></div>
-    <div class="box">
-      <div id="histLista"></div>
+    <div id="rep-dia" class="atab show">
+      <div class="kpis">
+        <div class="kpi"><span class="emoji">◆</span><div class="n" id="repVendido">$0</div><div class="l">Vendido</div></div>
+        <div class="kpi"><span class="emoji">▦</span><div class="n" id="repPedidos">0</div><div class="l">Pedidos</div></div>
+        <div class="kpi"><span class="emoji">△</span><div class="n" id="repTicket">$0</div><div class="l">Ticket promedio (sin envío)</div></div>
+        <div class="kpi"><span class="emoji">●</span><div class="n" id="repPotes">0</div><div class="l">Potes vendidos</div></div>
+      </div>
+      <div class="box" id="repConciliacionBox" style="display:none">
+        <h3>Conciliación del día <span style="font-family:var(--mont);font-size:9.5px;font-weight:600;color:var(--muted)">— total real que debería entrar a la cuenta</span></h3>
+        <div style="max-width:280px;margin-top:8px">
+          <div class="rline"><span>Vendido total (todos los canales)</span><span id="repTotalBruto">$0</span></div>
+          <div class="rline"><span id="repRappiComisionLabel">Comisión Rappi</span><span id="repRappiComision">-$0</span></div>
+          <div class="rline tot"><span>Total neto (a depositar)</span><span id="repTotalNeto">$0</span></div>
+        </div>
+      </div>
+      <div class="box">
+        <h3>Pedidos del día</h3>
+        <div id="repPedidosDia" style="margin-top:10px"></div>
+      </div>
+      <div class="grid2">
+        <div class="box"><h3>Por línea</h3><div id="repLinea"></div></div>
+        <div class="box"><h3>Por canal de venta</h3><div id="repCanalVenta"></div></div>
+        <div class="box"><h3>Por canal de contacto</h3><div id="repCanalContacto"></div></div>
+        <div class="box"><h3>Sabores top</h3><div id="repSabores"></div></div>
+        <div class="box"><h3>Por medio de pago</h3><div id="repPago"></div></div>
+      </div>
+    </div>
+
+    <div id="rep-historial" class="atab">
+      <div class="box">
+        <h3>Historial de cierres <span style="font-family:var(--mont);font-size:9.5px;font-weight:600;color:var(--muted)">— cada día que despachaste al menos un pedido, para revisar o volver a imprimir</span></h3>
+        <div class="field" style="max-width:420px;margin-top:12px">
+          <label>Buscar comprobante</label>
+          <input id="histBuscar" type="text" placeholder="Nombre, canal, importe, N° de pedido, sabor…" oninput="renderHistorial()">
+        </div>
+        <div id="histLista" style="margin-top:14px"></div>
+        <div id="histResultados" style="margin-top:14px;display:none"></div>
+      </div>
     </div>
   </section>
 
@@ -916,6 +937,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         <div class="kpi"><span class="emoji">◆</span><div class="n" id="dashPropioValor">$0</div><div class="l">Valor de referencia (precio Landing actual)</div></div>
         <div class="kpi" id="dashPropioPctBox"><span class="emoji">◐</span><div class="n" id="dashPropioPct">0%</div><div class="l">% sobre total despachado</div></div>
       </div>
+    </div>
+    <div class="box" id="dashNetoBox" style="display:none">
+      <h3>Total neto general <span style="font-family:var(--mont);font-size:9.5px;font-weight:600;color:var(--muted)">— todos los canales, comisión Rappi descontada, para cotejar contra el extracto</span></h3>
+      <div class="kpis" style="margin-top:10px">
+        <div class="kpi"><span class="emoji">◆</span><div class="n" id="dashTotalBruto">$0</div><div class="l">Vendido total (bruto, acumulado)</div></div>
+        <div class="kpi"><span class="emoji">▽</span><div class="n" id="dashComisionRappi">$0</div><div class="l">Comisión Rappi (acumulada)</div></div>
+        <div class="kpi"><span class="emoji">◐</span><div class="n" id="dashTotalNeto">$0</div><div class="l">Total neto (acumulado, a depositar)</div></div>
+      </div>
+      <div style="height:220px;margin-top:14px"><canvas id="chartNeto"></canvas></div>
     </div>
   </section>
 </main>
@@ -978,8 +1008,7 @@ function go(id,el){
   if(id==='tablero') renderTablero();
   if(id==='carga'){ pintarPickers(); renderCart(); actualizarModoPropio(); }
   if(id==='admin'){ pintarAdminSabores(); pintarAdminPromosRappi(); }
-  if(id==='reportes') renderReportesView();
-  if(id==='historial') renderHistorial();
+  if(id==='reportes'){ renderReportesView(); renderHistorial(); }
   if(id==='dashboard') renderDashboard();
 }
 function atab(id,el){
@@ -1034,6 +1063,7 @@ let PEDIDOS = [];
 let STOCK_MIN = 5;
 let DIAS_LIMITE = 60;
 let COSTO_ENVIO = 1800;
+let COMISION_RAPPI = 33;
 let editingLoteId = null;
 let editingEgresoUid = null;
 let editingPedidoId = null;
@@ -1401,6 +1431,12 @@ function actualizarLabelEnvio(){
   if(opt) opt.textContent = 'Con envío (+'+fmt$(COSTO_ENVIO)+')';
   renderCart();
 }
+async function setComisionRappi(val){
+  const n = Math.max(0, Math.min(100, +val||0));
+  COMISION_RAPPI = n;
+  await setDoc(refConfig, {comisionRappi:n}, {merge:true});
+  if(document.getElementById('reportes').classList.contains('show')) renderReportesView();
+}
 async function setDiasLimite(val){
   const n = +val; if(!n || n<0) return;
   await setDoc(refConfig, {diasLimite:n}, {merge:true});
@@ -1457,7 +1493,7 @@ function renderTablero(){
   document.getElementById('cPend').innerText = pend.length;
   document.getElementById('cListo').innerText = lst.length;
   document.getElementById('pendCol').innerHTML = pend.length ? pend.map(p=>tarjetaPedido(p,false)).join('') : '<div class="meta" style="padding:8px 4px">Sin pedidos pendientes.</div>';
-  document.getElementById('doneCol').innerHTML = lst.length ? lst.map(p=>tarjetaPedido(p,true)).join('') : '<div class="meta" style="padding:8px 4px">Sin despachos hoy todavía. Los días anteriores quedaron en <a onclick="go(\'historial\',document.getElementById(\'navHistorial\'))" style="color:var(--navy);font-weight:700;cursor:pointer">Historial</a>.</div>';
+  document.getElementById('doneCol').innerHTML = lst.length ? lst.map(p=>tarjetaPedido(p,true)).join('') : '<div class="meta" style="padding:8px 4px">Sin despachos hoy todavía. Los días anteriores quedaron en <a onclick="irAHistorial()" style="color:var(--navy);font-weight:700;cursor:pointer">Historial</a>.</div>';
   if(editingPedidoId) actualizarTotalEdicion();
 }
 function filt(ch, el){
@@ -1494,7 +1530,10 @@ async function done(id){
     });
     // fechaListo hereda la fecha del pedido (que puede ser de un día anterior si se cargó atrasado) en vez
     // de usar siempre "hoy" — así Caja del día / Dashboard lo cuentan en el día que realmente correspondía.
-    batch.update(doc(db,'pedidos', id), { estado:'listo', tsListo: serverTimestamp(), fechaListo: p.fecha || fechaArgentinaISO() });
+    // comisionRappiPct queda "congelado" con el % vigente en el momento del despacho: si más adelante se
+    // cambia el % en Admin, los cierres ya despachados no se recalculan solos con el número nuevo (los
+    // pedidos viejos sin este campo caen al valor actual de COMISION_RAPPI como fallback, ver renderReportesView).
+    batch.update(doc(db,'pedidos', id), { estado:'listo', tsListo: serverTimestamp(), fechaListo: p.fecha || fechaArgentinaISO(), ...(p.canalVenta==='Rappi' ? {comisionRappiPct: COMISION_RAPPI} : {}) });
     await batch.commit();
     if(faltanteTotal>0){
       alert('⚠ Stock insuficiente para: '+nombresFaltantes.join(', ')+'. Se despachó igual con lo disponible — revisá el lote antes de confirmar con el cliente.');
@@ -2276,11 +2315,40 @@ function renderReportesView(){
     <div class="barrow"><div class="t"><span>De Autor</span><b>${porLinea['De Autor'].n} potes · ${fmt$(porLinea['De Autor'].v)}</b></div><div class="bar"><i style="width:${Math.round(porLinea['De Autor'].v/maxLinea*100)}%;background:var(--navy)"></i></div></div>`;
 
   const porCV = {Rappi:{n:0,v:0,potes:0}, Landing:{n:0,v:0,potes:0}, Amigos:{n:0,v:0,potes:0}, Propio:{n:0,v:0,potes:0}};
-  listosHoy.forEach(p=>{ const c=p.canalVenta||'Landing'; if(!porCV[c]) porCV[c]={n:0,v:0,potes:0}; porCV[c].n++; porCV[c].v+=p.total||0; porCV[c].potes+=p.sabores.reduce((a,x)=>a+x.cant,0); });
+  let rappiComisionAcum = 0;
+  listosHoy.forEach(p=>{
+    const c=p.canalVenta||'Landing'; if(!porCV[c]) porCV[c]={n:0,v:0,potes:0}; porCV[c].n++; porCV[c].v+=p.total||0; porCV[c].potes+=p.sabores.reduce((a,x)=>a+x.cant,0);
+    // % congelado por pedido al momento del despacho (comisionRappiPct); los pedidos de antes de que existiera
+    // este campo (o despachados antes de este ajuste) caen al % actual como valor de referencia.
+    if(c==='Rappi') rappiComisionAcum += (p.total||0) * (p.comisionRappiPct!=null ? p.comisionRappiPct : COMISION_RAPPI)/100;
+  });
   const maxCV = Math.max(1, ...Object.values(porCV).map(x=>x.potes));
   document.getElementById('repCanalVenta').innerHTML = Object.keys(porCV).map(c=>
     `<div class="barrow"><div class="t"><span>${c}</span><b>${porCV[c].potes} · ${fmt$(porCV[c].v)}</b></div><div class="bar"><i style="width:${Math.round(porCV[c].potes/maxCV*100)}%;background:var(--navy)"></i></div></div>`
   ).join('');
+
+  // Conciliación del día: total vendido en TODOS los canales, menos la comisión de Rappi (la única
+  // deducción que existe hoy) — el resultado es lo que efectivamente debería entrar a la cuenta. Solo
+  // informativo: no toca repVendido/vendidoHoy ni ningún otro total usado en Dashboard, tickets, etc.
+  const rappiBruto = porCV.Rappi ? porCV.Rappi.v : 0;
+  const conciliacionBox = document.getElementById('repConciliacionBox');
+  if(conciliacionBox){
+    if(rappiBruto>0){
+      const rappiComision = Math.round(rappiComisionAcum);
+      const totalNeto = vendidoHoy - rappiComision;
+      // Si todos los pedidos Rappi del día tienen el mismo % (lo normal), se muestra ese número en la
+      // etiqueta; si quedaron mezclados por un cambio de comisión en el medio, se muestra "mixta".
+      const pcts = new Set(listosHoy.filter(p=>(p.canalVenta||'Landing')==='Rappi').map(p=> p.comisionRappiPct!=null ? p.comisionRappiPct : COMISION_RAPPI));
+      const pctLabel = pcts.size===1 ? [...pcts][0]+'%' : 'mixta';
+      conciliacionBox.style.display = '';
+      document.getElementById('repTotalBruto').innerText = fmt$(vendidoHoy);
+      document.getElementById('repRappiComisionLabel').innerText = 'Comisión Rappi ('+pctLabel+' sobre '+fmt$(rappiBruto)+')';
+      document.getElementById('repRappiComision').innerText = '-'+fmt$(rappiComision);
+      document.getElementById('repTotalNeto').innerText = fmt$(totalNeto);
+    } else {
+      conciliacionBox.style.display = 'none';
+    }
+  }
 
   const nomCC = {wa:'WhatsApp', manual:'Manual', tel:'Teléfono', rappi:'Rappi'};
   const clrCC = {wa:'var(--wa)', manual:'var(--navy)', tel:'var(--tel)', rappi:'var(--rappi)'};
@@ -2341,14 +2409,71 @@ function verCajaFecha(fecha){
   fechaCajaSeleccionada = fecha;
   expandidosDia.clear();
   go('reportes', document.getElementById('navReportes'));
+  // Si venía desde la pestaña Historial (ej. tocó "Revisar"), volver a la pestaña Día para ver el cierre.
+  const tabDia = document.getElementById('repTabDia');
+  if(tabDia) atab('rep-dia', tabDia);
 }
 function imprimirCajaFecha(fecha){
   verCajaFecha(fecha);
   setTimeout(()=>window.print(), 60);
 }
+function irAHistorial(){
+  go('reportes', document.getElementById('navReportes'));
+  const tabHist = document.getElementById('repTabHistorial');
+  if(tabHist) atab('rep-historial', tabHist);
+}
 const INICIO_ACTIVIDADES = '2026-08-05';
 const DIAS_SIN_VENTA = [1,2]; // 0=dom,1=lun,2=mar,3=mié,4=jue,5=vie,6=sáb — vende de miércoles a domingo
+let expandidosBusqueda = new Set();
+function resultadoBusquedaHTML(p){
+  const cliNombre = (p.cliente&&p.cliente.nombre) || 'Cliente';
+  if(expandidosBusqueda.has(p.id)){
+    return `<div style="margin-bottom:11px">
+      <div class="listrow no-print" style="cursor:pointer;margin-bottom:0;border-radius:9px 9px 0 0" onclick="toggleExpandBusqueda('${p.id}')">
+        <div class="nm">${p.numero} · ${cliNombre}</div>
+        <span style="font-size:11px;color:var(--muted);font-weight:700">▴ Colapsar</span>
+      </div>
+      ${tarjetaPedido(p,true)}
+    </div>`;
+  }
+  return `<div class="listrow" style="cursor:pointer" onclick="toggleExpandBusqueda('${p.id}')">
+    <div class="nm">${p.numero} · ${cliNombre}</div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <span class="meta">${fmtFecha(p.fechaListo)} · ${p.canalVenta||'Landing'} · ${fmt$(p.total)}</span>
+      <span style="font-size:11px;color:var(--muted);font-weight:700">▾ Ver</span>
+    </div>
+  </div>`;
+}
+function toggleExpandBusqueda(id){
+  if(expandidosBusqueda.has(id)) expandidosBusqueda.delete(id); else expandidosBusqueda.add(id);
+  renderHistorial();
+}
+// Búsqueda de comprobantes: matchea contra nombre de cliente, canal, canal de contacto, medio de pago,
+// número de pedido, fecha (ambos formatos) y sabores — todo lo que a Dany se le pueda ocurrir tipear.
+function comprobanteMatch(p, q){
+  const cliNombre = (p.cliente&&p.cliente.nombre) || '';
+  const saboresTxt = p.sabores.map(x=>{ const s=sabor(x.id); return s?s.nombre:''; }).join(' ');
+  const haystack = [p.numero, cliNombre, p.canalVenta, p.canalContacto, p.medioPago, fmtFecha(p.fechaListo), p.fechaListo, String(p.total||0), fmt$(p.total||0), saboresTxt].join(' ').toLowerCase();
+  return haystack.includes(q);
+}
 function renderHistorial(){
+  const buscarEl = document.getElementById('histBuscar');
+  const q = buscarEl ? buscarEl.value.trim().toLowerCase() : '';
+  const listaEl = document.getElementById('histLista');
+  const resultadosEl = document.getElementById('histResultados');
+  if(q){
+    const listos = PEDIDOS.filter(p=>p.estado==='listo' && p.fechaListo);
+    const resultados = listos.filter(p=>comprobanteMatch(p,q)).sort((a,b)=> (b.fechaListo+(b.hora||'')).localeCompare(a.fechaListo+(a.hora||'')));
+    if(listaEl) listaEl.style.display = 'none';
+    if(resultadosEl){
+      resultadosEl.style.display = '';
+      resultadosEl.innerHTML = resultados.length ? resultados.map(resultadoBusquedaHTML).join('')
+        : '<div class="meta" style="padding:8px 0">No se encontraron comprobantes para "'+buscarEl.value+'".</div>';
+    }
+    return;
+  }
+  if(listaEl) listaEl.style.display = '';
+  if(resultadosEl) resultadosEl.style.display = 'none';
   const porFecha = {};
   PEDIDOS.filter(p=>p.estado==='listo' && p.fechaListo).forEach(p=>{
     if(!porFecha[p.fechaListo]) porFecha[p.fechaListo] = {n:0, v:0};
@@ -2363,10 +2488,9 @@ function renderHistorial(){
     if(!porFecha[f]) porFecha[f] = {n:0, v:0};
   }
   const fechas = Object.keys(porFecha).sort().reverse();
-  const el = document.getElementById('histLista');
-  if(!el) return;
+  if(!listaEl) return;
   const hoyISO = fmtISO(new Date());
-  el.innerHTML = fechas.map(f=>{
+  listaEl.innerHTML = fechas.map(f=>{
     const d = porFecha[f];
     const sinVentas = d.n===0;
     const esDiaCerrado = DIAS_SIN_VENTA.includes(new Date(f+'T00:00:00').getDay());
@@ -2400,7 +2524,7 @@ function resolveCSSColor(v){
   if(m){ const r = getComputedStyle(document.documentElement).getPropertyValue(m[1]).trim(); return r || '#16162C'; }
   return v;
 }
-let chartSemanaInst=null, chartMesInst=null, chartCanalInst=null, chartSaboresInst=null;
+let chartSemanaInst=null, chartMesInst=null, chartCanalInst=null, chartSaboresInst=null, chartNetoInst=null;
 const CHART_FONT = "'Montserrat',system-ui,sans-serif";
 if(typeof Chart !== 'undefined'){
   Chart.defaults.font.family = CHART_FONT;
@@ -2470,6 +2594,62 @@ function renderDashboard(){
           label:(c)=>fmtVal(c.parsed.y)+' · '+porMes[meses[c.dataIndex]].n+' pedidos' } } },
         scales:{ y:{ beginAtZero:true, grid:{color:line}, ticks:{callback:v=>tickVal(v)} }, x:{ grid:{display:false} } } }
     });
+  }
+
+  // Total neto general: TODOS los canales, con la comisión de Rappi (la única deducción que existe hoy)
+  // restada del total — no solo el canal Rappi aislado. Para cotejar contra el extracto bancario acumulado,
+  // no solo día a día como en Caja del día. Usa el % congelado en cada pedido (comisionRappiPct); los
+  // pedidos despachados antes de que existiera ese campo caen al % actual de Admin como valor de referencia.
+  const netoBox = document.getElementById('dashNetoBox');
+  const listosRappi = listos.filter(p=>(p.canalVenta||'Landing')==='Rappi');
+  if(netoBox){
+    if(listosRappi.length){
+      netoBox.style.display = '';
+      let brutoTotalAcum=0, comisionAcum=0;
+      const porMesTotal = {};
+      listos.forEach(p=>{
+        const bruto = p.total||0;
+        const k = p.fechaListo.slice(0,7);
+        if(!porMesTotal[k]) porMesTotal[k] = {bruto:0, comision:0};
+        porMesTotal[k].bruto += bruto;
+        brutoTotalAcum += bruto;
+        if((p.canalVenta||'Landing')==='Rappi'){
+          const pct = p.comisionRappiPct!=null ? p.comisionRappiPct : COMISION_RAPPI;
+          const comision = bruto * pct/100;
+          porMesTotal[k].comision += comision;
+          comisionAcum += comision;
+        }
+      });
+      const netoTotalAcum = brutoTotalAcum - comisionAcum;
+      document.getElementById('dashTotalBruto').innerText = fmt$(Math.round(brutoTotalAcum));
+      document.getElementById('dashComisionRappi').innerText = fmt$(Math.round(comisionAcum));
+      document.getElementById('dashTotalNeto').innerText = fmt$(Math.round(netoTotalAcum));
+
+      // Barra apilada: una sola barra por mes = Vendido total del mes (Neto abajo + Comisión Rappi arriba,
+      // ambos suman el bruto de TODOS los canales, no solo Rappi). Neto en navy (lo que efectivamente
+      // entra a la cuenta), comisión en el color propio de Rappi — sin inventar otro color.
+      const mesesTotal = Object.keys(porMesTotal).sort().slice(-6);
+      const rappiColor = resolveCSSColor('var(--rappi)');
+      if(chartNetoInst) chartNetoInst.destroy();
+      chartNetoInst = new Chart(document.getElementById('chartNeto'), {
+        type:'bar',
+        data:{ labels: mesesTotal.map(labelMes),
+          datasets:[
+            { label:'Neto', data: mesesTotal.map(k=>Math.round(porMesTotal[k].bruto-porMesTotal[k].comision)), backgroundColor:navy, borderRadius:{topLeft:0,topRight:0,bottomLeft:4,bottomRight:4}, maxBarThickness:44 },
+            { label:'Comisión Rappi', data: mesesTotal.map(k=>Math.round(porMesTotal[k].comision)), backgroundColor:rappiColor, borderRadius:{topLeft:4,topRight:4,bottomLeft:0,bottomRight:0}, maxBarThickness:44 }
+          ] },
+        options:{ responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{display:true, position:'top', labels:{boxWidth:12, font:{size:10.5, weight:700}}},
+            tooltip:{ callbacks:{
+              label:(c)=>c.dataset.label+': '+fmt$(c.parsed.y),
+              footer:(items)=>'Vendido total: '+fmt$(Math.round(porMesTotal[mesesTotal[items[0].dataIndex]].bruto))
+            } } },
+          scales:{ y:{ stacked:true, beginAtZero:true, grid:{color:line}, ticks:{callback:v=>fmt$(v)} }, x:{ stacked:true, grid:{display:false} } } }
+      });
+    } else {
+      netoBox.style.display = 'none';
+      if(chartNetoInst){ chartNetoInst.destroy(); chartNetoInst=null; }
+    }
   }
 
   // Por canal, últimas 8 semanas con datos — barras
@@ -2646,9 +2826,12 @@ function iniciarListeners(){
       if(d.costoEnvio!=null) COSTO_ENVIO = d.costoEnvio;
       const cfgEnvioEl=document.getElementById('cfgEnvio'); if(cfgEnvioEl) cfgEnvioEl.value=COSTO_ENVIO;
       actualizarLabelEnvio();
+      if(d.comisionRappi!=null) COMISION_RAPPI = d.comisionRappi;
+      const cfgComisionEl=document.getElementById('cfgComisionRappi'); if(cfgComisionEl) cfgComisionEl.value=COMISION_RAPPI;
     }
     loaded.config = true;
     if(dataReady && document.getElementById('stock').classList.contains('show')) renderStock();
+    if(dataReady && document.getElementById('reportes').classList.contains('show')) renderReportesView();
     checkAllLoaded();
   });
   onSnapshot(colSabores, snap=>{
@@ -2675,8 +2858,7 @@ function iniciarListeners(){
     actualizarVendidoHoy();
     if(dataReady){
       if(document.getElementById('tablero').classList.contains('show')) renderTablero();
-      if(document.getElementById('reportes').classList.contains('show')) renderReportesView();
-      if(document.getElementById('historial').classList.contains('show')) renderHistorial();
+      if(document.getElementById('reportes').classList.contains('show')){ renderReportesView(); renderHistorial(); }
       if(document.getElementById('dashboard').classList.contains('show')) renderDashboard();
     }
     checkAllLoaded();
@@ -2694,10 +2876,10 @@ Object.assign(window, {
   go, atab, filt, done, ticket, closeT, crearPedido, renderCart, cancelarPedido, eliminarPedidoDespachado,
   editarLote, eliminarLote, guardarLoteEdicion, cancelarEdicionLote,
   registrarIngresoFila, editarEgreso, deshacerEgreso, guardarEgresoEdicion, cancelarEdicionEgreso,
-  setStockMin, setDiasLimite, setCostoEnvio, renderDashboard, renderLotes, toggleMenu, closeMenu,
+  setStockMin, setDiasLimite, setCostoEnvio, setComisionRappi, renderDashboard, renderLotes, toggleMenu, closeMenu, renderHistorial,
   buscarCliente, actualizarPreciosChips, guardarSabor, ajustarPedidoQty,
   editarPedido, cancelarEdicionPedido, ajustarEditQty, actualizarTotalEdicion, guardarPedidoEdicion,
-  descargarTicketPDF, marcarSaborSucio, volverAHoy, verCajaFecha, imprimirCajaFecha, toggleExpandPedido,
+  descargarTicketPDF, marcarSaborSucio, volverAHoy, verCajaFecha, imprimirCajaFecha, toggleExpandPedido, irAHistorial, toggleExpandBusqueda,
   actualizarModoPropio, cancelarCargaPedido, marcarSucio, actualizarDescuentoRappi, actualizarModoRappi,
   guardarPromoRappi, agregarPromoRappi, eliminarPromoRappi, marcarPromoRappiSucio, marcarTodosSaboresPromo,
   renderAuditoria
