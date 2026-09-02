@@ -701,7 +701,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           <div class="meta" id="pAvisoPropio" style="display:none;color:var(--bad);margin-top:8px">Consumo propio: solo se descuenta stock a nombre de quien cargues. El resto de los campos no aplica.</div>
         </div>
         <div class="box">
-          <h3>② Sabores <span style="font-family:var(--mont);font-size:9.5px;font-weight:600;color:var(--muted);letter-spacing:.4px">— pote 360ml · sin mínimo</span></h3>
+          <h3>② Sabores <span style="font-family:var(--mont);font-size:9.5px;font-weight:600;color:var(--muted);letter-spacing:.4px">— 360ml, y 250ml en los sabores que lo ofrecen · sin mínimo</span></h3>
           <div class="grupo-lbl">Línea Clásicos</div>
           <div class="pick" id="pickCl"></div>
           <div class="grupo-lbl">Línea De Autor</div>
@@ -807,7 +807,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     </div>
 
     <div id="a-sab" class="atab show">
-      <p class="sub" style="margin-bottom:14px;text-transform:none;letter-spacing:.2px">Apagá el sabor que no está disponible; el bot y la carga manual dejan de ofrecerlo. Pote único 360ml. 8 sabores activos de lanzamiento (5 Clásicos + 3 De Autor Drop 1) — el resto de sabores De Autor ya costeados quedan para drops futuros.</p>
+      <p class="sub" style="margin-bottom:14px;text-transform:none;letter-spacing:.2px">Apagá el sabor que no está disponible; el bot y la carga manual dejan de ofrecerlo. Pote base 360ml — activá "Ofrece 250ml" y cargá sus precios para que ese sabor también se pueda vender en 250ml. 8 sabores activos de lanzamiento (5 Clásicos + 3 De Autor Drop 1) — el resto de sabores De Autor ya costeados quedan para drops futuros.</p>
       <div class="grupo-lbl">Línea Clásicos</div>
       <div id="admSabCl"></div>
       <div class="grupo-lbl">Línea De Autor</div>
@@ -1043,17 +1043,22 @@ function descuentoLineaRappi(saborId, esVip){
     return total + (+p.pct || 0);
   }, 0);
 }
-function precioCanalPedido(s, canal){
+function precioCanalPedido(s, canal, capacidad){
   if(!s) return 0;
   if(canal==='Propio') return 0;
+  if((capacidad||360)===250){
+    if(canal==='Rappi') return s.precio250Rappi ?? s.precio250Landing ?? 0;
+    if(canal==='Amigos') return s.precio250Amigos ?? s.precio250Landing ?? 0;
+    return s.precio250Landing ?? 0;
+  }
   if(canal==='Rappi') return s.precioRappi ?? s.precioLanding ?? 0;
   if(canal==='Amigos') return s.precioAmigos ?? s.precioLanding ?? 0;
   return s.precioLanding ?? 0;
 }
 
-function precioCanal(s){
+function precioCanal(s, capacidad){
   const el = document.getElementById('pCanalVenta');
-  return precioCanalPedido(s, el ? el.value : 'Landing');
+  return precioCanalPedido(s, el ? el.value : 'Landing', capacidad);
 }
 
 /* ===================== STOCK — estado sincronizado con Firestore ===================== */
@@ -1093,16 +1098,19 @@ function diasEntre(fechaISO){
   return Math.round((HOY - f) / 86400000);
 }
 
-// Lotes de 360ml son el producto real de venta; los de 250ml son tandas de prueba/degustación/regalo
-// (Dany los carga aparte a propósito) y NO deben salir por una venta real ni contar en el stock vendible.
-// Los lotes viejos sin el campo `capacidad` se tratan como 360ml (así no rompe nada ya cargado antes de esto).
-function esCapacidadVenta(l){ return (l.capacidad || 360) === 360; }
+// Cada lote tiene un tamaño (250 o 360ml) — capacidadLote() lo normaliza (lotes viejos sin el campo se
+// tratan como 360ml, así no rompe nada cargado antes de que existiera este campo). 250ml pasó a ser un
+// tamaño vendible real (26/08/2026) — antes se excluía del todo del stock/consumo porque solo se usaba
+// para tandas de prueba/regalo; ahora cada función de stock pide explícitamente qué capacidad mirar.
+function capacidadLote(l){ return l.capacidad || 360; }
+function esCapacidadVenta(l){ return capacidadLote(l) === 360; } // queda por compatibilidad, equivale a capacidadLote(l)===360
 
-function consumirStockLocal(saborId, cantidad, lotesBase){
+function consumirStockLocal(saborId, cantidad, lotesBase, capacidad){
+  const cap = capacidad || 360;
   const base = lotesBase || LOTES;
   let restante = cantidad;
   const usados = [];
-  const lotesSabor = base.filter(l => l.sabor===saborId && esCapacidadVenta(l) && (l.cant - l.egresado) > 0)
+  const lotesSabor = base.filter(l => l.sabor===saborId && capacidadLote(l)===cap && (l.cant - l.egresado) > 0)
                           .sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
   for(const l of lotesSabor){
     if(restante<=0) break;
@@ -1114,15 +1122,17 @@ function consumirStockLocal(saborId, cantidad, lotesBase){
   return {usados, faltante: restante};
 }
 
-function saldoSabor(saborId){
-  const lotes = LOTES.filter(l=>l.sabor===saborId && esCapacidadVenta(l));
+function saldoSabor(saborId, capacidad){
+  const cap = capacidad || 360;
+  const lotes = LOTES.filter(l=>l.sabor===saborId && capacidadLote(l)===cap);
   const inicial = lotes.reduce((a,l)=>a+l.cant,0);
   const egresado = lotes.reduce((a,l)=>a+l.egresado,0);
   return {inicial, egresado, final: inicial-egresado};
 }
 
-function loteMasViejoConStock(saborId){
-  const lotes = LOTES.filter(l=>l.sabor===saborId && esCapacidadVenta(l) && (l.cant-l.egresado)>0)
+function loteMasViejoConStock(saborId, capacidad){
+  const cap = capacidad || 360;
+  const lotes = LOTES.filter(l=>l.sabor===saborId && capacidadLote(l)===cap && (l.cant-l.egresado)>0)
                       .sort((a,b)=> new Date(a.fecha)-new Date(b.fecha));
   return lotes[0] || null;
 }
@@ -1144,14 +1154,15 @@ function renderAuditoria(){
   if(!kpis || !tabla) return;
   const saborId = document.getElementById('auditSabor').value;
   if(!saborId){ kpis.innerHTML=''; tabla.innerHTML=''; return; }
-  const lotesSabor = LOTES.filter(l=>l.sabor===saborId && esCapacidadVenta(l));
+  // Incluye lotes de ambas capacidades (360/250ml) — se distinguen con una etiqueta en cada línea.
+  const lotesSabor = LOTES.filter(l=>l.sabor===saborId);
   const eventos = [];
-  lotesSabor.forEach(l=>{ eventos.push({fecha:l.fecha, tipo:'Ingreso', cant:l.cant, ref:'Lote '+l.id, orden:0}); });
+  lotesSabor.forEach(l=>{ eventos.push({fecha:l.fecha, tipo:'Ingreso', cant:l.cant, ref:'Lote '+l.id+(capacidadLote(l)===250?' (250ml)':''), orden:0}); });
   EGRESOS.forEach(e=>{
     (e.lotes||[]).forEach(u=>{
       const lote = LOTES.find(l=>l.id===u.lote);
-      if(lote && lote.sabor===saborId && esCapacidadVenta(lote)){
-        eventos.push({fecha:e.fecha, tipo:'Egreso', cant:-(u.cant||0), ref:(e.ref||e.uid)+' · lote '+u.lote, orden:1});
+      if(lote && lote.sabor===saborId){
+        eventos.push({fecha:e.fecha, tipo:'Egreso', cant:-(u.cant||0), ref:(e.ref||e.uid)+' · lote '+u.lote+(capacidadLote(lote)===250?' (250ml)':''), orden:1});
       }
     });
   });
@@ -1173,12 +1184,23 @@ function renderAuditoria(){
 }
 
 /* ---- Dashboard ---- */
+// Una fila por (sabor, capacidad): los sabores con ofrece250 aparecen dos veces en el Dashboard de
+// Stock (360ml y 250ml son pools de lotes separados, con su propio saldo/alerta/lote más viejo).
+function filasStock(){
+  const filas = [];
+  SABORES.forEach(s=>{
+    filas.push({s, capacidad:360});
+    if(s.ofrece250) filas.push({s, capacidad:250});
+  });
+  return filas;
+}
 function renderStock(){
-  const totalPotes = SABORES.reduce((a,s)=>a+saldoSabor(s.id).final,0);
-  const enAlerta = SABORES.filter(s=>saldoSabor(s.id).final < STOCK_MIN).length;
-  const valorInmovilizado = SABORES.reduce((a,s)=>a + saldoSabor(s.id).final * (s.precioLanding||0), 0);
+  const filas = filasStock();
+  const totalPotes = filas.reduce((a,f)=>a+saldoSabor(f.s.id,f.capacidad).final,0);
+  const enAlerta = filas.filter(f=>saldoSabor(f.s.id,f.capacidad).final < STOCK_MIN).length;
+  const valorInmovilizado = filas.reduce((a,f)=>a + saldoSabor(f.s.id,f.capacidad).final * precioCanalPedido(f.s,'Landing',f.capacidad), 0);
   let loteMasViejoDias = 0;
-  LOTES.forEach(l=>{ if(esCapacidadVenta(l) && (l.cant-l.egresado)>0){ const d=diasEntre(l.fecha); if(d>loteMasViejoDias) loteMasViejoDias=d; } });
+  LOTES.forEach(l=>{ if((l.cant-l.egresado)>0){ const d=diasEntre(l.fecha); if(d>loteMasViejoDias) loteMasViejoDias=d; } });
   document.getElementById('stockKpis').innerHTML = `
     <div class="kpi"><span class="emoji">●</span><div class="n">${totalPotes}</div><div class="l">Potes en stock</div></div>
     <div class="kpi"><span class="emoji">⚠</span><div class="n">${enAlerta}</div><div class="l">Sabores en alerta</div></div>
@@ -1186,15 +1208,17 @@ function renderStock(){
     <div class="kpi"><span class="emoji">▦</span><div class="n">${loteMasViejoDias}d</div><div class="l">Lote activo más viejo</div></div>
   `;
 
-  document.getElementById('stockTable').innerHTML = SABORES.map(s=>{
-    const {inicial,egresado,final} = saldoSabor(s.id);
+  document.getElementById('stockTable').innerHTML = filas.map(f=>{
+    const {s,capacidad} = f;
+    const {inicial,egresado,final} = saldoSabor(s.id,capacidad);
     const alerta = final < STOCK_MIN
       ? '<span class="badge badge-warn">⚠ Reponer</span>'
       : '<span class="badge badge-ok">OK</span>';
-    const lote = loteMasViejoConStock(s.id);
+    const lote = loteMasViejoConStock(s.id,capacidad);
     const loteTxt = lote ? (lote.id+' · '+fmtFecha(lote.fecha)+' ('+diasEntre(lote.fecha)+'d)') : '— sin stock —';
+    const tagCap = capacidad===250 ? ' <span class="typetag">250ml</span>' : '';
     return `<div class="stockrow">
-      <div class="nm" style="font-weight:700;display:flex;align-items:center;gap:8px"><span class="sw-c" style="background:${s.color}"></span>${s.nombre}<span class="typetag">${s.linea}</span></div>
+      <div class="nm" style="font-weight:700;display:flex;align-items:center;gap:8px"><span class="sw-c" style="background:${s.color}"></span>${s.nombre}<span class="typetag">${s.linea}</span>${tagCap}</div>
       <div class="val" data-label="Inicial">${inicial}</div>
       <div class="val" data-label="Egresado">${egresado}</div>
       <div class="val" data-label="Final">${final}</div>
@@ -1244,7 +1268,7 @@ function renderLotes(){
     const saldo = l.cant - l.egresado;
     const vencido = saldo>0 && dias>DIAS_LIMITE;
     const alerta = vencido ? '<span class="badge badge-warn">⚠ '+dias+'d</span>' : '<span class="badge badge-ok">'+dias+'d</span>';
-    const tagCap = !esCapacidadVenta(l) ? ' <span class="typetag" style="background:var(--warn);color:#fff">250ml · prueba/regalo</span>' : '';
+    const tagCap = capacidadLote(l)===250 ? ' <span class="typetag">250ml</span>' : '';
     return `<div class="lotrow">
       <div data-label="Lote" style="font-weight:700">${l.id}</div>
       <div data-label="Sabor" style="display:flex;align-items:center;gap:6px"><span class="sw-c" style="background:${s.color}"></span>${s.nombre}${tagCap}</div>
@@ -1311,8 +1335,8 @@ function pintarIngresoPickers(){
         <input type="date" id="ingFecha_${s.id}" value="${fmtISO(new Date())}" style="width:132px;padding:6px 8px;font-size:10.5px">
         <input type="number" id="ingCant_${s.id}" min="1" value="20" style="width:64px;padding:6px 8px;font-size:10.5px;text-align:center">
         <select id="ingCap_${s.id}" style="padding:6px 8px;font-size:10.5px" title="Capacidad del pote">
-          <option value="360">360ml (venta)</option>
-          <option value="250">250ml (prueba/regalo)</option>
+          <option value="360">360ml</option>
+          <option value="250">250ml</option>
         </select>
         <button class="btn btn-pri btn-xs" onclick="registrarIngresoFila('${s.id}')">Registrar</button>
       </div>
@@ -1388,18 +1412,19 @@ async function guardarEgresoEdicion(uid){
   stockOpEnCurso = true;
   try{
     const saborId = e.sabores[0].id;
+    const capacidad = e.sabores[0].capacidad || 360;
 
     const lotesRevertidos = LOTES.map(l=>{
       const usadoAqui = e.lotes.find(u=>u.lote===l.id);
       return usadoAqui ? {...l, egresado: l.egresado - usadoAqui.cant} : l;
     });
-    const {usados, faltante} = consumirStockLocal(saborId, nuevaCant, lotesRevertidos);
+    const {usados, faltante} = consumirStockLocal(saborId, nuevaCant, lotesRevertidos, capacidad);
 
     const batch = writeBatch(db);
     e.lotes.forEach(u=>{ batch.update(doc(db,'lotes',u.lote), { egresado: increment(-u.cant) }); });
     usados.forEach(u=>{ batch.update(doc(db,'lotes',u.lote), { egresado: increment(u.cant) }); });
     batch.update(doc(db,'egresos', uid), {
-      sabores:[{id:saborId, cant:nuevaCant}], cantTotal:nuevaCant, canal:nuevoCanal, fecha:nuevaFecha,
+      sabores:[{id:saborId, cant:nuevaCant, capacidad}], cantTotal:nuevaCant, canal:nuevoCanal, fecha:nuevaFecha,
       lotes:usados, faltante
     });
     editingEgresoUid = null;
@@ -1468,8 +1493,8 @@ function tarjetaPedido(p, esListo, ctx){
     const s = sabor(x.id);
     const nombre = s? s.nombre : x.id;
     const color = s? s.color : 'var(--navy)';
-    const precio = x.precioUnit!=null ? x.precioUnit : precioCanalPedido(s, p.canalVenta);
-    return `<div class="pote"><span class="sw-c" style="background:${color}"></span> ${nombre}${x.cant>1?' x'+x.cant:''} <span class="ml">360ml · ${fmt$(precio*x.cant)}</span></div>`;
+    const precio = x.precioUnit!=null ? x.precioUnit : precioCanalPedido(s, p.canalVenta, x.capacidad);
+    return `<div class="pote"><span class="sw-c" style="background:${color}"></span> ${nombre}${x.cant>1?' x'+x.cant:''} <span class="ml">${x.capacidad||360}ml · ${fmt$(precio*x.cant)}</span></div>`;
   }).join('');
   const cliNombre = (p.cliente&&p.cliente.nombre) || 'Cliente';
   if(esListo){
@@ -1524,22 +1549,29 @@ async function done(id){
   if(!p || p.estado==='listo') return;
   stockOpEnCurso = true;
   try{
+    // Se agrupa por sabor Y capacidad (250/360ml son pools de stock separados) — así una línea de 250ml
+    // nunca consume del lote de 360ml de ese sabor, ni viceversa.
     const conteo = {};
-    p.sabores.forEach(x => conteo[x.id] = (conteo[x.id]||0)+x.cant);
+    p.sabores.forEach(x => {
+      const cap = x.capacidad || 360;
+      const key = x.id+'@'+cap;
+      if(!conteo[key]) conteo[key] = {id:x.id, capacidad:cap, cant:0};
+      conteo[key].cant += x.cant;
+    });
     const usadosTotal = [];
     let faltanteTotal = 0;
     const nombresFaltantes = [];
-    Object.keys(conteo).forEach(id2=>{
-      const {usados, faltante} = consumirStockLocal(id2, conteo[id2]);
+    Object.values(conteo).forEach(c=>{
+      const {usados, faltante} = consumirStockLocal(c.id, c.cant, null, c.capacidad);
       usadosTotal.push(...usados);
-      if(faltante>0){ faltanteTotal += faltante; nombresFaltantes.push((sabor(id2)||{nombre:id2}).nombre); }
+      if(faltante>0){ faltanteTotal += faltante; nombresFaltantes.push((sabor(c.id)||{nombre:c.id}).nombre+(c.capacidad!==360?' ('+c.capacidad+'ml)':'')); }
     });
     const batch = writeBatch(db);
     usadosTotal.forEach(u=> batch.update(doc(db,'lotes',u.lote), { egresado: increment(u.cant) }));
     const egresoRef = doc(colEgresos);
     batch.set(egresoRef, {
       ref: p.numero, fecha: p.fecha || fechaArgentinaISO(),
-      sabores: Object.keys(conteo).map(id2=>({id:id2,cant:conteo[id2]})),
+      sabores: Object.values(conteo).map(c=>({id:c.id, cant:c.cant, capacidad:c.capacidad})),
       cantTotal: p.sabores.reduce((a,x)=>a+x.cant,0), canal: p.canalVenta || 'Landing',
       lotes: usadosTotal, faltante: faltanteTotal, ts: serverTimestamp()
     });
@@ -1599,7 +1631,7 @@ function editarPedido(id, ctx){
   editingPedidoId = id;
   editingCtx = ctx || 'tablero';
   editCart = {};
-  p.sabores.forEach(x=> editCart[x.id] = x.cant);
+  p.sabores.forEach(x=> editCart[claveCart(x.id,x.capacidad)] = x.cant);
   refrescarVistaPedidos();
 }
 function cancelarEdicionPedido(){
@@ -1608,15 +1640,15 @@ function cancelarEdicionPedido(){
   editCart = {};
   refrescarVistaPedidos();
 }
-function ajustarEditQty(pedidoId, saborId, delta){
-  editCart[saborId] = Math.max(0, (editCart[saborId]||0) + delta);
-  const qtyEl = document.getElementById('editQty_'+pedidoId+'_'+saborId); if(qtyEl) qtyEl.innerText = editCart[saborId];
-  const chipEl = document.getElementById('editChip_'+pedidoId+'_'+saborId); if(chipEl) chipEl.classList.toggle('has', editCart[saborId]>0);
+function ajustarEditQty(pedidoId, key, delta){
+  editCart[key] = Math.max(0, (editCart[key]||0) + delta);
+  const qtyEl = document.getElementById('editQty_'+pedidoId+'_'+key); if(qtyEl) qtyEl.innerText = editCart[key];
+  const chipEl = document.getElementById('editChip_'+pedidoId+'_'+key); if(chipEl) chipEl.classList.toggle('has', editCart[key]>0);
   actualizarTotalEdicion();
 }
-function precioCanalEdit(s){
+function precioCanalEdit(s, capacidad){
   const el = document.getElementById('editCanalVenta_'+editingPedidoId);
-  return precioCanalPedido(s, el ? el.value : 'Landing');
+  return precioCanalPedido(s, el ? el.value : 'Landing', capacidad);
 }
 const CAMPOS_EDIT_NO_PROPIO = ['editTel_','editEntrega_','editDireccion_','editReferencia_','editCanalContacto_','editMedioPago_','editCambio_','editEnvio_'];
 const CAMPOS_EDIT_NO_RAPPI = ['editTel_','editDireccion_','editReferencia_','editCanalContacto_','editMedioPago_','editCambio_','editEnvio_'];
@@ -1655,18 +1687,20 @@ function actualizarTotalEdicion(){
   if(!totEl) return;
   const entries = Object.keys(editCart).filter(k=>editCart[k]>0);
   const totalPotes = entries.reduce((a,k)=>a+editCart[k],0);
-  const subtotalBruto = entries.reduce((a,k)=>a+precioCanalEdit(sabor(k))*editCart[k],0);
+  const subtotalBruto = entries.reduce((a,k)=>{ const {id:saborId,capacidad}=parseClaveCart(k); return a+precioCanalEdit(sabor(saborId),capacidad)*editCart[k]; },0);
   const linesEl = document.getElementById('editCartLines_'+id);
   if(linesEl){
     const lines = entries.map(k=>{
-      const s = sabor(k); const cant = editCart[k];
-      return `<div class="cartline"><span><span class="sw-c" style="background:${s.color};display:inline-block;vertical-align:middle;margin-right:7px"></span>${s.nombre} · 360ml${cant>1?' x'+cant:''}</span><span class="price">${fmt$(precioCanalEdit(s)*cant)}</span></div>`;
+      const {id:saborId,capacidad} = parseClaveCart(k);
+      const s = sabor(saborId); const cant = editCart[k];
+      return `<div class="cartline"><span><span class="sw-c" style="background:${s.color};display:inline-block;vertical-align:middle;margin-right:7px"></span>${s.nombre} · ${capacidad}ml${cant>1?' x'+cant:''}</span><span class="price">${fmt$(precioCanalEdit(s,capacidad)*cant)}</span></div>`;
     }).join('');
     linesEl.innerHTML = lines || '<div class="meta" style="padding:4px 0">Sin sabores elegidos.</div>';
   }
   const descuentoValor = esRappi ? entries.reduce((a,k)=>{
-    const s = sabor(k); const pct = descuentoLineaRappi(k, esVip);
-    return a + Math.round(precioCanalEdit(s)*editCart[k]*pct/100);
+    const {id:saborId,capacidad} = parseClaveCart(k);
+    const s = sabor(saborId); const pct = descuentoLineaRappi(saborId, esVip);
+    return a + Math.round(precioCanalEdit(s,capacidad)*editCart[k]*pct/100);
   }, 0) : 0;
   const subtotal = subtotalBruto - descuentoValor;
   const envioSelEl = document.getElementById('editEnvio_'+id);
@@ -1676,12 +1710,17 @@ function actualizarTotalEdicion(){
 }
 function formEdicionPedido(p){
   const sucio = `marcarSucio('btnGuardarPedido_${p.id}','btn-ok')`;
-  const chip = s => `<span class="flavq ${((editCart[s.id]||0)>0)?'has':''}" id="editChip_${p.id}_${s.id}">
-      <span class="sw-c" style="background:${s.color}"></span>${s.nombre}
-      <button class="qbtn" onclick="ajustarEditQty('${p.id}','${s.id}',-1);${sucio}">－</button>
-      <span class="qn" id="editQty_${p.id}_${s.id}">${editCart[s.id]||0}</span>
-      <button class="qbtn" onclick="ajustarEditQty('${p.id}','${s.id}',1);${sucio}">＋</button>
+  const chip = (s,capacidad) => {
+    const key = claveCart(s.id,capacidad);
+    const tag = capacidad===250 ? ' <span class="typetag">250ml</span>' : '';
+    return `<span class="flavq ${((editCart[key]||0)>0)?'has':''}" id="editChip_${p.id}_${key}">
+      <span class="sw-c" style="background:${s.color}"></span>${s.nombre}${tag}
+      <button class="qbtn" onclick="ajustarEditQty('${p.id}','${key}',-1);${sucio}">－</button>
+      <span class="qn" id="editQty_${p.id}_${key}">${editCart[key]||0}</span>
+      <button class="qbtn" onclick="ajustarEditQty('${p.id}','${key}',1);${sucio}">＋</button>
     </span>`;
+  };
+  const chipsPara = s => s.ofrece250 ? (chip(s,360)+chip(s,250)) : chip(s,360);
   const avisoListo = p.estado==='listo'
     ? '<div class="meta" style="color:var(--bad);margin:6px 0">⚠ Este pedido ya está despachado — si cambiás sabores/cantidades, se repone el stock viejo y se descuenta el nuevo automáticamente.</div>'
     : '';
@@ -1727,7 +1766,7 @@ function formEdicionPedido(p){
       <div class="field"><label>Envío</label><select id="editEnvio_${p.id}" onchange="actualizarTotalEdicion();${sucio}"><option value="sin" ${(!p.envio)?'selected':''}>Sin envío (retira)</option><option value="con" ${(p.envio>0)?'selected':''}>Con envío (+${fmt$(COSTO_ENVIO)})</option></select></div>
     </div>
     <div class="field"><label>Cambio</label><input id="editCambio_${p.id}" value="${p.cambio||''}" oninput="${sucio}"></div>
-    <div class="pick" style="margin:8px 0">${SABORES.map(chip).join('')}</div>
+    <div class="pick" style="margin:8px 0">${SABORES.map(chipsPara).join('')}</div>
     <div id="editCartLines_${p.id}" style="margin:8px 0"></div>
     <div class="meta" id="editTotal_${p.id}" style="font-weight:700;margin-bottom:6px"></div>
     ${avisoListo}
@@ -1760,14 +1799,15 @@ async function guardarPedidoEdicion(id){
   const rappiPedidoId = esRappi ? (document.getElementById('editRappiID_'+id).value||'').trim() : '';
 
   const totalPotes = entries.reduce((a,k)=>a+editCart[k],0);
-  const subtotalBruto = entries.reduce((a,k)=>a+precioCanalPedido(sabor(k),canalVenta)*editCart[k],0);
+  const subtotalBruto = entries.reduce((a,k)=>{ const {id:saborId,capacidad}=parseClaveCart(k); return a+precioCanalPedido(sabor(saborId),canalVenta,capacidad)*editCart[k]; },0);
   const vipSwEl = document.getElementById('editRappiVip_'+id);
   const esVip = (canalVenta==='Rappi' && vipSwEl) ? vipSwEl.classList.contains('on') : false;
   const nuevosSabores = entries.map(k=>{
-    const s = sabor(k);
-    const bruto = precioCanalPedido(s, canalVenta);
-    const pctLinea = canalVenta==='Rappi' ? descuentoLineaRappi(k, esVip) : 0;
-    return {id:k, cant:editCart[k], precioUnit:Math.round(bruto*(1-pctLinea/100))};
+    const {id:saborId,capacidad} = parseClaveCart(k);
+    const s = sabor(saborId);
+    const bruto = precioCanalPedido(s, canalVenta, capacidad);
+    const pctLinea = canalVenta==='Rappi' ? descuentoLineaRappi(saborId, esVip) : 0;
+    return {id:saborId, capacidad, cant:editCart[k], precioUnit:Math.round(bruto*(1-pctLinea/100))};
   });
   const subtotal = nuevosSabores.reduce((a,x)=>a+x.precioUnit*x.cant,0);
   const descuentoValor = subtotalBruto - subtotal;
@@ -1785,18 +1825,24 @@ async function guardarPedidoEdicion(id){
         const usadoAqui = egresoAsociado.lotes.find(u=>u.lote===l.id);
         return usadoAqui ? {...l, egresado: l.egresado - usadoAqui.cant} : l;
       });
+      // Agrupado por sabor Y capacidad — ver mismo criterio en done().
       const conteoNuevo = {};
-      nuevosSabores.forEach(x=> conteoNuevo[x.id] = (conteoNuevo[x.id]||0)+x.cant);
+      nuevosSabores.forEach(x=> {
+        const cap = x.capacidad || 360;
+        const key = x.id+'@'+cap;
+        if(!conteoNuevo[key]) conteoNuevo[key] = {id:x.id, capacidad:cap, cant:0};
+        conteoNuevo[key].cant += x.cant;
+      });
       const usadosTotal = [];
-      Object.keys(conteoNuevo).forEach(k2=>{
-        const {usados, faltante} = consumirStockLocal(k2, conteoNuevo[k2], lotesRevertidos);
+      Object.values(conteoNuevo).forEach(c=>{
+        const {usados, faltante} = consumirStockLocal(c.id, c.cant, lotesRevertidos, c.capacidad);
         usadosTotal.push(...usados);
         faltanteTotal += faltante;
       });
       egresoAsociado.lotes.forEach(u=> batch.update(doc(db,'lotes',u.lote), { egresado: increment(-u.cant) }));
       usadosTotal.forEach(u=> batch.update(doc(db,'lotes',u.lote), { egresado: increment(u.cant) }));
       batch.update(doc(db,'egresos', egresoAsociado.uid), {
-        sabores: Object.keys(conteoNuevo).map(k2=>({id:k2,cant:conteoNuevo[k2]})),
+        sabores: Object.values(conteoNuevo).map(c=>({id:c.id, cant:c.cant, capacidad:c.capacidad})),
         cantTotal: totalPotes, canal: canalVenta, lotes: usadosTotal, faltante: faltanteTotal, fecha
       });
     } else {
@@ -1830,8 +1876,8 @@ function ticket(id){
   const canalTxt = p.canalContacto==='wa'?'WhatsApp':p.canalContacto==='manual'?'Manual':p.canalContacto==='tel'?'Teléfono':'Rappi';
   const potesHtml = p.sabores.map(x=>{
     const s = sabor(x.id); const nombre = s?s.nombre:x.id;
-    const precio = x.precioUnit!=null ? x.precioUnit : precioCanalPedido(s, p.canalVenta);
-    return `<div class="trow"><span>${x.cant}× ${nombre} · 360ml</span><span>${fmt$(precio*x.cant)}</span></div>`;
+    const precio = x.precioUnit!=null ? x.precioUnit : precioCanalPedido(s, p.canalVenta, x.capacidad);
+    return `<div class="trow"><span>${x.cant}× ${nombre} · ${x.capacidad||360}ml</span><span>${fmt$(precio*x.cant)}</span></div>`;
   }).join('');
   const dirHtml = (p.cliente&&p.cliente.direccion) ? `<div class="trow"><b>Dirección</b><span>${p.cliente.direccion}${p.cliente.referencia?(' · '+p.cliente.referencia):''}</span></div>` : '';
   document.getElementById('ticketBody').innerHTML = `
@@ -1870,8 +1916,8 @@ function descargarTicketPDF(){
   if(dirTxt) filas.push(['Dirección', dirTxt]);
   const potesFilas = p.sabores.map(x=>{
     const s = sabor(x.id);
-    const precio = x.precioUnit!=null ? x.precioUnit : precioCanalPedido(s, p.canalVenta);
-    return [x.cant+'× '+(s?s.nombre:x.id)+' · 360ml', fmt$(precio*x.cant)];
+    const precio = x.precioUnit!=null ? x.precioUnit : precioCanalPedido(s, p.canalVenta, x.capacidad);
+    return [x.cant+'× '+(s?s.nombre:x.id)+' · '+(x.capacidad||360)+'ml', fmt$(precio*x.cant)];
   });
 
   const W = 80, M = 5, usable = W - M*2, lineH = 4.8;
@@ -1958,25 +2004,36 @@ function buscarCliente(){
     }catch(e){ /* silencioso: si falla la búsqueda, se sigue cargando el pedido a mano */ }
   }, 500);
 }
+// Clave compuesta sabor+tamaño: los sabores que ofrecen 250ml aparecen como DOS chips independientes
+// (uno por tamaño), cada uno con su propio precio y contador — así conviven en el mismo carrito sin
+// mezclarse. Un sabor sin 250ml sigue mostrando un solo chip, igual que siempre.
+function claveCart(saborId, capacidad){ return saborId+'@'+(capacidad||360); }
+function parseClaveCart(key){ const i = key.lastIndexOf('@'); return {id:key.slice(0,i), capacidad:+key.slice(i+1)}; }
 let pedidoCart = {};
 function pintarPickers(){
   const activos = SABORES.filter(s=>s.activo!==false);
   const cl = activos.filter(s=>s.linea==='Clásicos');
   const da = activos.filter(s=>s.linea==='De Autor');
-  const chip = s => `<span class="flavq ${((pedidoCart[s.id]||0)>0)?'has':''}" id="pChip_${s.id}" data-id="${s.id}">
-      <span class="sw-c" style="background:${s.color}"></span>${s.nombre}
-      <span class="pr" style="margin-left:2px">${fmt$(precioCanal(s))}</span>
-      <button class="qbtn" onclick="ajustarPedidoQty('${s.id}',-1)">－</button>
-      <span class="qn" id="pQty_${s.id}">${pedidoCart[s.id]||0}</span>
-      <button class="qbtn" onclick="ajustarPedidoQty('${s.id}',1)">＋</button>
+  const chip = (s,capacidad) => {
+    const key = claveCart(s.id,capacidad);
+    const tag = capacidad===250 ? ' <span class="typetag">250ml</span>' : '';
+    return `<span class="flavq ${((pedidoCart[key]||0)>0)?'has':''}" id="pChip_${key}" data-id="${s.id}" data-cap="${capacidad}">
+      <span class="sw-c" style="background:${s.color}"></span>${s.nombre}${tag}
+      <span class="pr" style="margin-left:2px">${fmt$(precioCanal(s,capacidad))}</span>
+      <button class="qbtn" onclick="ajustarPedidoQty('${key}',-1)">－</button>
+      <span class="qn" id="pQty_${key}">${pedidoCart[key]||0}</span>
+      <button class="qbtn" onclick="ajustarPedidoQty('${key}',1)">＋</button>
     </span>`;
-  document.getElementById('pickCl').innerHTML = cl.map(chip).join('');
-  document.getElementById('pickDa').innerHTML = da.map(chip).join('');
+  };
+  const chipsPara = s => s.ofrece250 ? (chip(s,360)+chip(s,250)) : chip(s,360);
+  document.getElementById('pickCl').innerHTML = cl.map(chipsPara).join('');
+  document.getElementById('pickDa').innerHTML = da.map(chipsPara).join('');
 }
 function actualizarPreciosChips(){
   document.querySelectorAll('#carga .flavq').forEach(el=>{
     const s = sabor(el.dataset.id);
-    if(s){ const pr = el.querySelector('.pr'); if(pr) pr.innerText = fmt$(precioCanal(s)); }
+    const cap = +el.dataset.cap || 360;
+    if(s){ const pr = el.querySelector('.pr'); if(pr) pr.innerText = fmt$(precioCanal(s,cap)); }
   });
   renderCart();
 }
@@ -2025,10 +2082,10 @@ function actualizarModoRappi(){
   const av = document.getElementById('pAvisoRappi'); if(av) av.style.display = esRappi ? 'block' : 'none';
   renderCart();
 }
-function ajustarPedidoQty(id, delta){
-  pedidoCart[id] = Math.max(0, (pedidoCart[id]||0) + delta);
-  const qtyEl = document.getElementById('pQty_'+id); if(qtyEl) qtyEl.innerText = pedidoCart[id];
-  const chipEl = document.getElementById('pChip_'+id); if(chipEl) chipEl.classList.toggle('has', pedidoCart[id]>0);
+function ajustarPedidoQty(key, delta){
+  pedidoCart[key] = Math.max(0, (pedidoCart[key]||0) + delta);
+  const qtyEl = document.getElementById('pQty_'+key); if(qtyEl) qtyEl.innerText = pedidoCart[key];
+  const chipEl = document.getElementById('pChip_'+key); if(chipEl) chipEl.classList.toggle('has', pedidoCart[key]>0);
   renderCart();
 }
 // Envío: costo fijo configurable en Admin → Configuración (config/stock.costoEnvio).
@@ -2046,20 +2103,22 @@ function envioActual(){
   return envioSegunCanal(seleccion, canalEl ? canalEl.value : 'Landing');
 }
 function renderCart(){
-  const entries = Object.keys(pedidoCart).filter(id=>pedidoCart[id]>0);
-  const totalPotes = entries.reduce((a,id)=>a+pedidoCart[id],0);
-  const lines = entries.map(id=>{
-    const s = sabor(id); const cant = pedidoCart[id];
-    return `<div class="cartline"><span><span class="sw-c" style="background:${s.color};display:inline-block;vertical-align:middle;margin-right:7px"></span>${s.nombre} · 360ml${cant>1?' x'+cant:''}</span><span class="price">${fmt$(precioCanal(s)*cant)}</span></div>`;
+  const entries = Object.keys(pedidoCart).filter(key=>pedidoCart[key]>0);
+  const totalPotes = entries.reduce((a,key)=>a+pedidoCart[key],0);
+  const lines = entries.map(key=>{
+    const {id,capacidad} = parseClaveCart(key);
+    const s = sabor(id); const cant = pedidoCart[key];
+    return `<div class="cartline"><span><span class="sw-c" style="background:${s.color};display:inline-block;vertical-align:middle;margin-right:7px"></span>${s.nombre} · ${capacidad}ml${cant>1?' x'+cant:''}</span><span class="price">${fmt$(precioCanal(s,capacidad)*cant)}</span></div>`;
   }).join('');
   document.getElementById('cartLines').innerHTML = lines || '<div class="meta" style="padding:8px 0">Elegí sabores arriba (con ＋/－) para armar el pedido.</div>';
-  const subtotalBruto = entries.reduce((a,id)=>a+precioCanal(sabor(id))*pedidoCart[id],0);
+  const subtotalBruto = entries.reduce((a,key)=>{ const {id,capacidad}=parseClaveCart(key); return a+precioCanal(sabor(id),capacidad)*pedidoCart[key]; },0);
   const canalEl0 = document.getElementById('pCanalVenta');
   const esRappi = canalEl0 && canalEl0.value === 'Rappi';
   const esVip = esVipActual();
-  const descuentoValor = esRappi ? entries.reduce((a,id)=>{
+  const descuentoValor = esRappi ? entries.reduce((a,key)=>{
+    const {id,capacidad} = parseClaveCart(key);
     const s = sabor(id); const pct = descuentoLineaRappi(id, esVip);
-    return a + Math.round(precioCanal(s)*pedidoCart[id]*pct/100);
+    return a + Math.round(precioCanal(s,capacidad)*pedidoCart[key]*pct/100);
   }, 0) : 0;
   const subtotal = subtotalBruto - descuentoValor;
   const envio = envioActual();
@@ -2080,7 +2139,7 @@ function siguienteNumeroPedido(){
   return '#'+(max+1);
 }
 async function crearPedido(){
-  const entries = Object.keys(pedidoCart).filter(id=>pedidoCart[id]>0);
+  const entries = Object.keys(pedidoCart).filter(key=>pedidoCart[key]>0);
   if(entries.length===0){ alert('Elegí al menos un sabor (con ＋/－).'); return; }
   const canalVenta = document.getElementById('pCanalVenta').value;
   const esPropio = canalVenta === 'Propio';
@@ -2096,15 +2155,16 @@ async function crearPedido(){
   const cambio = (esPropio||esRappi) ? '' : document.getElementById('pCambio').value||'';
   const rappiPedidoId = esRappi ? (document.getElementById('pRappiID').value||'').trim() : '';
 
-  const totalPotes = entries.reduce((a,id)=>a+pedidoCart[id],0);
-  const subtotalBruto = entries.reduce((a,id)=>a+precioCanal(sabor(id))*pedidoCart[id],0);
+  const totalPotes = entries.reduce((a,key)=>a+pedidoCart[key],0);
+  const subtotalBruto = entries.reduce((a,key)=>{ const {id,capacidad}=parseClaveCart(key); return a+precioCanal(sabor(id),capacidad)*pedidoCart[key]; },0);
   // Cada línea usa las promos que apliquen a SU sabor y al tipo de cliente (VIP o común) — no
   // hay un % plano para todo el pedido, así se pueden mezclar productos con y sin promo en el mismo pedido.
-  const nuevosSabores = entries.map(id=>{
+  const nuevosSabores = entries.map(key=>{
+    const {id,capacidad} = parseClaveCart(key);
     const s = sabor(id);
-    const bruto = precioCanal(s);
+    const bruto = precioCanal(s,capacidad);
     const pctLinea = esRappi ? descuentoLineaRappi(id, esVip) : 0;
-    return {id, cant:pedidoCart[id], precioUnit:Math.round(bruto*(1-pctLinea/100))};
+    return {id, capacidad, cant:pedidoCart[key], precioUnit:Math.round(bruto*(1-pctLinea/100))};
   });
   const subtotal = nuevosSabores.reduce((a,x)=>a+x.precioUnit*x.cant,0);
   const descuentoValor = subtotalBruto - subtotal;
@@ -2167,17 +2227,37 @@ function cancelarCargaPedido(){
 }
 
 /* ===================== ADMIN: sabores con 3 precios + activo ===================== */
+function toggleAdmPrecios250(id){
+  const on = document.getElementById('admOfrece250_'+id).classList.contains('on');
+  const wrap = document.getElementById('admWrap250_'+id);
+  if(wrap) wrap.style.display = on ? 'flex' : 'none';
+}
 function pintarAdminSabores(){
-  const row = s => `<div class="listrow" id="admChip_${s.id}" style="flex-wrap:wrap;align-items:center">
-    <div class="nm"><span class="sw-c" style="background:${s.color}"></span><input class="name-in" id="admNombre_${s.id}" value="${s.nombre}" oninput="marcarSaborSucio('${s.id}')"> <span class="typetag">${s.linea}</span></div>
-    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-      <div class="priceWrap">Rappi $ <input class="price-in" id="admRappi_${s.id}" value="${s.precioRappi??0}" oninput="marcarSaborSucio('${s.id}')"></div>
-      <div class="priceWrap">Landing $ <input class="price-in" id="admLanding_${s.id}" value="${s.precioLanding??0}" oninput="marcarSaborSucio('${s.id}')"></div>
-      <div class="priceWrap">Amigos $ <input class="price-in" id="admAmigos_${s.id}" value="${s.precioAmigos??0}" oninput="marcarSaborSucio('${s.id}')"></div>
-      <span class="sw ${s.activo!==false?'on':''}" id="admActivo_${s.id}" onclick="this.classList.toggle('on');marcarSaborSucio('${s.id}')" title="Disponible para vender"><i></i></span>
-      <button class="btn btn-pri btn-xs" id="admGuardar_${s.id}" onclick="guardarSabor('${s.id}')">Guardar</button>
+  const row = s => {
+    const ofrece250 = s.ofrece250===true;
+    return `<div class="listrow" id="admChip_${s.id}" style="flex-direction:column;align-items:stretch;gap:10px">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+      <div class="nm"><span class="sw-c" style="background:${s.color}"></span><input class="name-in" id="admNombre_${s.id}" value="${s.nombre}" oninput="marcarSaborSucio('${s.id}')"> <span class="typetag">${s.linea}</span></div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div class="priceWrap">Rappi $ <input class="price-in" id="admRappi_${s.id}" value="${s.precioRappi??0}" oninput="marcarSaborSucio('${s.id}')"></div>
+        <div class="priceWrap">Landing $ <input class="price-in" id="admLanding_${s.id}" value="${s.precioLanding??0}" oninput="marcarSaborSucio('${s.id}')"></div>
+        <div class="priceWrap">Amigos $ <input class="price-in" id="admAmigos_${s.id}" value="${s.precioAmigos??0}" oninput="marcarSaborSucio('${s.id}')"></div>
+        <span class="sw ${s.activo!==false?'on':''}" id="admActivo_${s.id}" onclick="this.classList.toggle('on');marcarSaborSucio('${s.id}')" title="Disponible para vender"><i></i></span>
+        <button class="btn btn-pri btn-xs" id="admGuardar_${s.id}" onclick="guardarSabor('${s.id}')">Guardar</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--line)">
+      <label style="display:flex;align-items:center;gap:8px;font-family:var(--mont);font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.3px;cursor:pointer;margin-bottom:0">
+        <span class="sw ${ofrece250?'on':''}" id="admOfrece250_${s.id}" onclick="this.classList.toggle('on');toggleAdmPrecios250('${s.id}');marcarSaborSucio('${s.id}')"><i></i></span> Ofrece 250ml
+      </label>
+      <div id="admWrap250_${s.id}" style="display:${ofrece250?'flex':'none'};gap:10px;align-items:center;flex-wrap:wrap">
+        <div class="priceWrap">Rappi 250 $ <input class="price-in" id="admRappi250_${s.id}" value="${s.precio250Rappi??0}" oninput="marcarSaborSucio('${s.id}')"></div>
+        <div class="priceWrap">Landing 250 $ <input class="price-in" id="admLanding250_${s.id}" value="${s.precio250Landing??0}" oninput="marcarSaborSucio('${s.id}')"></div>
+        <div class="priceWrap">Amigos 250 $ <input class="price-in" id="admAmigos250_${s.id}" value="${s.precio250Amigos??0}" oninput="marcarSaborSucio('${s.id}')"></div>
+      </div>
     </div>
   </div>`;
+  };
   document.getElementById('admSabCl').innerHTML = SABORES.filter(s=>s.linea==='Clásicos').map(row).join('');
   document.getElementById('admSabDa').innerHTML = SABORES.filter(s=>s.linea==='De Autor').map(row).join('');
 }
@@ -2204,7 +2284,14 @@ async function guardarSabor(id){
   const landing = +document.getElementById('admLanding_'+id).value || 0;
   const amigos = +document.getElementById('admAmigos_'+id).value || 0;
   const activo = document.getElementById('admActivo_'+id).classList.contains('on');
-  await setDoc(doc(db,'sabores', id), { nombre, precioRappi:rappi, precioLanding:landing, precioAmigos:amigos, activo }, {merge:true});
+  const ofrece250 = document.getElementById('admOfrece250_'+id).classList.contains('on');
+  const rappi250 = +document.getElementById('admRappi250_'+id).value || 0;
+  const landing250 = +document.getElementById('admLanding250_'+id).value || 0;
+  const amigos250 = +document.getElementById('admAmigos250_'+id).value || 0;
+  await setDoc(doc(db,'sabores', id), {
+    nombre, precioRappi:rappi, precioLanding:landing, precioAmigos:amigos, activo,
+    ofrece250, precio250Rappi:rappi250, precio250Landing:landing250, precio250Amigos:amigos250
+  }, {merge:true});
   marcarLimpio('admGuardar_'+id, 'btn-pri');
 }
 
@@ -2325,7 +2412,7 @@ function renderReportesView(){
   listosHoy.forEach(p=> p.sabores.forEach(x=>{
     const s = sabor(x.id); if(!s || !porLinea[s.linea]) return;
     porLinea[s.linea].n += x.cant;
-    porLinea[s.linea].v += x.cant * (x.precioUnit!=null ? x.precioUnit : precioCanalPedido(s, p.canalVenta));
+    porLinea[s.linea].v += x.cant * (x.precioUnit!=null ? x.precioUnit : precioCanalPedido(s, p.canalVenta, x.capacidad));
   }));
   const maxLinea = Math.max(1, porLinea['Clásicos'].v, porLinea['De Autor'].v);
   document.getElementById('repLinea').innerHTML = `
@@ -2700,7 +2787,7 @@ function renderDashboard(){
   let totalVendidoSabores = 0, totalPotesSabores = 0;
   listos.forEach(p=>p.sabores.forEach(x=>{
     const s = sabor(x.id);
-    const precio = x.precioUnit!=null ? x.precioUnit : precioCanalPedido(s, p.canalVenta);
+    const precio = x.precioUnit!=null ? x.precioUnit : precioCanalPedido(s, p.canalVenta, x.capacidad);
     const monto = x.cant * precio;
     ventaSabor[x.id] = (ventaSabor[x.id]||0) + monto;
     totalVendidoSabores += monto;
@@ -2732,7 +2819,7 @@ function renderDashboard(){
   // puedo regalar antes de pasarme del 10%?". Semáforo: amarillo desde 10%, rojo desde 12%.
   const propios = listos.filter(p=>p.canalVenta==='Propio');
   const potesPropios = propios.reduce((a,p)=>a+p.sabores.reduce((b,x)=>b+x.cant,0),0);
-  const valorRef = propios.reduce((a,p)=>a+p.sabores.reduce((b,x)=>b+x.cant*precioCanalPedido(sabor(x.id),'Landing'),0),0);
+  const valorRef = propios.reduce((a,p)=>a+p.sabores.reduce((b,x)=>b+x.cant*precioCanalPedido(sabor(x.id),'Landing',x.capacidad),0),0);
   const totalIngresado = LOTES.reduce((a,l)=>a+l.cant,0);
   const pctPropio = totalIngresado>0 ? (potesPropios/totalIngresado*100) : 0;
   const pctPropioColor = pctPropio>=12 ? 'var(--bad)' : (pctPropio>=10 ? 'var(--warn)' : 'var(--wa)');
@@ -2897,7 +2984,7 @@ Object.assign(window, {
   setStockMin, setDiasLimite, setCostoEnvio, setComisionRappi, renderDashboard, renderLotes, toggleMenu, closeMenu, renderHistorial,
   buscarCliente, actualizarPreciosChips, guardarSabor, ajustarPedidoQty,
   editarPedido, cancelarEdicionPedido, ajustarEditQty, actualizarTotalEdicion, guardarPedidoEdicion,
-  descargarTicketPDF, marcarSaborSucio, volverAHoy, verCajaFecha, imprimirCajaFecha, toggleExpandPedido, irAHistorial, toggleExpandBusqueda,
+  descargarTicketPDF, marcarSaborSucio, volverAHoy, verCajaFecha, imprimirCajaFecha, toggleExpandPedido, irAHistorial, toggleExpandBusqueda, toggleAdmPrecios250,
   actualizarModoPropio, cancelarCargaPedido, marcarSucio, actualizarDescuentoRappi, actualizarModoRappi,
   guardarPromoRappi, agregarPromoRappi, eliminarPromoRappi, marcarPromoRappiSucio, marcarTodosSaboresPromo,
   renderAuditoria
