@@ -20,7 +20,7 @@ aparte para revisar antes de fusionar.
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="theme-color" content="#16162C">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Montserrat:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Bebas+Neue&family=Montserrat:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,500;0,600;1,500;1,600&display=swap" rel="stylesheet">
 <script>
 /* jsPDF v2.5.1 embebido localmente (no depende de un CDN externo) */
 /** @license
@@ -2444,7 +2444,10 @@ const GC_POTES_RECT = {x:1150, y:1345, w:930, h:380};           // repinta navy,
 // ver `bloqueLeft`/`digitoCx`/`textosX` en generarCuponGiftCard.
 const GC_BLOQUE_CENTRO_X = 1668;
 const GC_DIGITO_GAP = 90;   // espacio entre el dígito grande y "POTES"/"DE Xml", medido sobre el original
-const GC_DIGITO = {cy:1515, alto:290};                            // dígito grande — cx se calcula en runtime
+// Dígito grande: Abril Fatface. escalaY = 116.9167% tomado tal cual del panel Character de Illustrator
+// que usó Dany para que el "3" quede con las proporciones del diseño original (Abril Fatface sin
+// estirar queda más bajo/ancho que Engravers MT); escalaX 100% (no se toca el ancho, solo el alto).
+const GC_DIGITO = {cy:1515, alto:290, escalaY:1.169167};          // cx se calcula en runtime
 const GC_POTES_TXT = {cy:1460, alto:80};                          // "POTES" — x se calcula en runtime; el tracking tampoco es fijo: se calcula para que el ancho total quede igual al de "DE Xml" (ver gcMedirTexto/generarCuponGiftCard), así arranca y termina en la misma columna que la línea de abajo, igual que en el archivo original
 const GC_DE_TXT = {cy:1595, alto:70, trackingEm:0.05};            // "DE Xml" — x se calcula en runtime, mismo x final que "POTES" — tracking aproximado, pendiente de confirmar con el archivo original
 const GC_PILL_RECT = {x:1360, y:2818, w:625, h:105, r:48};        // repinta crema, tapa todo el pill del código original — remedido con precisión (pixel-diff): el pill real va de x:1370-1978, y:2827-2917; la medida anterior (h:85) se quedaba 15px corta del borde inferior real y dejaba asomar un resto del pill original abajo ("otro marco" que vio Dany) — ahora con margen de sobra en los 4 bordes
@@ -2497,12 +2500,17 @@ function gcTextoAjustado(ctx, texto, familia, peso, x, cy, alto, align, tracking
 // todavía — se usa para poder calcular primero cuánto mide una palabra y recién después decidir cómo
 // dibujar otra para que le quede el mismo ancho (ver GC_POTES_TXT: "POTES" se estira/comprime con
 // tracking hasta igualar el ancho de "DE Xml", tal como está en el archivo original de Dany).
-function gcMedirTexto(ctx, texto, familia, peso, alto, trackingEm){
+// escalaY/escalaX (opcionales, default 1) replican el "Vertical/Horizontal Scale" del panel Character
+// de Illustrator (ver dígito del cupón: Abril Fatface con escalaY 116.9167% para igualar la proporción
+// del diseño original) — `alto` sigue siendo la altura FINAL ya escalada, así el resto del código
+// (centrado de bloque, etc.) no tiene que saber que hay un escalado de por medio.
+function gcMedirTexto(ctx, texto, familia, peso, alto, trackingEm, escalaY, escalaX){
+  escalaY = escalaY||1; escalaX = escalaX||1;
   const REF = 300;
   ctx.font = (peso?peso+' ':'')+REF+"px "+familia;
   let altoRef = 0;
   for(const ch of texto){ const mm = ctx.measureText(ch); altoRef = Math.max(altoRef, (mm.actualBoundingBoxAscent||REF*0.72)+(mm.actualBoundingBoxDescent||0)); }
-  const fs = Math.max(8, REF*(alto/altoRef));
+  const fs = Math.max(8, REF*((alto/escalaY)/altoRef));
   ctx.font = (peso?peso+' ':'')+fs+"px "+familia;
   const tracking = (trackingEm||0)*fs;
   let anchoSinTracking = 0, asc = 0, desc = 0;
@@ -2512,21 +2520,34 @@ function gcMedirTexto(ctx, texto, familia, peso, alto, trackingEm){
     asc = Math.max(asc, mm.actualBoundingBoxAscent||fs*0.72);
     desc = Math.max(desc, mm.actualBoundingBoxDescent||0);
   }
-  const ancho = anchoSinTracking + tracking*(texto.length-1);
-  return {fs, ancho, anchoSinTracking, asc, desc, tracking};
+  const anchoNatural = anchoSinTracking + tracking*(texto.length-1);
+  const ancho = anchoNatural*escalaX; // ancho final ya escalado, para centrado de bloques
+  return {fs, ancho, anchoNatural, anchoSinTracking, asc, desc, tracking, escalaX, escalaY};
 }
 // Dibuja `texto` ya con el tamaño de fuente, tracking y métricas verticales resueltos de antemano
 // (por gcMedirTexto) — separado de gcTextoAjustado porque acá el tracking puede venir calculado para
-// pegar un ancho objetivo, no de un valor fijo.
+// pegar un ancho objetivo, no de un valor fijo. Si info trae escalaX/escalaY != 1, dibuja alrededor de
+// un translate+scale (equivalente al Horizontal/Vertical Scale de Illustrator).
 function gcDibujarTextoMedido(ctx, texto, familia, peso, info, x, cy, align){
   ctx.font = (peso?peso+' ':'')+info.fs+"px "+familia;
-  const baseline = cy + (info.asc-info.desc)/2;
+  const baseline = (info.asc-info.desc)/2; // relativo: el centrado vertical no cambia con el escalado
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
-  let cx = align==='center' ? x - info.ancho/2 : x;
+  const escalaX = info.escalaX||1, escalaY = info.escalaY||1;
+  const cxIni = align==='center' ? -info.anchoNatural/2 : 0;
+  ctx.save();
+  ctx.translate(x, cy);
+  ctx.scale(escalaX, escalaY);
+  let cx = cxIni;
   for(const ch of texto){ ctx.fillText(ch, cx, baseline); cx += ctx.measureText(ch).width + info.tracking; }
+  ctx.restore();
 }
-function generarCuponGiftCard(g){
+async function generarCuponGiftCard(g){
+  // Fuerza a que Abril Fatface (Google Font, cargada por <link> en el <head>) esté resuelta ANTES de
+  // dibujar en el canvas — normalmente ya lo está porque el <link> carga al abrir la página, pero esto
+  // cubre el caso de que el cupón se genere justo antes de que termine de bajar. Si por lo que sea
+  // fallara, no rompe nada: cae al fallback (Georgia).
+  try{ await document.fonts.load("100px 'Abril Fatface'"); }catch(e){}
   return new Promise((resolve,reject)=>{
     const img = new Image();
     img.onload = () => {
@@ -2550,7 +2571,7 @@ function generarCuponGiftCard(g){
       // 1) medir todo primero (dígito, "DE Xml" y "POTES" ya ajustado al mismo ancho que "DE Xml")
       //    sin dibujar nada — recién con las 3 medidas se puede calcular dónde centrar el conjunto.
       const digitTxt = String(g.potes);
-      const digitInfo = gcMedirTexto(ctx, digitTxt, "'Engravers MT', Georgia, serif", null, gcS(GC_DIGITO.alto), 0);
+      const digitInfo = gcMedirTexto(ctx, digitTxt, "'Abril Fatface', Georgia, serif", null, gcS(GC_DIGITO.alto), 0, GC_DIGITO.escalaY);
       const gcTxtDe = 'DE '+g.capacidad+'ml';
       const deInfo = gcMedirTexto(ctx, gcTxtDe, 'Montserrat, sans-serif', '400', gcS(GC_DE_TXT.alto), GC_DE_TXT.trackingEm);
       const potesNatural = gcMedirTexto(ctx, 'POTES', 'Montserrat, sans-serif', '400', gcS(GC_POTES_TXT.alto), 0);
@@ -2570,7 +2591,7 @@ function generarCuponGiftCard(g){
 
       // 3) dibujar
       ctx.fillStyle = '#F1D29E';
-      gcDibujarTextoMedido(ctx, digitTxt, "'Engravers MT', Georgia, serif", null, digitInfo, digitoCx, gcS(GC_DIGITO.cy), 'center');
+      gcDibujarTextoMedido(ctx, digitTxt, "'Abril Fatface', Georgia, serif", null, digitInfo, digitoCx, gcS(GC_DIGITO.cy), 'center');
       ctx.fillStyle = '#FAF2E3';
       gcDibujarTextoMedido(ctx, 'POTES', 'Montserrat, sans-serif', '400', potesInfo, textosX, gcS(GC_POTES_TXT.cy), 'left');
       gcDibujarTextoMedido(ctx, gcTxtDe, 'Montserrat, sans-serif', '400', deInfo, textosX, gcS(GC_DE_TXT.cy), 'left');
@@ -2889,7 +2910,7 @@ function filaGiftCardVigente(g){
   const vencTxt = dias<=0 ? 'Vence hoy' : ('Vence en '+dias+' día'+(dias===1?'':'s'));
   return `<div class="listrow">
     <div class="nm">${g.numero} · ${g.destinatario||g.comprador.nombre}<span class="typetag" style="margin-left:8px">${g.capacidad}ml x${g.potes}</span></div>
-    <div style="display:flex;align-items:center;gap:10px">
+    <div class="actions">
       <span class="meta">${fmt$(g.total)} · ${vencTxt}</span>
       <button class="btn btn-ghost btn-xs" onclick="copiarGiftCardNumero('${g.id}', this)">Copiar N°</button>
       <button class="btn btn-ghost btn-xs" onclick="editarGiftCard('${g.id}')">Editar</button>
@@ -2901,7 +2922,7 @@ function filaGiftCardVigente(g){
 function filaGiftCardPendiente(g){
   return `<div class="listrow">
     <div class="nm">${g.numero} · ${g.destinatario||g.comprador.nombre}<span class="typetag" style="margin-left:8px">${g.capacidad}ml x${g.potes}</span></div>
-    <div style="display:flex;align-items:center;gap:10px">
+    <div class="actions">
       <span class="meta">${fmt$(g.total)} · esperando confirmación de cobro</span>
       <button class="btn btn-ghost btn-xs" onclick="copiarGiftCardNumero('${g.id}', this)">Copiar N°</button>
       <button class="btn btn-ghost btn-xs" onclick="editarGiftCard('${g.id}')">Editar</button>
@@ -2913,7 +2934,7 @@ function filaGiftCardPendiente(g){
 function filaGiftCardCanjeada(g){
   return `<div class="listrow">
     <div class="nm">${g.numero} · ${g.destinatario||g.comprador.nombre}<span class="typetag" style="margin-left:8px">${g.capacidad}ml x${g.potes}</span></div>
-    <div style="display:flex;align-items:center;gap:10px">
+    <div class="actions">
       <span class="meta">Canjeada el ${fmtFecha(g.fechaCanje)} · ${fmt$(g.total)}</span>
       <button class="btn btn-ghost btn-xs" onclick="copiarGiftCardNumero('${g.id}', this)">Copiar N°</button>
       <button class="btn btn-ghost btn-xs" onclick="previsualizarCuponGiftCard('${g.id}')">Ver cupón</button>
@@ -2923,7 +2944,7 @@ function filaGiftCardCanjeada(g){
 function filaGiftCardVencida(g){
   return `<div class="listrow">
     <div class="nm">${g.numero} · ${g.destinatario||g.comprador.nombre}<span class="typetag" style="margin-left:8px">${g.capacidad}ml x${g.potes}</span></div>
-    <div style="display:flex;align-items:center;gap:10px">
+    <div class="actions">
       <span class="meta" style="color:var(--bad)">Venció el ${fmtFecha(g.fechaVencimiento)} · ${fmt$(g.total)}</span>
       <button class="btn btn-ghost btn-xs" onclick="copiarGiftCardNumero('${g.id}', this)">Copiar N°</button>
       <button class="btn btn-ghost btn-xs" onclick="editarGiftCard('${g.id}')">Editar</button>
