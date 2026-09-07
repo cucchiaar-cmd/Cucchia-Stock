@@ -2444,10 +2444,11 @@ const GC_POTES_RECT = {x:1150, y:1345, w:930, h:380};           // repinta navy,
 // ver `bloqueLeft`/`digitoCx`/`textosX` en generarCuponGiftCard.
 const GC_BLOQUE_CENTRO_X = 1668;
 const GC_DIGITO_GAP = 90;   // espacio entre el dígito grande y "POTES"/"DE Xml", medido sobre el original
-// Dígito grande: Abril Fatface. escalaY = 116.9167% tomado tal cual del panel Character de Illustrator
-// que usó Dany para que el "3" quede con las proporciones del diseño original (Abril Fatface sin
-// estirar queda más bajo/ancho que Engravers MT); escalaX 100% (no se toca el ancho, solo el alto).
-const GC_DIGITO = {cy:1515, alto:290, escalaY:1.169167};          // cx se calcula en runtime
+// Dígito grande: Abril Fatface. escalaX = 116.9167% tomado del panel Character de Illustrator que usó
+// Dany, para que el "3" quede con el mismo ancho/expansión horizontal que el diseño original (probado
+// contra la imagen real: con la escala en el eje vertical el "3" salía más angosto de lo debido —
+// Dany confirmó visualmente comparando contra su diseño que la expansión es horizontal, no vertical).
+const GC_DIGITO = {cy:1515, alto:290, escalaX:1.169167};          // cx se calcula en runtime
 const GC_POTES_TXT = {cy:1460, alto:80};                          // "POTES" — x se calcula en runtime; el tracking tampoco es fijo: se calcula para que el ancho total quede igual al de "DE Xml" (ver gcMedirTexto/generarCuponGiftCard), así arranca y termina en la misma columna que la línea de abajo, igual que en el archivo original
 const GC_DE_TXT = {cy:1595, alto:70, trackingEm:0.05};            // "DE Xml" — x se calcula en runtime, mismo x final que "POTES" — tracking aproximado, pendiente de confirmar con el archivo original
 const GC_PILL_RECT = {x:1360, y:2818, w:625, h:105, r:48};        // repinta crema, tapa todo el pill del código original — remedido con precisión (pixel-diff): el pill real va de x:1370-1978, y:2827-2917; la medida anterior (h:85) se quedaba 15px corta del borde inferior real y dejaba asomar un resto del pill original abajo ("otro marco" que vio Dany) — ahora con margen de sobra en los 4 bordes
@@ -2571,7 +2572,7 @@ async function generarCuponGiftCard(g){
       // 1) medir todo primero (dígito, "DE Xml" y "POTES" ya ajustado al mismo ancho que "DE Xml")
       //    sin dibujar nada — recién con las 3 medidas se puede calcular dónde centrar el conjunto.
       const digitTxt = String(g.potes);
-      const digitInfo = gcMedirTexto(ctx, digitTxt, "'Abril Fatface', Georgia, serif", null, gcS(GC_DIGITO.alto), 0, GC_DIGITO.escalaY);
+      const digitInfo = gcMedirTexto(ctx, digitTxt, "'Abril Fatface', Georgia, serif", null, gcS(GC_DIGITO.alto), 0, 1, GC_DIGITO.escalaX);
       const gcTxtDe = 'DE '+g.capacidad+'ml';
       const deInfo = gcMedirTexto(ctx, gcTxtDe, 'Montserrat, sans-serif', '400', gcS(GC_DE_TXT.alto), GC_DE_TXT.trackingEm);
       const potesNatural = gcMedirTexto(ctx, 'POTES', 'Montserrat, sans-serif', '400', gcS(GC_POTES_TXT.alto), 0);
