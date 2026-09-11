@@ -1135,17 +1135,20 @@ function closeMenu(){
 let SABORES = []; // antes era const fija, ahora vive en la colección 'sabores'
 function sabor(id){ return SABORES.find(s=>s.id===id); }
 // Descuentos Rappi: lista de promociones independientes (colección 'promosRappi'), cada una con
-// título, %, a qué sabores aplica (checklist) y un tipo de cliente: VIP o común — NUNCA ambos.
-// Un cliente VIP solo ve las promos marcadas VIP; un cliente común solo ve las marcadas común.
-// No se suman entre sí (decisión de Dany, 20/08/2026: "habrá descuento para VIP o para comunes").
+// título, %, a qué sabores aplica (checklist) y un tipo de cliente: VIP o común.
+// La exclusión mutua es POR SABOR, no por pedido entero (corregido 11/09/2026): un cliente PRO
+// toma las promos VIP que incluyan ese sabor puntual; si NINGUNA promo VIP cubre ese sabor, cae
+// a las promos "Todos los usuarios" que sí lo cubran — un cliente PRO nunca se queda sin el
+// descuento general solo por ser PRO en un sabor donde no hay promo VIP específica. Cuando SÍ hay
+// una promo VIP para ese sabor, la general queda excluida para ese sabor puntual (no se suman
+// entre sí — decisión de Dany, 20/08/2026: "habrá descuento para VIP o para comunes"). Un cliente
+// común siempre ve únicamente las promos "Todos los usuarios", nunca las VIP.
 let PROMOS_RAPPI = [];
 function descuentoLineaRappi(saborId, esVip){
-  return PROMOS_RAPPI.reduce((total,p)=>{
-    if(p.activo===false) return total;
-    if(!Array.isArray(p.sabores) || !p.sabores.includes(saborId)) return total;
-    if(!!p.vip !== esVip) return total; // la promo es o para VIP o para común, no se mezclan
-    return total + (+p.pct || 0);
-  }, 0);
+  const promosSabor = PROMOS_RAPPI.filter(p=>p.activo!==false && Array.isArray(p.sabores) && p.sabores.includes(saborId));
+  const vipAplicables = promosSabor.filter(p=>!!p.vip);
+  const base = (esVip && vipAplicables.length) ? vipAplicables : promosSabor.filter(p=>!p.vip);
+  return base.reduce((total,p)=> total + (+p.pct || 0), 0);
 }
 function precioCanalPedido(s, canal, capacidad){
   if(!s) return 0;
