@@ -627,6 +627,17 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 </head>
 <body>
 
+<!-- ====== LOGIN (29/09/2026) — mismo sistema de diseño: .box / .field / .btn-pri ====== -->
+<div id="loginScreen" style="display:none;position:fixed;inset:0;z-index:9999;background:var(--kraft);align-items:center;justify-content:center;padding:16px">
+  <div class="box" style="width:100%;max-width:340px;margin:0">
+    <h3>Cucchia — Ingresar</h3>
+    <div class="field"><label for="loginEmail">Email</label><input id="loginEmail" type="email" autocomplete="username" inputmode="email"></div>
+    <div class="field"><label for="loginPass">Contraseña</label><input id="loginPass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')ingresar()"></div>
+    <button id="loginBtn" class="btn btn-pri" style="width:100%" onclick="ingresar()">Ingresar</button>
+    <div id="loginError" style="display:none;margin-top:10px;font-size:10.5px;font-weight:600;color:var(--bad)"></div>
+  </div>
+</div>
+
 <button class="menu-toggle" onclick="toggleMenu()">☰</button>
 <div class="menu-overlay" id="menuOverlay" onclick="closeMenu()"></div>
 
@@ -644,7 +655,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     <a onclick="go('dashboard',this)"><span class="ico">◈</span> Dashboard</a>
     <a onclick="go('admin',this)"><span class="ico">❖</span> Administración</a>
   </nav>
-  <div class="sidefoot"><div class="lbl">VENDIDO HOY</div><div class="big" id="sfVendido">$103.500</div></div>
+  <div class="sidefoot"><div class="lbl">VENDIDO HOY</div><div class="big" id="sfVendido">$103.500</div><button class="btn btn-xs btn-gold" style="margin-top:12px;width:100%" onclick="cerrarSesion()">Cerrar sesión</button></div>
 </aside>
 
 <main>
@@ -1076,6 +1087,7 @@ import {
   getFirestore, collection, doc, getDoc, setDoc, addDoc, updateDoc,
   deleteDoc, onSnapshot, writeBatch, query, orderBy, serverTimestamp, increment
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCUrZshxfMJTS1dkPQuNaQC1c4xA6XtJd4",
@@ -1087,6 +1099,7 @@ const firebaseConfig = {
 };
 const fbApp        = initializeApp(firebaseConfig);
 const db           = getFirestore(fbApp);
+const auth         = getAuth(fbApp); // login email+contraseña (29/09/2026): el sistema no arranca listeners hasta que hay sesión
 const colLotes     = collection(db,'lotes');
 const colEgresos   = collection(db,'egresos');
 const colSabores   = collection(db,'sabores');
@@ -3971,13 +3984,57 @@ function iniciarListeners(){
 }
 
 /* ===================== INIT ===================== */
-document.addEventListener('DOMContentLoaded', async function(){
-  await seedInitialDataIfNeeded();
-  await seedSaboresIfNeeded();
-  iniciarListeners();
+let sistemaIniciado = false;
+document.addEventListener('DOMContentLoaded', function(){
+  onAuthStateChanged(auth, async user=>{
+    const ls = document.getElementById('loginScreen');
+    if(user){
+      if(ls) ls.style.display = 'none';
+      if(!sistemaIniciado){
+        sistemaIniciado = true;
+        await seedInitialDataIfNeeded();
+        await seedSaboresIfNeeded();
+        iniciarListeners();
+      }
+    } else {
+      // Sin sesión: si el sistema ya había arrancado (sesión cerrada/expirada), recargar para cortar los listeners
+      if(sistemaIniciado){ location.reload(); return; }
+      if(ls) ls.style.display = 'flex';
+    }
+  });
 });
 
+async function ingresar(){
+  const email = (document.getElementById('loginEmail').value||'').trim();
+  const pass  = document.getElementById('loginPass').value||'';
+  const err   = document.getElementById('loginError');
+  const btn   = document.getElementById('loginBtn');
+  err.style.display = 'none';
+  if(!email || !pass){ err.textContent = 'Completá email y contraseña.'; err.style.display = 'block'; return; }
+  btn.disabled = true; btn.textContent = 'Ingresando…';
+  try{
+    await signInWithEmailAndPassword(auth, email, pass);
+  }catch(e){
+    const c = e && e.code || '';
+    err.textContent = (c==='auth/invalid-credential'||c==='auth/wrong-password'||c==='auth/user-not-found'||c==='auth/invalid-email')
+      ? 'Email o contraseña incorrectos.'
+      : c==='auth/too-many-requests' ? 'Demasiados intentos. Esperá unos minutos y probá de nuevo.'
+      : c==='auth/network-request-failed' ? 'Sin conexión. Revisá internet y probá de nuevo.'
+      : 'No se pudo ingresar ('+c+').';
+    err.style.display = 'block';
+  }finally{
+    btn.disabled = false; btn.textContent = 'Ingresar';
+  }
+}
+
+async function cerrarSesion(){
+  if(!confirm('¿Cerrar sesión?')) return;
+  await signOut(auth);
+  location.reload();
+}
+
 Object.assign(window, {
+  ingresar, cerrarSesion,
   go, atab, filt, done, ticket, closeT, crearPedido, renderCart, cancelarPedido, eliminarPedidoDespachado,
   editarLote, eliminarLote, guardarLoteEdicion, cancelarEdicionLote,
   registrarIngresoFila, editarEgreso, deshacerEgreso, guardarEgresoEdicion, cancelarEdicionEgreso,
