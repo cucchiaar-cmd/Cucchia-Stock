@@ -75,6 +75,40 @@ nav.main a:hover:not(.on){color:var(--ink)}
 /* Celular y tablet (01/10/2026): el menú pasa a una segunda fila del header, deslizable de costado */
 @media(max-width:1099px){header .wrap{height:auto;flex-wrap:wrap;padding-top:.6rem;padding-bottom:.6rem;row-gap:.55rem}nav.main{display:flex;order:3;width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none}nav.main::-webkit-scrollbar{display:none}nav.main a{flex:0 0 auto}}
 @media(max-width:640px){.mark-logo{width:36px!important;height:36px!important}.hdr-r{gap:.4rem}.hdr-r .btn-sm{padding:.4rem .6rem}}
+/* Celular (01/10/2026): las tablas pasan a tarjetas apiladas (una fila = una tarjeta, cada dato con su etiqueta),
+   así no hay que deslizar de costado. Las etiquetas salen del encabezado de cada tabla (data-l, ver mtbl()). */
+@media(max-width:700px){
+  .mtbl{min-width:0!important;width:100%}
+  .mtbl thead{display:none}
+  .mtbl,.mtbl tbody,.mtbl tr{display:block;width:100%}
+  .mtbl tr{padding:.65rem 0;border-bottom:1px solid rgba(128,118,100,.22)}
+  .mtbl tr:last-child{border-bottom:0}
+  .mtbl td{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:center;gap:.35rem .6rem;padding:.18rem 0!important;border:0!important;text-align:right;width:auto!important;max-width:none!important;white-space:normal}
+  .mtbl td::before{content:attr(data-l);font-size:.66rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;opacity:.6;text-align:left;flex:0 0 auto;max-width:45%;margin-right:auto}
+  .mtbl td[data-l=""]::before{content:none}
+  .mtbl td:first-child{display:block;text-align:left}
+  .mtbl td:first-child::before{content:none}
+  .mtbl td:empty{display:none}
+  .mtbl tr>td:first-child:has(>input[type=checkbox]){float:left;width:auto!important;margin:.15rem .6rem 0 0}
+  .mtbl td.act{justify-content:flex-end}
+  .mtbl td[data-blk],.mtbl td[data-tit]{display:block;text-align:left}
+  .mtbl td[data-blk]::before{display:block;max-width:none;margin-bottom:.15rem}
+  /* Receta y packaging (tablas oscuras de la ficha): cantidades en una sola línea */
+  .mtbl.t tr{display:flex;flex-wrap:wrap;align-items:flex-end;gap:.25rem .9rem}
+  .mtbl.t td{flex:1 1 0;flex-direction:column;align-items:flex-end;justify-content:flex-end;gap:.1rem;min-width:0}
+  .mtbl.t td::before{margin-right:0;max-width:none}
+  .mtbl.t td:first-child{flex:1 1 100%}
+  .mtbl.t td.act{flex:0 0 auto}
+  .mtbl.t tr.tot td:first-child{flex:1 1 100%}
+  .mtbl .pdrop{width:100%}
+  .tbl-wrap{overflow-x:visible!important;padding-left:.75rem;padding-right:.75rem}
+  .szwrap{flex-wrap:wrap}
+  .pcard,.par-grid>*,.dossier>*,.panel{min-width:0}
+  .prow{flex-wrap:wrap}.prow .pn{min-width:0;flex:1 1 100%}
+  .pdrop,.psel{max-width:100%}
+  .fgrid>*,.f{min-width:0}.f input,.f select,.f textarea{min-width:0;width:100%;box-sizing:border-box}
+  .mdl{padding:1.1rem}
+}
 /* selector de medida */
 .size-sel{display:flex;background:var(--cream-mid);border-radius:var(--r-in);padding:3px;gap:3px}
 .size-sel button{white-space:nowrap;border:0;background:transparent;color:var(--espresso);padding:.4rem .7rem;border-radius:6px;cursor:pointer;font:inherit;letter-spacing:inherit}
@@ -1414,6 +1448,14 @@ window.pubCopiar=async()=>{
     toast('Copia de prueba lista'); setTimeout(pubOpen,400);
   }catch(e){ console.error(e); m.textContent='Error al copiar: '+(e.message||e); }
 };
+// Tablas → tarjetas en el celular: copia el texto de cada encabezado a sus celdas (data-l) para usarlo como etiqueta.
+function mtbl(){ document.querySelectorAll('table').forEach(t=>{ const ths=[...t.querySelectorAll('thead th')].map(th=>th.textContent.replace(/\s+/g,' ').trim()); if(!ths.length) return; t.classList.add('mtbl');
+  t.querySelectorAll('tbody tr').forEach(tr=>{ let i=0; const cs=[...tr.children], ck=cs[0]&&cs[0].children.length===1&&cs[0].querySelector(':scope>input[type=checkbox]')&&!cs[0].textContent.trim();
+    cs.forEach((td,j)=>{ const sp=+td.colSpan||1; let l=sp>1?'':(ths[i]||''); if(ck&&j===1){ l=''; td.dataset.tit='1'; }
+      if(td.getAttribute('data-l')!==l) td.setAttribute('data-l',l);
+      const mix=td.querySelector('br')||[...td.childNodes].some(n=>n.nodeType===3&&n.textContent.trim())&&td.children.length>0; if(mix) td.dataset.blk='1'; else delete td.dataset.blk;
+      i+=sp; }); }); }); }
+{ let tm; new MutationObserver(()=>{ clearTimeout(tm); tm=setTimeout(mtbl,40); }).observe(document.body,{childList:true,subtree:true}); }
 window.mOpen=(h,w=720)=>{ el('mdlBox').style.maxWidth=w+'px'; el('mdlBox').innerHTML=h; el('mdl').classList.add('on'); };
 window.mClose=()=>{ catOpen=false; el('mdl').classList.remove('on'); };
 window.dirty=dirty; window.renderDet=renderDet; window.btnState=btnState; window.pDirtySet=pDirtySet; window.renderRappi=renderRappi;
