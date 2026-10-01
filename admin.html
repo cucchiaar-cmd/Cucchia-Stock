@@ -1390,7 +1390,10 @@ function pubPlan(){
   VPROMO.forEach(v=>{ if(!want.some(w=>w.id===v.id)) pr.bajas.push(v); });
   pr.n=pr.altas.length+pr.cambios.length+pr.bajas.length;
   const com={fin:+P.comisionRappi, ven:VCFG.comisionRappi==null?null:+VCFG.comisionRappi}; com.n=com.fin!==com.ven?1:0;
-  return {out, sueltos:VSAB.filter(s=>!usados.has(s.id)), pr, com};
+  // Finanzas manda: los sabores de Ventas que no salen de Finanzas se retiran de la venta (se apagan, no se borran:
+  // pueden tener pedidos o stock). Si no tienen nada asociado se pueden eliminar desde Ventas.
+  const sueltos=VSAB.filter(s=>!usados.has(s.id)), ret=sueltos.filter(s=>s.activo!==false);
+  return {out, sueltos, pr, com, ret};
 }
 const promoTxt=d=>`${d.nombre} · ${+d.pct||0}% · ${d.vip?'PRO':'todos'} · ${d.activo!==false?'activa':'apagada'} · ${vigTxt(d)} · ${(d.sabores||[]).length} sabor${(d.sabores||[]).length===1?'':'es'}`;
 let PUBSEL=null, PUBLINK={}; // PUBLINK: producto de Finanzas → sabor existente de Ventas elegido a mano (evita duplicados por nombre distinto)
@@ -1398,8 +1401,8 @@ let PUBSEL=null, PUBLINK={}; // PUBLINK: producto de Finanzas → sabor existent
 Object.defineProperty(window,'PUBSEL',{get:()=>PUBSEL,set:v=>{PUBSEL=v;},configurable:true});
 Object.defineProperty(window,'PUBLINK',{get:()=>PUBLINK,set:v=>{PUBLINK=v;},configurable:true});
 window.pubOpen=()=>{
-  const {out,sueltos,pr,com}=pubPlan(); if(!PUBSEL){ PUBSEL=new Set(out.filter(r=>r.ch.length).map(r=>r.id)); if(pr.n) PUBSEL.add('__promos'); if(com.n) PUBSEL.add('__com'); }
-  const n=out.filter(r=>PUBSEL.has(r.id)&&r.ch.length).length+(pr.n&&PUBSEL.has('__promos')?1:0)+(com.n&&PUBSEL.has('__com')?1:0);
+  const {out,sueltos,pr,com,ret}=pubPlan(); if(!PUBSEL){ PUBSEL=new Set(out.filter(r=>r.ch.length).map(r=>r.id)); if(pr.n) PUBSEL.add('__promos'); if(com.n) PUBSEL.add('__com'); if(ret.length) PUBSEL.add('__ret'); }
+  const n=out.filter(r=>PUBSEL.has(r.id)&&r.ch.length).length+(pr.n&&PUBSEL.has('__promos')?1:0)+(com.n&&PUBSEL.has('__com')?1:0)+(ret.length&&PUBSEL.has('__ret')?1:0);
   const ck=k=>`<input type="checkbox" ${PUBSEL.has(k)?'checked':''} onchange="PUBSEL[this.checked?'add':'delete']('${k}');pubOpen()">`;
   const destino=TEST?'Entorno de prueba · test_sabores':'Ventas real · sistema de pedidos';
   const vacio=TEST&&!VSAB.length;
@@ -1412,24 +1415,26 @@ window.pubOpen=()=>{
     <td class="nm">${r.p.nombre} <span class="muted" style="font-size:.72rem">${codigo(r.p)}</span>${r.nuevo?' <span class="age prov">nuevo en Ventas</span>':''}${(r.nuevo||PUBLINK[r.p.id])&&(sueltos.length||PUBLINK[r.p.id])?`<br><select class="lin" style="margin-top:.35rem;font-size:.75rem;padding:.2rem .4rem" title="Si en Ventas ya existe con otro nombre, vinculalo para no duplicarlo" onchange="const v=this.value;PUBSEL=null;if(v)PUBLINK['${r.p.id}']=v;else delete PUBLINK['${r.p.id}'];pubOpen()"><option value="">Crear como sabor nuevo</option>${[...sueltos,...(PUBLINK[r.p.id]?VSAB.filter(x=>x.id===PUBLINK[r.p.id]):[])].map(x=>`<option value="${x.id}"${PUBLINK[r.p.id]===x.id?' selected':''}>Es «${x.nombre}» en Ventas</option>`).join('')}</select>`:''}</td>
     <td style="font-size:.8rem">${r.ch.map(k=>`${PUB_LBL[k]}: <span class="muted">${r.nuevo?'':pubFmt(k,r.v[k])+' → '}</span><b>${pubFmt(k,r.d[k])}</b>`).join('<br>')}</td></tr>`).join('')}
   </tbody></table></div>`:'<div class="diffbox"><div>Los sabores ya están al día en Ventas.</div></div>'; })()}
-  ${pr.n||com.n?`<div class="tbl-wrap" style="margin-top:1rem"><table class="ing" style="min-width:0"><thead><tr class="caps"><th></th><th>También</th><th>Qué cambia en Ventas</th></tr></thead><tbody>
+  ${pr.n||com.n||ret.length?`<div class="tbl-wrap" style="margin-top:1rem"><table class="ing" style="min-width:0"><thead><tr class="caps"><th></th><th>También</th><th>Qué cambia en Ventas</th></tr></thead><tbody>
     ${pr.n?`<tr class="${PUBSEL.has('__promos')?'sel':''}"><td>${ck('__promos')}</td><td class="nm">Descuentos Rappi</td><td style="font-size:.8rem">${[...pr.altas.map(w=>`<b>Alta:</b> ${promoTxt(w.d)}`),...pr.cambios.map(w=>`<b>Cambia:</b> <span class="muted">${promoTxt(w.v)} →</span> ${promoTxt(w.d)}`),...pr.bajas.map(v=>`<b>Se elimina:</b> <span class="muted">${promoTxt(v)}</span>`)].join('<br>')}</td></tr>`:''}
     ${com.n?`<tr class="${PUBSEL.has('__com')?'sel':''}"><td>${ck('__com')}</td><td class="nm">Comisión Rappi</td><td style="font-size:.8rem"><span class="muted">${com.ven==null?'—':num(com.ven)+'%'} →</span> <b>${num(com.fin)}%</b> <span class="muted">· los pedidos ya despachados conservan su %</span></td></tr>`:''}
+    ${ret.length?`<tr class="${PUBSEL.has('__ret')?'sel':''}"><td>${ck('__ret')}</td><td class="nm">Sabores que no están en Finanzas</td><td style="font-size:.8rem"><b>Se retira de la venta:</b> ${ret.map(x=>x.nombre).join(', ')} <span class="muted">· quedan apagados en Ventas, no se borran</span></td></tr>`:''}
   </tbody></table></div>`:''}`}
-  <div class="mdl-foot" style="align-items:center;justify-content:space-between"><span class="subtle" style="font-size:.8rem">${n} producto${n===1?'':'s'} a publicar</span><span style="display:flex;gap:.5rem"><button class="btn btn-sec caps" onclick="PUBSEL=null;mClose()">Cancelar</button><button class="btn btn-save caps" id="pubOk" data-state="${n?'dirty':'saved'}" ${n?'':'disabled'} onclick="pubGo()">${n?(TEST?'Publicar en prueba':'Publicar en Ventas real'):'Nada para publicar'}</button></span></div>`,900);
+  <div class="mdl-foot" style="align-items:center;justify-content:space-between"><span class="subtle" style="font-size:.8rem">${n} cambio${n===1?'':'s'} a publicar</span><span style="display:flex;gap:.5rem"><button class="btn btn-sec caps" onclick="PUBSEL=null;mClose()">Cancelar</button><button class="btn btn-save caps" id="pubOk" data-state="${n?'dirty':'saved'}" ${n?'':'disabled'} onclick="pubGo()">${n?(TEST?'Publicar en prueba':'Publicar en Ventas real'):'Nada para publicar'}</button></span></div>`,900);
 };
 window.pubGo=async()=>{
-  const {out,pr,com}=pubPlan(), sel=out.filter(r=>PUBSEL?.has(r.id)&&r.ch.length), doP=pr.n&&PUBSEL?.has('__promos'), doC=com.n&&PUBSEL?.has('__com');
-  if(!sel.length&&!doP&&!doC) return;
-  if(!TEST&&!confirm(`Vas a cambiar el sistema de pedidos en vivo: ${[sel.length?`${sel.length} sabor${sel.length===1?'':'es'}`:'',doP?'descuentos Rappi':'',doC?'comisión Rappi':''].filter(Boolean).join(', ')}. ¿Seguimos?`)) return;
+  const {out,pr,com,ret}=pubPlan(), sel=out.filter(r=>PUBSEL?.has(r.id)&&r.ch.length), doP=pr.n&&PUBSEL?.has('__promos'), doC=com.n&&PUBSEL?.has('__com'), doR=ret.length&&PUBSEL?.has('__ret');
+  if(!sel.length&&!doP&&!doC&&!doR) return;
+  if(!TEST&&!confirm(`Vas a cambiar el sistema de pedidos en vivo: ${[sel.length?`${sel.length} sabor${sel.length===1?'':'es'}`:'',doP?'descuentos Rappi':'',doC?'comisión Rappi':'',doR?`retirar ${ret.length} sabor${ret.length===1?'':'es'}`:''].filter(Boolean).join(', ')}. ¿Seguimos?`)) return;
   const b=el('pubOk'); b.disabled=true; b.innerHTML='<span class="spin sm inv"></span>Publicando…';
   try{
     const bt=writeBatch(db);
     sel.forEach(r=>{ bt.set(doc(db,VC('sabores'),r.id),r.d,{merge:true}); if(r.p.vid!==r.id) bt.set(doc(db,C.prod,r.p.id),{vid:r.id},{merge:true}); });
     if(doP){ pr.altas.forEach(w=>bt.set(doc(db,VC('promosRappi'),w.id),{...w.d,ts:serverTimestamp()})); pr.cambios.forEach(w=>bt.set(doc(db,VC('promosRappi'),w.id),w.d,{merge:true})); pr.bajas.forEach(v=>bt.delete(doc(db,VC('promosRappi'),v.id))); }
     if(doC) bt.set(doc(db,VC('config'),'stock'),{comisionRappi:com.fin},{merge:true});
+    if(doR) ret.forEach(x=>bt.set(doc(db,VC('sabores'),x.id),{activo:false},{merge:true}));
     await withTimeout(bt.commit(),30000);
-    const extra=[doP?`Descuentos Rappi: ${pr.altas.length} alta${pr.altas.length===1?'':'s'}, ${pr.cambios.length} cambio${pr.cambios.length===1?'':'s'}, ${pr.bajas.length} baja${pr.bajas.length===1?'':'s'}`:'',doC?`Comisión Rappi ${com.ven==null?'—':num(com.ven)+'%'}→${num(com.fin)}%`:''].filter(Boolean);
+    const extra=[doP?`Descuentos Rappi: ${pr.altas.length} alta${pr.altas.length===1?'':'s'}, ${pr.cambios.length} cambio${pr.cambios.length===1?'':'s'}, ${pr.bajas.length} baja${pr.bajas.length===1?'':'s'}`:'',doC?`Comisión Rappi ${com.ven==null?'—':num(com.ven)+'%'}→${num(com.fin)}%`:'',doR?`Retirados de la venta: ${ret.map(x=>x.nombre).join(', ')}`:''].filter(Boolean);
     const det=sel.map(r=>`${r.p.nombre}${r.nuevo?' (nuevo)':''}: `+r.ch.map(k=>`${PUB_LBL[k]} ${r.nuevo?'':pubFmt(k,r.v[k])+'→'}${pubFmt(k,r.d[k])}`).join(', ')).join(' · ');
     await hist('producto',`Publicación en Ventas${TEST?' · entorno de prueba':''}`,'—',[sel.length?`${sel.length} producto${sel.length===1?'':'s'}`:'',...extra.map(x=>x.split(':')[0].split(' ').slice(0,2).join(' '))].filter(Boolean).join(' + '),[det,...extra].filter(Boolean).join(' · '));
     PUBSEL=null; mClose(); toast(TEST?'Publicado en el entorno de prueba':'Publicado en Ventas');
