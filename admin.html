@@ -373,6 +373,7 @@ table.t td.act{text-align:right;width:1%;white-space:nowrap;padding-left:.6rem}
 footer{padding:2rem 0 3rem;color:var(--ink-2);font-size:.8125rem;text-align:center}
 .mock-flag{position:fixed;bottom:12px;right:12px;z-index:60;background:var(--espresso);color:var(--cream-base);padding:.4rem .8rem;border-radius:var(--r-pill)}
 .psel{font-size:.7rem;margin-top:.3rem;width:26rem;max-width:100%;opacity:.9}
+.secgp{display:flex;flex-wrap:wrap;gap:.4rem 1.1rem;align-items:center;font-size:.72rem;color:var(--cream-muted);margin:.35rem 0 .2rem}.secgp label{display:flex;align-items:center;gap:.35rem}.secgp span{margin-left:auto;font-weight:700;color:var(--caramel)}
 .pref{display:block;font-size:.68rem;color:var(--cream-muted);margin-top:.2rem}
 .pdrop{display:block;background:transparent;border:0;padding:0;margin-top:.2rem;font:inherit;font-size:.68rem;color:var(--cream-muted);cursor:pointer;max-width:26rem;outline:none}
 .pdrop.ov{color:var(--caramel)}
@@ -611,10 +612,30 @@ const fmtG = g => g>=1000 ? num(g/1000,g%1000?1:0)+' kg' : g+' g';
 const packCost = arr => (arr||[]).reduce((a,it)=>a+pr(it.c)*it.q,0);
 const redo = v => { const r=P.redondeo||1; return Math.ceil(v/r)*r; };
 
+// Combos (01/10/2026): composición fija de potes existentes. Costo = suma del costo de cada pote (sin packaging extra).
+// Precios: Rappi y Landing = suma de lista del canal − descuento del combo (15% por defecto, sin redondeo);
+// Amigos = suma de precios Amigos de cada pote − descuento extra Amigos (0% por defecto). Editables como siempre.
+const cbComps = p => (p.comp||[]).map(c=>({...c,q:PROD[c.p]})).filter(c=>c.q&&c.q.tipo==='pote');
 function costo(p, m){
+  if(p.tipo==='CB'){ const cs=cbComps(p).map(c=>({...c,costo:costo(c.q,c.m).costo})); return {modo:'combo',comps:cs,costo:cs.reduce((a,c)=>a+c.costo,0)}; }
   if(p.tipo==='pote'){
     const md=p.medidas[m], pack=packCost(md.pack);
-    if(p.modo==='kg'){ const mp=(p.costoKg||0)*md.peso/1000; return {modo:'kg',mp,pack,iva:pack*iva(),mo:0,costo:mp+pack*(1+iva())}; }
+    // Modelo «g por pote» (02/10/2026): cada sección de la receta tiene su costo por gramo
+    // (costo de sus insumos ÷ rinde; si no hay rinde, ÷ suma de sus ingredientes) y sus gramos en el pote (gp[medida]).
+    // Peso del pote = suma de gramos. Los gramos ya incluyen la merma de producción.
+    // Helado base comprado (02/10/2026): en sabores con receta, la 1ª sección puede tomarse del proveedor ($/kg sin IVA)
+    // en lugar de la receta propia, hasta migrar a producción propia. La receta queda guardada.
+    const bc=p.modo!=='kg'&&p.baseCompra?.on;
+    const secs=(p.receta||[]).filter(sc=>p.modo!=='kg'||sc.items.length||sc.gp).map((sc,i)=>{ const g=sc.items.reduce((a,it)=>a+(+it.g||0),0), cst=sc.items.reduce((a,it)=>a+pi(it)*(+it.g||0),0), base=sc.rinde>0?+sc.rinde:g, gp=+(sc.gp?.[m])||0;
+      const pgS=(bc&&i===0)?(+p.baseCompra.costoKg||0)/1000:(base?cst/base:0); return {sec:(bc&&i===0)?'Helado base comprado':sc.sec,g,costo:cst,base,pg:pgS,gp:sc.inf?0:gp,mp:sc.inf?0:pgS*gp,compra:bc&&i===0,inf:!!sc.inf}; });
+    // «Va dentro del helado base» (ej. aromáticos infusionados): su costo se suma por cada gramo de helado base del pote
+    { const b0=secs[0], r0=p.receta?.[0]; const gMix=r0?(r0.rinde>0?+r0.rinde:r0.items.reduce((a,it)=>a+(+it.g||0),0)):0;
+      secs.forEach(x=>{ if(x.inf&&b0&&!b0.inf&&gMix){ x.mp=x.costo/gMix*b0.gp; x.pg=x.costo/gMix; x.gpRef=b0.gp; } }); }
+    const moC=()=>(+P.moCompradoMin||0)*minuto()*(m==='250'?250/360:1); // armado con helado comprado: minutos por pote × costo del minuto
+    if(p.modo==='kg'){ const gB=+(md.gBase??md.peso)||0, mpB=(p.costoKg||0)*gB/1000, mpI=secs.reduce((a,x)=>a+x.mp,0), peso=gB+secs.reduce((a,x)=>a+x.gp,0);
+      const moK=moC(); return {modo:'kg',mp:mpB+mpI,mpB,gB,mpI,secs,peso,pack,iva:(mpI+pack)*iva(),mo:moK,costo:mpB+(mpI+pack)*(1+iva())+moK}; }
+    if((p.receta||[]).some(sc=>sc.gp)){ const mpPote=secs.reduce((a,x)=>a+x.mp,0), peso=secs.reduce((a,x)=>a+x.gp,0), mo=bc?moC():moMed(m);
+      return {modo:'gp',secs,peso,mpPote,pack,iva:(mpPote+pack)*iva(),mo,costo:(mpPote+pack)*(1+iva())+mo}; }
     const mpBatch=(p.receta||[]).reduce((a,s)=>a+s.items.reduce((b,it)=>b+pi(it)*it.g,0),0);
     const potes=p.prodG/(md.peso||1), mpPote=mpBatch/potes, mo=moMed(m);
     return {modo:'receta',mpBatch,potes,mpPote,pack,iva:(mpPote+pack)*iva(),mo,costo:(mpPote+pack)*(1+iva())+mo};
@@ -623,18 +644,26 @@ function costo(p, m){
   return {modo:'unidad',mp,pack,iva:(mp+pack)*iva(),mo,costo:(mp+pack)*(1+iva())+mo};
 }
 function precios(p, m){
+  if(p.tipo==='CB'){
+    const c=costo(p).costo, pp=p.precios||{}, cs=cbComps(p).map(x=>precios(x.q,x.m));
+    const sumL=cs.reduce((a,x)=>a+x.L,0), sumA=cs.reduce((a,x)=>a+x.A,0), sumR=cs.reduce((a,x)=>a+x.R,0);
+    const d=1-(p.dto??15)/100, da=1-(p.dtoAm??0)/100;
+    const sL=Math.round(sumL*d), sR=Math.round(sumR*d), sA=Math.round(sumA*da);
+    const L=pp.L??sL, A=pp.A??sA, R=pp.R??sR, net=R*(1-com());
+    return {c,sL,sA,sR,L,A,R,sumL,sumA,sumR,mL:L?(L-c)/L*100:0,mA:A?(A-c)/A*100:0,mR:net?(net-c)/net*100:0};
+  }
   const c=costo(p,m).costo, pp=(p.tipo==='pote'?p.medidas[m].precios:p.precios)||{};
   const sL=redo(c/(1-P.objLanding/100)), sR=redo(c/((1-P.objRappi/100)*(1-com()))), k=1-(p.amigosPct??P.amigosBase)/100;
   const L=pp.L??sL, A=pp.A??Math.round(L*k), R=pp.R??sR;
   const net=R*(1-com());
   return {c,sL,sA:Math.round(sL*k),sR,L,A,R,mL:(L-c)/L*100,mA:(A-c)/A*100,mR:(net-c)/net*100};
 }
-const codigo = p => { const pre={autor:'AT',clasico:'CL',PL:'PL',AF:'AF',EX:'EX'}[p.linea]; return p.numero? `${pre}-${String(p.numero).padStart(2,'0')}` : `${pre} pendiente`; };
-const tipoLbl = p => p.tipo==='pote' ? (p.linea==='autor'?'Autor':'Clásico') : ({PL:'Paleta',AF:'Alfajor helado',EX:'Extra'}[p.tipo]);
+const codigo = p => { const pre={autor:'AT',clasico:'CL',PL:'PL',AF:'AF',EX:'EX',CB:'CB'}[p.linea]; return p.numero? `${pre}-${String(p.numero).padStart(2,'0')}` : `${pre} pendiente`; };
+const tipoLbl = p => p.tipo==='pote' ? (p.linea==='autor'?'Autor':'Clásico') : ({PL:'Paleta',AF:'Alfajor helado',EX:'Extra',CB:'Combo'}[p.tipo]);
 const norm = s => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]/g,'');
 function ventasId(p){ if(p.vid&&VSAB.some(s=>s.id===p.vid)) return p.vid; const n=norm(p.nombre); const v=VSAB.find(s=>norm(s.nombre)===n)||VSAB.find(s=>norm(s.nombre).includes(n)||n.includes(norm(s.nombre))); return v?.id; }
 function stock(p, m='360'){ const vid=ventasId(p); if(!vid) return null; return LOTES.filter(l=>l.sabor===vid&&(l.capacidad||360)==+m).reduce((a,l)=>a+((+l.cant||0)-(+l.egresado||0)),0); }
-const sinStock = p => p.estado==='activo' && stock(p)===0;
+const sinStock = p => p.estado==='activo' && (p.tipo==='CB' ? cbComps(p).some(c=>stock(c.q,c.m)===0) : stock(p)===0);
 function vsObj(canal,m){
   if(canal==='Rappi'&&m<P.pisoRappi) return `<span class="ind bad">bajo piso ${P.pisoRappi}%</span>`;
   if(canal==='Amigos') return `<span class="ind" style="background:rgba(160,150,130,.18);color:#8C8479">sin objetivo propio</span>`;
@@ -788,6 +817,129 @@ async function migrar(){
     for(const e of ev) await hist(...e);
     hechas.push(idM);
   }
+  if(!hechas.includes('2026-10-02-g-por-pote')){
+    boot('Pasando recetas a «g por pote»…','Respaldo y conversión de cada sabor');
+    const prods=[]; (await getDocs(collection(db,C.prod))).forEach(d=>prods.push({id:d.id,...d.data()}));
+    const ins={}; (await getDocs(collection(db,C.ins))).forEach(d=>ins[d.id]=d.data());
+    const cat={}; (await getDocs(collection(db,C.cat))).forEach(d=>cat[d.id]=d.data());
+    const par=(await getDoc(doc(db,C.par,'general'))).data();
+    await setDoc(doc(db,'adm_respaldos','productos-2026-10-02'),{fecha:new Date().toISOString(),motivo:'antes de pasar a g por pote',json:JSON.stringify(prods)});
+    const P0=P,I0=INS,C0=CAT; P=par; INS=ins; CAT=cat;
+    const b=writeBatch(db), ev=[];
+    for(const p of prods){ if(p.tipo!=='pote') continue; const before=costo(p,'360').costo; const q=clone(p);
+      if(q.modo==='kg'){ ['360','250'].forEach(mm=>{ if(q.medidas[mm]&&q.medidas[mm].gBase==null) q.medidas[mm].gBase=q.medidas[mm].peso; }); q.receta=(q.receta||[]).filter(sc=>sc.items.length); }
+      else { const tots=(q.receta||[]).map(sc=>sc.items.reduce((a,it)=>a+(+it.g||0),0)), T=tots.reduce((a,v)=>a+v,0)||1;
+        (q.receta||[]).forEach((sc,i)=>{ if(sc.gp) return; sc.gp={}; ['360','250'].forEach(mm=>{ const pe=+q.medidas[mm]?.peso||0; sc.gp[mm]=Math.round(pe*tots[i]/T*10)/10; }); });
+        ['360','250'].forEach(mm=>{ if(q.medidas[mm]) q.medidas[mm].pesoTipo='est'; }); }
+      const after=costo(q,'360').costo; const {id,...d}=q; b.set(doc(db,C.prod,p.id),d);
+      if(Math.abs(after-before)>=1) ev.push(['receta',`${p.nombre} · costo pote 360`,$(before),$(after),q.modo==='kg'?'helado base + intervenciones':'g por pote estimados según proporciones de la receta · revisar',after<=before?'up':'dn']); }
+    P=P0; INS=I0; CAT=C0;
+    ev.push(['param','Modelo de costeo','producto por receta ÷ peso','g por pote por sección + rinde opcional','Respaldo en adm_respaldos/productos-2026-10-02']);
+    b.set(ref,{ids:[...hechas,'2026-10-02-g-por-pote']},{merge:true});
+    await withTimeout(b.commit(),30000);
+    for(const e of ev) await hist(...e);
+    hechas.push('2026-10-02-g-por-pote');
+  }
+  if(!hechas.includes('2026-10-02-armado-2min')){
+    const pg0=(await getDoc(doc(db,C.par,'general'))).data()||{};
+    if(pg0.moCompradoMin==null){ await setDoc(doc(db,C.par,'general'),{moCompradoMin:2},{merge:true});
+      await hist('param','Armado con helado comprado (min/pote)','—','2','Dato de Dany: unos 2 min por pote (la espera en abatidor no es trabajo) · Clásicos y Sambayón comprado'); }
+    await setDoc(ref,{ids:[...hechas,'2026-10-02-armado-2min']},{merge:true}); hechas.push('2026-10-02-armado-2min');
+  }
+  if(!hechas.includes('2026-10-02-armado-2min')){
+    const g=(await getDoc(doc(db,C.par,'general'))).data()||{};
+    if(!(+g.moCompradoMin>0)){ await setDoc(doc(db,C.par,'general'),{moCompradoMin:2},{merge:true}); await hist('param','Armado con helado comprado (min/pote)','0','2','Tiempo activo estimado por Dany (la espera en abatidor no cuenta) · Clásicos y Sambayón comprado'); }
+    await setDoc(ref,{ids:[...hechas,'2026-10-02-armado-2min']},{merge:true}); hechas.push('2026-10-02-armado-2min');
+  }
+  if(!hechas.includes('2026-10-02-autor-gp')){
+    const prods=[]; (await getDocs(collection(db,C.prod))).forEach(d=>prods.push({id:d.id,...d.data()}));
+    const b=writeBatch(db), ev=[];
+    // g por pote 360 definidos por Dany (02/10/2026) · índice de sección → gramos; 'inf' = va dentro del helado base
+    const G={sambayon:[270,25,15], espressoalmond:[260,15,25], limonbotanico:[260,'inf']};
+    for(const p of prods){ const g=G[norm(p.nombre)]; if(!g||p.tipo!=='pote'||!(p.receta||[]).length) continue; const {id,...d}=clone(p);
+      d.receta.forEach((sc,i)=>{ if(g[i]==='inf'){ sc.inf=true; } else if(g[i]!=null){ sc.gp=sc.gp||{}; sc.gp['360']=g[i]; } });
+      const tot=d.receta.reduce((a,sc)=>a+(sc.inf?0:+(sc.gp?.['360'])||0),0); d.medidas['360'].peso=tot; d.medidas['360'].pesoTipo='real';
+      b.set(doc(db,C.prod,p.id),d);
+      ev.push(['receta',`${p.nombre} · g por pote 360`,`${p.medidas['360'].peso} g (estimado)`,`${tot} g: ${d.receta.map(sc=>sc.inf?sc.sec.toLowerCase()+' dentro del helado':sc.sec.toLowerCase()+' '+(sc.gp?.['360']??0)+' g').join(' + ')}`,'Valores de Dany · 250 ml sigue estimado']); }
+    b.set(ref,{ids:[...hechas,'2026-10-02-autor-gp']},{merge:true});
+    await withTimeout(b.commit(),30000);
+    for(const e of ev) await hist(...e);
+    hechas.push('2026-10-02-autor-gp');
+  }
+  if(!hechas.includes('2026-10-02-fenix-banos')){
+    // Baños, cierres y coberturas: unificados con Fenix 87 70% (decisión de Dany, 02/10/2026)
+    const prods=[]; (await getDocs(collection(db,C.prod))).forEach(d=>prods.push({id:d.id,...d.data()}));
+    const ins={}; (await getDocs(collection(db,C.ins))).forEach(d=>ins[d.id]=d.data());
+    const fen=Object.entries(ins).find(([k,v])=>/fenix/i.test(v.nombre)&&!v.archivado)?.[0];
+    const b=writeBatch(db), ev=[];
+    if(fen) for(const p of prods){ if(p.tipo!=='pote') continue; let ch=false; const {id,...d}=clone(p);
+      (d.receta||[]).forEach(sc=>{ if(!/cierre|baño|bano|cobertura|craquante|stracciatella|veteado/i.test(sc.sec)) return;
+        sc.items.forEach(it=>{ const n=ins[it.c]?.nombre||''; if(it.c!==fen&&/chocolate/i.test(n)&&!/blanc/i.test(n)){ ev.push(['receta',`${p.nombre} · ${sc.sec.toLowerCase()}`,n,ins[fen].nombre,'Baños, coberturas y stracciatellas unificados con Fenix 87']); it.c=fen; delete it.sku; ch=true; } }); });
+      if(ch) b.set(doc(db,C.prod,p.id),d); }
+    b.set(ref,{ids:[...hechas,'2026-10-02-fenix-banos']},{merge:true});
+    await withTimeout(b.commit(),30000);
+    for(const e of ev) await hist(...e);
+    hechas.push('2026-10-02-fenix-banos');
+  }
+  if(!hechas.includes('2026-10-02-fenix-precio')){
+    // Fenix 87: $42.000/kg es CON IVA → se carga sin IVA (el sistema suma el IVA al costear)
+    const ins={}; (await getDocs(collection(db,C.ins))).forEach(d=>ins[d.id]=d.data());
+    const e=Object.entries(ins).find(([k,v])=>/fenix/i.test(v.nombre)&&!v.archivado);
+    if(e){ const [c,i]=e, nv=Math.round(42/1.21*10000)/10000;
+      if(Math.abs((+i.precio||0)-42)<0.01){ await setDoc(doc(db,C.ins,c),{...i,precio:nv,modo:'manual',ref:'Fenix x kg · $42.000 con IVA ($34.711 sin IVA)',estado:'ok',actualizado:'2026-10-02'});
+        await hist('insumo',`${i.nombre} · ${c}`,'42,0000 $/g (con IVA, cargado como sin IVA)',`${num(nv,4)} $/g sin IVA`,'Corrección: el precio de $42.000/kg incluye IVA','up'); } }
+    await setDoc(ref,{ids:[...hechas,'2026-10-02-fenix-precio']},{merge:true}); hechas.push('2026-10-02-fenix-precio');
+  }
+  if(!hechas.includes('2026-10-02-mestura')){
+    boot('Aplicando lista Mestura (Fábrica, sin IVA)…','Sambayón con helado comprado · Clásicos');
+    const prods=[]; (await getDocs(collection(db,C.prod))).forEach(d=>prods.push({id:d.id,...d.data()}));
+    const b=writeBatch(db), ev=[];
+    // Lista Helados MESTURA · columna Fábrica ($/kg sin IVA) · PRODUCCION/Helados MESTURA.xlsx
+    const FAB={'ddlgranizado':13000,'chocolateclasico':13000,'frutillaalacrema':12000,'frutillaconcrema':12000,'americana':12000,'cremadenuez':14000};
+    for(const p of prods){ if(p.tipo!=='pote') continue; const k=norm(p.nombre), {id,...d}=p;
+      if(p.modo==='kg'&&FAB[k]){ const nv=Math.round(FAB[k]*1.21); if(nv!==p.costoKg){ ev.push(['insumo',`${p.nombre} · helado base Mestura`,`${$(p.costoKg)}/kg c/IVA`,`${$(nv)}/kg c/IVA`,`lista Fábrica ${$(FAB[k])}/kg sin IVA`,nv<=p.costoKg?'up':'dn']); d.costoKg=nv; b.set(doc(db,C.prod,p.id),d); } }
+      if(k==='sambayon'&&!p.baseCompra){ d.baseCompra={on:true,costoKg:16000,prov:'Mestura (Fábrica)'}; b.set(doc(db,C.prod,p.id),d);
+        ev.push(['producto','Sambayón · helado base','receta propia','comprado a Mestura · $16.000/kg sin IVA','La receta propia queda guardada para cuando se migre']); } }
+    b.set(ref,{ids:[...hechas,'2026-10-02-mestura']},{merge:true});
+    await withTimeout(b.commit(),30000);
+    for(const e of ev) await hist(...e);
+    hechas.push('2026-10-02-mestura');
+  }
+  if(!hechas.includes('2026-10-02-intervenciones')){
+    boot('Cargando intervenciones de Clásicos…','Fuente: PRODUCCION/intervenciones_clasicos_v1.md');
+    const prods=[]; (await getDocs(collection(db,C.prod))).forEach(d=>prods.push({id:d.id,...d.data()}));
+    const ins={}; (await getDocs(collection(db,C.ins))).forEach(d=>ins[d.id]=d.data());
+    const cat={}; (await getDocs(collection(db,C.cat))).forEach(d=>cat[d.id]=d.data());
+    const par=(await getDoc(doc(db,C.par,'general'))).data();
+    const b=writeBatch(db), ev=[];
+    // insumo por nombre; si no existe se crea (sin precio o provisorio) para que quede a la vista en Insumos
+    let nx=Math.max(0,...Object.keys(ins).filter(k=>k.startsWith('ING')).map(k=>+k.split('-')[1]))+1;
+    const IN=(nombre,alta)=>{ const e=Object.entries(ins).find(([k,v])=>norm(v.nombre)===norm(nombre)&&!v.archivado); if(e) return e[0];
+      const cod='ING-'+String(nx++).padStart(3,'0'); ins[cod]={codigo:cod,nombre,tipo:'ingrediente',unidad:'g',actualizado:null,...alta}; b.set(doc(db,C.ins,cod),ins[cod]);
+      ev.push(['insumo',`${nombre} · ${cod}`,'—',alta.estado==='sin'?'Alta sin precio':'Alta con precio provisorio',alta.ref||'Intervenciones Clásicos']); return cod; };
+    const nuezPg=(Object.values(ins).find(v=>norm(v.nombre)==='nueces')?.precio)||0;
+    const T={
+      ddlgranizado:{sec:'CRAQUANTE · Fenix 70% + manteca de cacao (80/20)',gp:15,rinde:null,items:[['Chocolate Fenix 87 Amargo 70%',160],['Manteca de cacao',40]]},
+      chocolateclasico:{sec:'GEL CÍTRICO DE NARANJA v3',gp:15,rinde:460,items:[['Agua mineral',14],['Glucosa líquida',25],['Agar-agar',4,{categoria:'Estabilizantes',precio:0,estado:'sin',ref:'Sin precio · cargar'}],['Dextrosa monohidratada',135],['Azúcar (sacarosa)',42.5],['Jugo de naranja',276,{categoria:'Frutas y verdulería',precio:0,estado:'sin',ref:'Naranja fresca exprimida · cargar $/g de jugo'}],['Jugo de limón',3.5]]},
+      frutillaalacrema:{sec:'SEMIFREDDO · merengue italiano + crema',gp:30,rinde:912,items:[['Crema de leche 39%',480],['Azúcar (sacarosa)',240],['Claras de huevo',144],['Agua mineral',80],['Dextrosa monohidratada',48]]},
+      americana:{sec:'VETEADO DE CARAMELO SALADO',gp:20,rinde:715,items:[['Crema de leche 39%',300],['Azúcar (sacarosa)',200],['Glucosa líquida',100],['Aceite neutro',72],['Sal fina',15],['Manteca',28]]},
+      cremadenuez:{sec:'PECÁN TOSTADA PICADA GRUESA',gp:20,rinde:660,items:[['Nuez pecán',800,{categoria:'Frutos secos y semillas',precio:nuezPg,estado:'prov',ref:'Provisorio: precio de nuez mariposa · cargar pecán'}]]}
+    };
+    T.frutillaconcrema=T.frutillaalacrema;
+    const P0=P,I0=INS,C0=CAT; P=par; INS=ins; CAT=cat;
+    for(const p of prods){ const t=T[norm(p.nombre)]; if(!t||p.tipo!=='pote'||p.modo!=='kg'||(p.receta||[]).some(sc=>sc.items.length)) continue;
+      const before=costo(p,'360').costo, q=clone(p);
+      const items=t.items.map(([n,g,alta])=>({c:IN(n,alta||{precio:0,estado:'sin'}),g}));
+      q.receta=[{sec:t.sec,items,gp:{'360':t.gp,'250':Math.round(t.gp*250/360*10)/10},rinde:t.rinde}];
+      ['360','250'].forEach(mm=>{ const md=q.medidas[mm]; if(!md) return; const gp=q.receta[0].gp[mm]; md.gBase=Math.max(0,Math.round(((+md.peso||0)-gp)*10)/10); });
+      const after=costo(q,'360').costo; const {id,...d}=q; b.set(doc(db,C.prod,p.id),d);
+      ev.push(['receta',`${p.nombre} · intervención`,`helado ${p.medidas['360'].peso} g · ${$(before)}`,`helado ${q.medidas['360'].gBase} g + ${t.sec.toLowerCase()} ${t.gp} g · ${$(after)}`,'Peso total del pote sin cambios · fuente intervenciones_clasicos_v1.md',after<=before?'up':'dn']); }
+    P=P0; INS=I0; CAT=C0;
+    b.set(ref,{ids:[...hechas,'2026-10-02-intervenciones']},{merge:true});
+    await withTimeout(b.commit(),30000);
+    for(const e of ev) await hist(...e);
+    hechas.push('2026-10-02-intervenciones');
+  }
 }
 async function seedIfNeeded(){
   const s=await getDoc(doc(db,C.par,'general'));
@@ -863,26 +1015,26 @@ function renderProd(){
   ].map(k=>`<div class="kpi${k[4]?' alert':''}"><span class="l caps">${k[0]}</span><span class="n" style="color:${k[2]}">${k[1]}</span><span class="d">${k[3]}</span></div>`).join('');
   const venta=p=>p.estado==='activo';
   const cnt=f=>L.filter(p=>f==='all'||(f==='dev'?p.estado==='dev':(p.estado==='activo'&&(p.tipo==='pote'?p.linea===f:p.tipo===f)))).length;
-  el('pills').innerHTML=[['all','Todos'],['autor','Helado · Autor'],['clasico','Helado · Clásicos'],['PL','Paletas'],['AF','Alfajores'],['EX','Extras'],['dev','En desarrollo']].map(([f,n])=>`<button class="pill${filtro===f?' on':''}" onclick="setFiltro('${f}')">${n} (${cnt(f)})</button>`).join('');
-  el('szwrap').style.visibility=['PL','AF','EX'].includes(filtro)?'hidden':'visible';
+  el('pills').innerHTML=[['all','Todos'],['autor','Helado · Autor'],['clasico','Helado · Clásicos'],['PL','Paletas'],['AF','Alfajores'],['EX','Extras'],['CB','Combos'],['dev','En desarrollo']].map(([f,n])=>`<button class="pill${filtro===f?' on':''}" onclick="setFiltro('${f}')">${n} (${cnt(f)})</button>`).join('');
+  el('szwrap').style.visibility=['PL','AF','EX','CB'].includes(filtro)?'hidden':'visible';
   const vis=L.filter(p=>filtro==='all'||(filtro==='dev'?p.estado==='dev':(venta(p)&&(p.tipo==='pote'?p.linea===filtro:p.tipo===filtro))))
     .sort((a,b)=>(a.estado==='activo'?0:1)-(b.estado==='activo'?0:1)||(a.tipo==='pote'?0:1)-(b.tipo==='pote'?0:1)||(a.linea<b.linea?-1:a.linea>b.linea?1:0)||(a.numero||99)-(b.numero||99));
   el('cards').innerHTML=vis.map(card).join('');
-  const lab={autor:'helados de autor',clasico:'clásicos',PL:'paletas',AF:'alfajores',EX:'extras'}[filtro];
+  const lab={autor:'helados de autor',clasico:'clásicos',PL:'paletas',AF:'alfajores',EX:'extras',CB:'combos'}[filtro];
   const devs=L.filter(p=>p.estado==='dev'&&(p.tipo===filtro||p.linea===filtro));
   el('emptyF').innerHTML=vis.length?'':`<div class="diffbox" style="max-width:40rem"><div><b>No hay ${lab||'productos'} a la venta todavía.</b></div>${devs.length?`<div>${devs.length} en desarrollo: ${devs.map(p=>`<a style="cursor:pointer;text-decoration:underline" onclick="abrir('${p.id}')">${p.nombre}</a>`).join(', ')}</div>`:'<div class="subtle">Creá uno con «+ Nuevo producto».</div>'}</div>`;
 }
 window.setFiltro=f=>{filtro=f;renderProd();};
 el('sizeSel').addEventListener('click',e=>{const b=e.target.closest('button'); if(!b)return; size=b.dataset.s; document.querySelectorAll('#sizeSel button').forEach(x=>x.classList.toggle('on',x===b)); renderProd();});
 function card(p){
-  const pote=p.tipo==='pote', m=pote?size:null, lbl=`${tipoLbl(p)} · ${codigo(p)} · ${pote?size+' ml':'unidad'}`;
+  const pote=p.tipo==='pote', cb=p.tipo==='CB', m=pote?size:null, lbl=`${tipoLbl(p)} · ${codigo(p)} · ${pote?size+' ml':cb?cbComps(p).length+' potes':'unidad'}`;
   const top=`<div class="card-top"><span class="tag stamp" style="background:${p.color}26;color:${['#545458','#4E342E','#6B4226'].includes(p.color)?p.color:'#4E342E'}">${lbl}</span>${p.estado==='dev'?(p.proximo?'<span class="caps" style="color:var(--caramel)">● Próximo a producir</span>':'<span class="caps" style="color:var(--ink-2)">En desarrollo</span>'):p.estado==='fuera'?'<span class="caps" style="color:var(--ink-2)">Fuera de carta</span>':sinStock(p)?'<span class="caps" style="color:var(--bad)">● Sin stock</span>':''}</div>`;
   if(pote&&!p.medidas[m]?.activa) return `<div class="card off">${top}<div><h3>${p.nombre}</h3><p class="quote">«${p.desc||''}»</p></div><div class="offmsg">No se ofrece en ${m} ml.</div><div class="card-foot"><span class="caps" style="color:var(--espresso)">Sin precio ${m} ml</span><a class="btn btn-sec caps" style="padding:.4rem .8rem" onclick="abrir('${p.id}','${m}')">Ver detalle</a></div></div>`;
   const x=precios(p,m||'360'), ch=pote?p.canales:p.canales;
   const cL=x.mL<P.objLanding?'var(--warn)':'var(--ok)', cR=x.mR<P.pisoRappi?'var(--bad)':x.mR<P.objRappi?'var(--warn)':'var(--ok)';
   const row=(n,v,mm,c,w)=>`<span class="caps" style="color:var(--espresso)">${n}</span><span class="p">${$(v)}</span><span class="m" style="color:${c}">${pct(mm)}</span><div class="bar"><i style="width:${Math.max(0,Math.min(100,mm*w))}%;background:${c}"></i></div>`;
-  return `<div class="card">${top}<div><h3>${p.nombre}</h3><p class="quote">«${p.desc||''}»</p></div>
-    <div class="cost"><span class="caps" style="color:var(--espresso)">Costo por ${pote?'pote':'unidad'} c/IVA</span><span class="v">${$(x.c)}</span></div>
+  return `<div class="card">${top}<div><h3>${p.nombre}</h3>${cb?`<p class="subtle" style="font-size:.8rem;margin-top:.2rem">${cbComps(p).map(c=>c.q.nombre+(c.m==='250'?' 250':'')).join(' + ')||'Sin potes cargados'}</p>`:''}<p class="quote">«${p.desc||''}»</p></div>
+    <div class="cost"><span class="caps" style="color:var(--espresso)">Costo ${pote?'por pote':cb?'del combo':'por unidad'} c/IVA</span><span class="v">${$(x.c)}</span></div>
     <div class="chan">${ch.L?row('Landing',x.L,x.mL,cL,1):''}${ch.R?row('Rappi · neto',x.R,x.mR,cR,1.5):ch.A?row('Amigos',x.A,x.mA,'var(--ok)',1):''}</div>
     <div class="card-foot"><span class="caps" style="color:var(--espresso);font-size:.62rem">Obj. L ${P.objLanding}% ${x.mL>=P.objLanding?'✓':'▼'}${ch.R?` · R ${P.objRappi}% ${x.mR>=P.objRappi?'✓':x.mR>=P.pisoRappi?'▼':'✕ piso'}`:' · sin Rappi'}</span><a class="btn btn-pri caps" style="padding:.4rem .8rem" onclick="abrir('${p.id}','${m||'360'}')">Ver detalle</a></div></div>`;
 }
@@ -903,20 +1055,8 @@ const ingOpts=sel=>Object.values(INS).filter(i=>i.tipo==='ingrediente'&&!i.archi
 const pkgOpts=()=>Object.values(INS).filter(i=>i.tipo==='packaging'&&!i.archivado).map(i=>`<option value="${i.codigo}">${i.nombre} · ${i.codigo}</option>`).join('');
 const stTag=c=>INS[c]?.estado==='prov'?' <span class="age prov">provisorio</span>':INS[c]?.estado==='sin'?' <span class="age old">sin precio</span>':'';
 
-function renderDet(){
-  const p=W, pote=p.tipo==='pote', m=wMed, x=precios(p,m), c=costo(p,m);
-  const estado=p.estado==='dev'?'<span class="st st-dev caps">En desarrollo</span>':`<select class="rsel" data-rs="w:estado" onchange="wset('estado',this.value)"><option value="activo"${p.estado==='activo'?' selected':''}>Activo${sinStock(p)?' · sin stock':''}</option><option value="fuera"${p.estado==='fuera'?' selected':''}>Fuera de carta</option></select>`;
-  let left='';
-  if(pote&&p.modo==='kg'){
-    left=`<h4>Costo por kilo <span class="src alt caps">archivo Clásicos</span></h4>
-      <div class="steps"><div class="row"><span class="subtle">Costo por kg c/IVA (incluye mano de obra)</span><span><input class="rin" style="width:6rem" value="${p.costoKg}" data-rs="w:costoKg" onchange="wset('costoKg',+this.value||0)"></span></div></div>
-      <p class="subtle" style="font-size:.78rem;margin-top:.6rem">Receta pendiente de cargar. Cuando la importes, el costo pasa a calcularse por ingrediente.</p>
-      <button class="btn-sub" style="margin-top:.6rem" onclick="wset('modo','receta');if(!W.receta.length)W.receta=[{sec:'MIX BASE (1.000 g)',items:[]}];renderDet()">Pasar a receta por ingredientes</button>`;
-  } else if(pote){
-    left=`<h4>Receta <span class="src caps">${p.version||''}</span></h4>`+p.receta.map((s,si)=>{
-      const sub=s.items.reduce((a,it)=>a+pi(it)*it.g,0);
-      return `<div style="margin-top:.9rem"><input class="secin" value="${s.sec}" data-rs="w:receta.${si}.sec" onchange="wset('receta.${si}.sec',this.value,0)">
-      <table class="t"><thead><tr><th>Insumo</th><th class="n">g</th><th class="n">$/g</th><th class="n">$</th><th></th></tr></thead><tbody>
+// Tabla de insumos de una sección de receta (sabores de autor y también intervenciones de Clásicos)
+function secTable(s,si,sub,kg){ return `<table class="t"><thead><tr><th>Insumo</th><th class="n">g</th><th class="n">$/g</th><th class="n">$</th><th></th></tr></thead><tbody>
       ${s.items.map((it,ii)=>{ const cc=it.c, g=it.g, I=INS[cc], ops=candsOrd(I), e=elegido(I), ov=it.sku&&CAT[it.sku], P_=`W.receta[${si}].items[${ii}]`;
         // Un solo marco (insumo). Debajo, el producto: desplegable sin marco si hay más de una opción; texto si no.
         // Siempre desplegable: sugerido + otras opciones + acceso a las opciones del insumo (precio manual, vincular otro producto).
@@ -924,8 +1064,47 @@ function renderDet(){
         const rst=itCambio(it)?`<button type="button" class="rst" style="color:var(--cream-base)" title="Volver a como estaba guardado" onclick="itReset(${si},${ii})">${RST}</button>`:'';
         const rstP=ov?`<button type="button" class="rst" style="color:var(--caramel)" title="Volver al producto sugerido" onclick="delete ${P_}.sku;dirty()">${RST}</button>`:'';
         return `<tr><td><select class="rsel" onchange="${P_}.c=this.value;delete ${P_}.sku;dirty()">${ingOpts(cc)}</select>${rst}${stTag(cc)}<div style="display:flex;align-items:center">${psel}${rstP}</div></td><td class="n"><input class="rin" value="${g}" onchange="${P_}.g=+this.value||0;dirty()"></td><td class="n">${num(pi(it))}</td><td class="n">${Math.round(pi(it)*g).toLocaleString('es-AR')}</td><td class="act"><button class="rx" title="Quitar" onclick="W.receta[${si}].items.splice(${ii},1);dirty()">×</button></td></tr>`;}).join('')}
-      <tr class="tot"><td><button class="btn-sub" onclick="W.receta[${si}].items.push({c:'ING-001',g:0});dirty()">+ Insumo</button>${si>0?` <button class="btn-sub" style="color:#FF9B8A" onclick="if(confirm('¿Quitar la sección?')){W.receta.splice(${si},1);dirty()}">Quitar sección</button>`:''}</td><td class="n">${s.items.reduce((a,x)=>a+x.g,0).toLocaleString('es-AR')}</td><td></td><td class="n">${Math.round(sub).toLocaleString('es-AR')}</td><td></td></tr></tbody></table></div>`;}).join('')
-      +`<button class="btn-sub" style="margin-top:.8rem" onclick="W.receta.push({sec:'NUEVO COMPLEMENTO',items:[]});dirty()">+ Sección (complemento)</button>`;
+      <tr class="tot"><td><button class="btn-sub" onclick="W.receta[${si}].items.push({c:'ING-001',g:0});dirty()">+ Insumo</button>${(si>0||kg)?` <button class="btn-sub" style="color:#FF9B8A" onclick="if(confirm('¿Quitar la sección?')){W.receta.splice(${si},1);dirty()}">Quitar sección</button>`:''}</td><td class="n">${s.items.reduce((a,x)=>a+x.g,0).toLocaleString('es-AR')}</td><td></td><td class="n">${Math.round(sub).toLocaleString('es-AR')}</td><td></td></tr></tbody></table>`; }
+// Helado base: receta propia o comprado al proveedor (solo 1ª sección de sabores con receta). Muestra la comparación.
+function baseSel(p,m){ const bc=p.baseCompra||{on:false,costoKg:0,prov:''}, alt=costo({...p,baseCompra:{...bc,on:!bc.on}},m).costo, act=costo(p,m).costo, d=alt-act;
+  return `<div class="secgp"><label>Helado base <select class="rsel" data-rs="w:baseCompra.on" onchange="W.baseCompra=W.baseCompra||{costoKg:0,prov:''};W.baseCompra.on=this.value==='1';dirty()"><option value="0"${bc.on?'':' selected'}>Receta propia</option><option value="1"${bc.on?' selected':''}>Comprado</option></select></label>
+    ${bc.on?`<label>$/kg sin IVA <input class="rin" style="width:5rem" value="${bc.costoKg||''}" data-rs="w:baseCompra.costoKg" onchange="W.baseCompra.costoKg=+String(this.value).replace(/\D/g,'')||0;dirty()"></label><label>proveedor <input class="rin" style="width:7rem;text-align:left" value="${bc.prov||''}" data-rs="w:baseCompra.prov" onchange="W.baseCompra.prov=this.value;dirty()"></label>`:''}
+    <span style="color:var(--cream-muted);font-weight:400">${bc.on?'con receta propia':'comprado'}: ${$(alt)} / pote ${m} (${d>=0?'+':'−'}${$(Math.abs(d))})</span></div>
+    ${bc.on?'<div class="secgp" style="margin-top:0"><span style="margin-left:0;color:var(--cream-muted);font-weight:400">La receta del mix queda guardada pero no se usa para el costo mientras el helado base sea comprado.</span></div>':''}`; }
+// Cabecera de sección: gramos en el pote (por tamaño) y rinde opcional → costo por gramo
+function secGP(s,si,m,sub){ const g=s.items.reduce((a,it)=>a+(+it.g||0),0), base=s.rinde>0?+s.rinde:g, pgS=base?sub/base:0;
+  const infChk=si>0?`<label title="Para aromáticos o infusiones que se incorporan al mix: no suman peso, su costo se reparte por cada gramo de helado base."><input type="checkbox" ${s.inf?'checked':''} data-rs="w:receta.${si}.inf" onchange="W.receta[${si}].inf=this.checked;dirty()"> va dentro del helado base</label>`:'';
+  if(s.inf) return `<div class="secgp">${infChk}<span>${$(sub)} por batch de base</span></div>`;
+  return `<div class="secgp">${infChk}<label>g por pote ${m} ml <input class="rin" style="width:4rem" value="${s.gp?.[m]??''}" data-rs="w:receta.${si}.gp.${m}" onchange="W.receta[${si}].gp=W.receta[${si}].gp||{};W.receta[${si}].gp['${m}']=+String(this.value).replace(',','.')||0;dirty()"></label>
+    <label title="Opcional: lo que pesa la preparación terminada (después de hornear, reducir, etc.). Vacío = suma de los ingredientes.">rinde <input class="rin" style="width:4rem" placeholder="${Math.round(g)}" value="${s.rinde??''}" data-rs="w:receta.${si}.rinde" onchange="const v=+String(this.value).replace(',','.');W.receta[${si}].rinde=v>0?v:null;dirty()"> g</label>
+    <span>${num(pgS,2)} $/g</span></div>`; }
+function renderDet(){
+  const p=W, pote=p.tipo==='pote', m=wMed, x=precios(p,m), c=costo(p,m);
+  const estado=p.estado==='dev'?'<span class="st st-dev caps">En desarrollo</span>':`<select class="rsel" data-rs="w:estado" onchange="wset('estado',this.value)"><option value="activo"${p.estado==='activo'?' selected':''}>Activo${sinStock(p)?' · sin stock':''}</option><option value="fuera"${p.estado==='fuera'?' selected':''}>Fuera de carta</option></select>`;
+  let left='';
+  if(pote&&p.modo==='kg'){
+    left=`<h4>Helado base <span class="src alt caps">comprado · Mestura</span></h4>
+      <div class="steps"><div class="row"><span class="subtle">Costo por kg c/IVA</span><span><input class="rin" style="width:6rem" value="${p.costoKg}" data-rs="w:costoKg" onchange="wset('costoKg',+this.value||0)"></span></div>
+      <div class="row"><span class="subtle">Helado · g por pote ${m} ml</span><span><input class="rin" style="width:4.5rem" value="${p.medidas[m].gBase??p.medidas[m].peso}" data-rs="w:medidas.${m}.gBase" onchange="wset('medidas.${m}.gBase',+String(this.value).replace(',','.')||0)"></span></div></div>
+      <h4 style="margin-top:1.4rem">Intervenciones</h4>`+(p.receta||[]).map((s,si)=>{ const sub=s.items.reduce((a,it)=>a+pi(it)*it.g,0);
+        return `<div style="margin-top:.9rem"><input class="secin" value="${s.sec}" data-rs="w:receta.${si}.sec" onchange="wset('receta.${si}.sec',this.value,0)">${secGP(s,si,m,sub)}${secTable(s,si,sub,true)}</div>`; }).join('')
+      +`<button class="btn-sub" style="margin-top:.8rem" onclick="(W.receta=W.receta||[]).push({sec:'NUEVA INTERVENCIÓN',items:[],gp:{'360':0,'250':0}});dirty()">+ Intervención</button>
+      <p class="subtle" style="font-size:.75rem;margin-top:.6rem">Cada intervención se carga con los insumos de su preparación y los gramos que lleva el pote. La mano de obra de armado de los potes con helado comprado se define en Parámetros (minutos por pote).</p>`;
+  } else if(pote){
+    left=`<h4>Receta <span class="src caps">${p.version||''}</span></h4>`+p.receta.map((s,si)=>{
+      const sub=s.items.reduce((a,it)=>a+pi(it)*it.g,0);
+      return `<div style="margin-top:.9rem"><input class="secin" value="${s.sec}" data-rs="w:receta.${si}.sec" onchange="wset('receta.${si}.sec',this.value,0)">${si===0?baseSel(p,m):''}${secGP(s,si,m,sub)}
+${secTable(s,si,sub,false)}</div>`;}).join('')
+      +`<button class="btn-sub" style="margin-top:.8rem" onclick="W.receta.push({sec:'NUEVO COMPLEMENTO',items:[],gp:{'360':0,'250':0}});dirty()">+ Sección (complemento)</button>`;
+  } else if(p.tipo==='CB'){
+    const potes=prodArr().filter(q=>q.tipo==='pote').sort((a,b)=>a.nombre.localeCompare(b.nombre));
+    left=`<h4>Composición <span class="src caps">potes de la carta</span></h4><table class="t"><thead><tr><th>Pote</th><th class="n">Tamaño</th><th class="n">Costo</th><th class="n">Landing</th><th class="n">Rappi</th><th></th></tr></thead><tbody>
+      ${(p.comp||[]).map((cp,i)=>{ const q=PROD[cp.p], ok=q&&q.tipo==='pote', y=ok?precios(q,cp.m):null, cc=ok?costo(q,cp.m).costo:0, off250=ok&&cp.m==='250'&&!q.medidas['250']?.activa;
+        return `<tr><td><select class="rsel" data-rs="w:comp.${i}.p" onchange="W.comp[${i}].p=this.value;dirty()">${ok?'':'<option value="">— elegí un pote —</option>'}${potes.map(o=>`<option value="${o.id}"${o.id===cp.p?' selected':''}>${o.nombre}${o.estado==='dev'?' (en desarrollo)':''}</option>`).join('')}</select>${off250?' <span class="age old">no se ofrece en 250</span>':''}${ok&&sinStock(q)?' <span class="age old">sin stock</span>':''}</td>
+          <td class="n"><select class="rsel" data-rs="w:comp.${i}.m" onchange="W.comp[${i}].m=this.value;dirty()"><option value="360"${cp.m!=='250'?' selected':''}>360</option><option value="250"${cp.m==='250'?' selected':''}>250</option></select></td>
+          <td class="n">${ok?$(cc):'—'}</td><td class="n">${ok?$(y.L):'—'}</td><td class="n">${ok?$(y.R):'—'}</td><td class="act"><button class="rx" title="Quitar" onclick="W.comp.splice(${i},1);dirty()">×</button></td></tr>`; }).join('')}
+      <tr class="tot"><td><button class="btn-sub" onclick="(W.comp=W.comp||[]).push({p:'${potes[0]?.id||''}',m:'360'});dirty()">+ Pote</button></td><td></td><td class="n">${$(c.costo)}</td><td class="n">${$(x.sumL)}</td><td class="n">${$(x.sumR)}</td><td></td></tr></tbody></table>
+      <p class="subtle" style="font-size:.75rem;margin-top:.5rem">El costo de cada pote sale de su ficha (receta, packaging, IVA y mano de obra) y se actualiza solo. Los combos no llevan packaging extra.</p>`;
   } else {
     left=`<h4>Partes <span class="src caps">recetas propias</span></h4><table class="t"><thead><tr><th>Parte</th><th class="n">g / unidad</th><th class="n">$/g</th><th class="n">$</th><th></th></tr></thead><tbody>
       ${p.partes.map((q,i)=>`<tr><td><input class="secin" style="text-transform:none;letter-spacing:0;font-size:.85rem;color:var(--cream-base)" value="${q.nombre}" data-rs="w:partes.${i}.nombre" onchange="wset('partes.${i}.nombre',this.value,0)">${/^helado/i.test(q.nombre)?`<br><select class="rsel" data-rs="w:partes.${i}.origen" onchange="W.partes[${i}].origen=this.value;dirty()"><option value="carta"${q.origen==='carta'?' selected':''}>Sabor de la carta · ya producido</option><option value="propia"${q.origen==='propia'?' selected':''}>Receta propia · formulador</option></select>`:''}</td><td class="n"><input class="rin" value="${q.g}" data-rs="w:partes.${i}.g" onchange="W.partes[${i}].g=+this.value||0;dirty()"></td><td class="n"><input class="rin" value="${q.precioG}" data-rs="w:partes.${i}.precioG" onchange="W.partes[${i}].precioG=+this.value||0;dirty()"></td><td class="n">${Math.round(q.g*q.precioG).toLocaleString('es-AR')}</td><td class="act"><button class="rx" onclick="W.partes.splice(${i},1);dirty()">×</button></td></tr>`).join('')}
@@ -933,7 +1112,7 @@ function renderDet(){
       <p class="subtle" style="font-size:.75rem;margin-top:.5rem">En esta versión el $/g de cada parte se carga a mano. Próximo paso: que salga de su receta (helado de la carta, ficha técnica).</p>`;
   }
   const pk=pote?p.medidas[m].pack:p.pack, pkPath=pote?`W.medidas['${m}'].pack`:'W.pack';
-  left+=`<h4 style="margin-top:1.75rem">Packaging${pote?` · pote ${m} ml`:''} <span class="src alt caps">precios de Insumos</span></h4>
+  if(p.tipo!=='CB') left+=`<h4 style="margin-top:1.75rem">Packaging${pote?` · pote ${m} ml`:''} <span class="src alt caps">precios de Insumos</span></h4>
     <table class="t"><thead><tr><th>Ítem</th><th class="n">cant.</th><th class="n">$ c/u</th><th class="n">$</th><th></th></tr></thead><tbody>
     ${pk.map(({c:cc,q},i)=>`<tr><td>${INS[cc]?.nombre||cc} <span class="subtle" style="font-size:.72rem">· ${cc}</span>${stTag(cc)}</td><td class="n"><input class="rin" style="width:3rem" value="${q}" data-rs="w:${pote?`medidas.${m}.pack`:'pack'}.${i}.q" onchange="${pkPath}[${i}].q=+this.value||0;dirty()"></td><td class="n">${pr(cc)}</td><td class="n">${Math.round(pr(cc)*q)}</td><td class="act"><button class="rx" onclick="${pkPath}.splice(${i},1);dirty()">×</button></td></tr>`).join('')}
     <tr class="tot"><td>Packaging por ${pote?'pote':'unidad'}</td><td></td><td></td><td class="n">${Math.round(c.pack)}</td><td></td></tr></tbody></table>
@@ -946,15 +1125,28 @@ function renderDet(){
       <div style="display:flex;gap:.6rem;align-items:center;margin-bottom:.6rem"><div class="mtog">${['360','250'].map(k=>`<button class="${m===k?'on':''}" onclick="setMed('${k}')">${k} ml</button>`).join('')}</div>
       ${m==='250'?`<label style="font-size:.8rem;color:var(--cream-muted)"><input type="checkbox" ${md.activa?'checked':''} data-rs="w:medidas.250.activa" onchange="wset('medidas.250.activa',this.checked)"> Se vende en 250 ml</label>`:''}</div>
       <div class="steps">
-        <div class="row"><span class="subtle">Peso por pote (g) ${md.pesoTipo==='real'?'<span class="age ok">real</span>':'<span class="age prov">estimado</span>'}</span><span><input class="rin" value="${md.peso}" data-rs="w:medidas.${m}.peso" onchange="wset('medidas.${m}.peso',+this.value||0)"></span></div>
+        <div class="row"><span class="subtle">Peso por pote (g) ${md.pesoTipo==='real'?'<span class="age ok">real</span>':'<span class="age prov">estimado</span>'}</span><span>${c.peso!=null?num(c.peso,1).replace(/,0$/,''):`<input class="rin" value="${md.peso}" data-rs="w:medidas.${m}.peso" onchange="wset('medidas.${m}.peso',+this.value||0)">`}</span></div>
+        ${c.peso!=null?'<div class="row"><span class="subtle" style="font-size:.72rem">Suma de los g por pote de cada sección</span><span></span></div>':''}
         <div class="row"><span class="subtle">Origen del peso</span><span><select class="rsel" data-rs="w:medidas.${m}.pesoTipo" onchange="wset('medidas.${m}.pesoTipo',this.value)"><option value="est"${md.pesoTipo!=='real'?' selected':''}>Estimado</option><option value="real"${md.pesoTipo==='real'?' selected':''}>Pesaje real</option></select></span></div>
-        ${p.modo!=='kg'?`<div class="row"><span class="subtle">Producto por receta (g)</span><span><input class="rin" value="${p.prodG}" data-rs="w:prodG" onchange="wset('prodG',+this.value||0)"></span></div>`:''}
+        ${p.modo!=='kg'&&c.modo!=='gp'?`<div class="row"><span class="subtle">Producto por receta (g)</span><span><input class="rin" value="${p.prodG}" data-rs="w:prodG" onchange="wset('prodG',+this.value||0)"></span></div>`:''}
       </div></div>`;
-    right+=`<div class="panel"><h4>Del batch al pote</h4><div class="steps">`+(p.modo==='kg'
+    right+=`<div class="panel"><h4>${c.secs?'Composición del pote':'Del batch al pote'}</h4><div class="steps">`+(c.secs
+      ?[...(p.modo==='kg'?[[`Helado base · ${num(c.gB,1).replace(/,0$/,'')} g`,c.mpB]]:[]),...c.secs.map(x=>[x.inf?`${x.sec.charAt(0)+x.sec.slice(1).toLowerCase()} · dentro del helado (${num(x.gpRef||0,1).replace(/,0$/,'')} g de base)`:`${x.sec.charAt(0)+x.sec.slice(1).toLowerCase()} · ${num(x.gp,1).replace(/,0$/,'')} g × ${num(x.pg,2)} $/g`,x.mp]),['Packaging',c.pack],[`IVA ${P.iva}% sobre ${p.modo==='kg'?'intervenciones':'MP'} + packaging`,c.iva],...(c.mo||p.modo!=='kg'?[[(p.modo==='kg'||p.baseCompra?.on)?`Mano de obra · armado ${+P.moCompradoMin||0} min`:'Mano de obra (sin IVA)',c.mo]]:[])].map(([a,v])=>`<div class="row"><span class="subtle">${a}</span><span>${$(v)}</span></div>`).join('')
+      :p.modo==='kg'
       ?[['Costo helado · kg × peso',c.mp],['Packaging',c.pack],['IVA sobre packaging',c.iva]].map(([a,v])=>`<div class="row"><span class="subtle">${a}</span><span>${$(v)}</span></div>`).join('')
       :[['Materia prima de la receta',$(c.mpBatch)],['Potes por receta',num(c.potes,2)],['Materia prima por pote',$(c.mpPote)],['Packaging',$(c.pack)],[`IVA ${P.iva}% sobre MP + packaging`,$(c.iva)],['Mano de obra (sin IVA)',$(c.mo)]].map(([a,v])=>`<div class="row"><span class="subtle">${a}</span><span>${v}</span></div>`).join(''))
       +`<div class="row big"><span class="caps" style="color:var(--cream-muted)">Costo por pote</span><span>${$(c.costo)}</span></div></div>
-      ${p.modo!=='kg'?`<p class="subtle" style="font-size:.72rem;margin-top:.5rem">Batch de producción ${P.batchStd.toLocaleString('es-AR')} g = ${num(P.batchStd/1000*c.potes,1)} potes de ${m} ml. El costo por pote no depende del batch.</p>`:''}</div>`;
+      ${c.secs?`<p class="subtle" style="font-size:.72rem;margin-top:.5rem">Los g por pote ya incluyen la merma de producción. El costo por gramo de cada sección sale de sus insumos ÷ rinde (o la suma de ingredientes si no cargaste rinde).</p>`:''}
+      ${p.modo!=='kg'&&!c.secs?`<p class="subtle" style="font-size:.72rem;margin-top:.5rem">Batch de producción ${P.batchStd.toLocaleString('es-AR')} g = ${num(P.batchStd/1000*c.potes,1)} potes de ${m} ml. El costo por pote no depende del batch.</p>`:''}</div>`;
+  } else if(p.tipo==='CB'){
+    right+=`<div class="panel"><h4>Descuentos del combo</h4><div class="steps">
+      <div class="row"><span class="subtle">Descuento del combo · Rappi y Landing</span><span><input class="rin" style="width:3.5rem" value="${p.dto??15}" data-rs="w:dto" onchange="wset('dto',Math.max(0,Math.min(100,+this.value||0)))"> %</span></div>
+      <div class="row"><span class="subtle">Descuento extra Amigos · sobre su precio Amigos</span><span><input class="rin" style="width:3.5rem" value="${p.dtoAm??0}" data-rs="w:dtoAm" onchange="wset('dtoAm',Math.max(0,Math.min(100,+this.value||0)))"> %</span></div>
+      <div class="row"><span class="subtle">Costo del combo (suma de potes)</span><span>${$(c.costo)}</span></div>
+      <div class="row"><span class="subtle">Rappi · se publica a la suma de lista</span><span>${$(x.sumR)}</span></div>
+      <div class="row"><span class="subtle">Landing · suma de lista</span><span>${$(x.sumL)}</span></div>
+      <div class="row"><span class="subtle">Amigos · suma de precios Amigos</span><span>${$(x.sumA)}</span></div></div>
+      <p class="subtle" style="font-size:.72rem;margin-top:.5rem">En Rappi se publica a ${$(x.sumR)} y el −${p.dto??15}% se aplica como descuento del combo (sin redondeo). Las promos Rappi por sabor no se suman a los combos.</p></div>`;
   } else {
     right+=`<div class="panel"><h4>Mano de obra estimada</h4><div class="steps">
       <div class="row"><span class="subtle">Minutos por unidad <span class="age prov">estimado</span></span><span><input class="rin" style="width:3.5rem" value="${p.minutos}" data-rs="w:minutos" onchange="wset('minutos',+this.value||0)"> min</span></div>
@@ -963,19 +1155,21 @@ function renderDet(){
       <div class="panel"><h4>Del producto a la unidad</h4><div class="steps">${[['Materia prima (partes)',c.mp],['Packaging',c.pack],[`IVA ${P.iva}% sobre MP + packaging`,c.iva],['Mano de obra estimada (sin IVA)',c.mo]].map(([a,v])=>`<div class="row"><span class="subtle">${a}</span><span>${$(v)}</span></div>`).join('')}<div class="row big"><span class="caps" style="color:var(--cream-muted)">Costo por unidad</span><span>${$(c.costo)}</span></div></div></div>`;
   }
   const pp=pote?p.medidas[m].precios:p.precios, pth=pote?`medidas.${m}.precios`:'precios';
-  const box=(k,ch,v,sug,crit,mm)=>`<span class="ch"${k==='R'?' style="color:#ff7a5c"':''}>${ch}</span><div class="pbox"><input class="pv2" value="${$(v)}" data-rs="w:${pth}.${k}" onchange="wset('${pth}.${k}',parseInt(this.value.replace(/\\D/g,''))||null)"><div class="mg">${pct(mm)}${k==='R'?' neto':''}${k==='A'?(pp.A==null?` · Landing −${p.amigosPct??P.amigosBase}%`:` · ${(100-v/x.L*100).toFixed(1).replace('.',',')}% bajo tu Landing`):''}</div>${vsObj(ch,mm)}${pp[k]!=null&&(k==='A'||pp[k]!==sug)?` <a style="cursor:pointer;font-size:.66rem;color:var(--caramel);text-decoration:underline" onclick="wset('${pth}.${k}',null)">${k==='A'?'volver al automático':'usar sugerido'}</a>`:''}</div><div class="pbox sug"><div class="v">${$(sug)}</div><div class="mg">${crit}</div></div>`;
+  const box=(k,ch,v,sug,crit,mm)=>`<span class="ch"${k==='R'?' style="color:#ff7a5c"':''}>${ch}</span><div class="pbox"><input class="pv2" value="${$(v)}" data-rs="w:${pth}.${k}" onchange="wset('${pth}.${k}',parseInt(this.value.replace(/\\D/g,''))||null)"><div class="mg">${pct(mm)}${k==='R'?' neto':''}${k==='A'?(p.tipo==='CB'?(pp.A==null?` · suma Amigos −${p.dtoAm??0}%`:''):pp.A==null?` · Landing −${p.amigosPct??P.amigosBase}%`:` · ${(100-v/x.L*100).toFixed(1).replace('.',',')}% bajo tu Landing`):''}</div>${vsObj(ch,mm)}${pp[k]!=null&&(k==='A'||pp[k]!==sug)?` <a style="cursor:pointer;font-size:.66rem;color:var(--caramel);text-decoration:underline" onclick="wset('${pth}.${k}',null)">${k==='A'?'volver al automático':'usar sugerido'}</a>`:''}</div><div class="pbox sug"><div class="v">${$(sug)}</div><div class="mg">${crit}</div></div>`;
   const offM=pote&&!p.medidas[m].activa;
   right+=`<div class="panel"><h4>Precio por canal${pote?` · ${m} ml`:''}</h4>
     <div style="display:flex;gap:1rem;font-size:.8rem;color:var(--cream-muted);margin-bottom:.4rem;flex-wrap:wrap"><span class="caps" style="font-size:.66rem">Se vende en</span>${[['L','Landing'],['A','Amigos'],['R','Rappi']].map(([k,n])=>`<label><input type="checkbox" ${p.canales[k]?'checked':''} data-rs="w:canales.${k}" onchange="wset('canales.${k}',this.checked)"> ${n}</label>`).join('')}</div>
     ${offM?'<div class="note"><span>✦</span><span>No se ofrece en 250 ml. Tildá «Se vende en 250 ml» para cargar precios.</span></div>':`<div class="price-grid">
     <span></span><span class="hd">Precio de venta · editable</span><span class="hd">Sugerido</span>
-    ${p.canales.L?box('L','Landing',x.L,x.sL,`objetivo ${P.objLanding}%`,x.mL):''}${p.canales.A?box('A','Amigos',x.A,x.sA,`Landing sugerido −${p.amigosPct??P.amigosBase}%`,x.mA):''}${p.canales.R?box('R','Rappi',x.R,x.sR,`objetivo ${P.objRappi}%`,x.mR):''}</div>`}
+    ${p.tipo==='CB'
+      ?(p.canales.L?box('L','Landing',x.L,x.sL,`suma Landing −${p.dto??15}%`,x.mL):'')+(p.canales.A?box('A','Amigos',x.A,x.sA,`suma Amigos −${p.dtoAm??0}%`,x.mA):'')+(p.canales.R?box('R','Rappi',x.R,x.sR,`publicado ${$(x.sumR)} −${p.dto??15}%`,x.mR):'')
+      :(p.canales.L?box('L','Landing',x.L,x.sL,`objetivo ${P.objLanding}%`,x.mL):'')+(p.canales.A?box('A','Amigos',x.A,x.sA,`Landing sugerido −${p.amigosPct??P.amigosBase}%`,x.mA):'')+(p.canales.R?box('R','Rappi',x.R,x.sR,`objetivo ${P.objRappi}%`,x.mR):'')}</div>`}
     <div class="note"><span>✦</span><span>Precios editables: el sugerido es solo referencia. Los cambios llegan a Ventas solo con «Publicar en Ventas».</span></div></div>`;
 
   el('detalle').innerHTML=`<section class="sec navy"><div class="halo" style="left:-12rem;bottom:0;width:24rem;height:24rem;background:rgba(200,150,90,.10)"></div><div class="wrap" style="position:relative">
     <div class="sec-head"><div>
       <button class="btn-sub" style="margin-bottom:.8rem;font-size:.7rem;padding:.35rem .7rem" onclick="volver()">← Productos</button>
-      <div class="kicker"><span class="dot" style="width:12px;height:12px;background:${p.color}"></span><span class="caps">Detalle · ${tipoLbl(p)} · ${codigo(p)} · ${pote?'pote '+m+' ml':'unidad'}</span></div>
+      <div class="kicker"><span class="dot" style="width:12px;height:12px;background:${p.color}"></span><span class="caps">Detalle · ${tipoLbl(p)} · ${codigo(p)} · ${pote?'pote '+m+' ml':p.tipo==='CB'?'combo':'unidad'}</span></div>
       <div class="sabsel-row"><span style="display:flex;align-items:center;gap:.55rem;background:rgba(240,230,211,.1);border:1px solid rgba(240,230,211,.25);border-radius:var(--r-in);padding:.45rem .8rem;color:var(--cream-base);font-size:.9rem"><span class="caps" style="color:var(--cream-muted)">Nombre</span><input style="background:transparent;border:0;color:var(--cream-base);font:inherit;font-weight:700;width:13rem" value="${p.nombre}" data-rs="w:nombre" oninput="wset('nombre',this.value,0)"></span>${estado}
         ${p.estado==='dev'?`<label style="font-size:.78rem;color:var(--cream-muted)"><input type="checkbox" ${p.proximo?'checked':''} data-rs="w:proximo" onchange="wset('proximo',this.checked)"> Próximo a producir</label>`:''}</div>
       <h2 class="h-lg">${p.nombre}${pote&&p.version?' · '+p.version:''}</h2>
@@ -997,6 +1191,7 @@ window.guardarProd=async()=>{
   if(!wDirty) return;
   const sb=el('wSave'); sb.disabled=true; sb.innerHTML='<span class="spin sm inv"></span>Guardando…';
   const a=PROD[WID], b=W, ev=[];
+  if(b.tipo==='pote') ['360','250'].forEach(mm=>{ const cc=costo(b,mm); if(cc.peso!=null&&b.medidas[mm]) b.medidas[mm].peso=Math.round(cc.peso*10)/10; });
   const med=a.tipo==='pote'?['360','250']:[null];
   for(const m of med){
     const pa=m?a.medidas[m].precios:a.precios, pb=m?b.medidas[m].precios:b.precios;
@@ -1010,10 +1205,12 @@ window.guardarProd=async()=>{
       if(a.medidas[m].activa!==b.medidas[m].activa) ev.push(['producto',`${b.nombre} · ${m} ml`,a.medidas[m].activa?'se ofrece':'no se ofrece',b.medidas[m].activa?'se ofrece':'no se ofrece']); }
   }
   let ver=b.version;
-  if(a.tipo==='pote'&&(JSON.stringify(a.receta)!==JSON.stringify(b.receta)||a.prodG!==b.prodG||a.costoKg!==b.costoKg||a.modo!==b.modo)){
+  if(a.tipo==='pote'&&(JSON.stringify(a.receta)!==JSON.stringify(b.receta)||a.prodG!==b.prodG||a.costoKg!==b.costoKg||a.modo!==b.modo||JSON.stringify(a.baseCompra||null)!==JSON.stringify(b.baseCompra||null)||JSON.stringify(['360','250'].map(mm=>a.medidas[mm]?.gBase))!==JSON.stringify(['360','250'].map(mm=>b.medidas[mm]?.gBase)))){
     const mm=(b.version||'v1').match(/^v(\d+)(?:\.(\d+))?/); ver=mm?`v${mm[1]}.${(+mm[2]||0)+1}`:'v1.1'; b.version=ver;
     ev.push(['receta',b.nombre,a.version||'—',ver,`costo 360 ${$(costo(a,'360').costo)} → ${$(costo(b,'360').costo)}`,costo(b,'360').costo<=costo(a,'360').costo?'up':'dn']); }
-  if(a.tipo!=='pote'&&(JSON.stringify(a.partes)!==JSON.stringify(b.partes)||JSON.stringify(a.pack)!==JSON.stringify(b.pack)||a.minutos!==b.minutos))
+  if(a.tipo==='CB'&&(JSON.stringify(a.comp)!==JSON.stringify(b.comp)||(a.dto??15)!==(b.dto??15)||(a.dtoAm??0)!==(b.dtoAm??0)))
+    ev.push(['receta',b.nombre+' · composición / descuentos',`${cbComps(a).map(c=>c.q.nombre+' '+c.m).join(' + ')||'—'} · −${a.dto??15}% · Amigos −${a.dtoAm??0}%`,`${cbComps(b).map(c=>c.q.nombre+' '+c.m).join(' + ')||'—'} · −${b.dto??15}% · Amigos −${b.dtoAm??0}%`,`costo ${$(costo(a).costo)} → ${$(costo(b).costo)}`,costo(b).costo<=costo(a).costo?'up':'dn']);
+  if(a.tipo!=='pote'&&a.tipo!=='CB'&&(JSON.stringify(a.partes)!==JSON.stringify(b.partes)||JSON.stringify(a.pack)!==JSON.stringify(b.pack)||a.minutos!==b.minutos))
     ev.push(['receta',b.nombre+' · partes / packaging / MO','costo '+$(costo(a).costo),'costo '+$(costo(b).costo),'—',costo(b).costo<=costo(a).costo?'up':'dn']);
   if(a.estado!==b.estado) ev.push(['producto',b.nombre,{activo:'Activo',fuera:'Fuera de carta',dev:'En desarrollo'}[a.estado],{activo:'Activo',fuera:'Fuera de carta',dev:'En desarrollo'}[b.estado]]);
   if(JSON.stringify(a.canales)!==JSON.stringify(b.canales)) ev.push(['producto',b.nombre+' · canales',chs(a.canales),chs(b.canales)]);
@@ -1029,7 +1226,7 @@ const chs=c=>[c.L&&'Landing',c.A&&'Amigos',c.R&&'Rappi'].filter(Boolean).join(' 
 window.lanzar=()=>{
   if(wDirty){ toast('Guardá los cambios antes de lanzar'); return; }
   const p=W, lin=p.tipo==='pote'?p.linea:p.tipo, n=Math.max(0,...prodArr().filter(q=>(q.tipo==='pote'?q.linea:q.tipo)===lin).map(q=>q.numero||0))+1;
-  const cod={autor:'AT',clasico:'CL',PL:'PL',AF:'AF',EX:'EX'}[lin]+'-'+String(n).padStart(2,'0');
+  const cod={autor:'AT',clasico:'CL',PL:'PL',AF:'AF',EX:'EX',CB:'CB'}[lin]+'-'+String(n).padStart(2,'0');
   const ms=p.tipo==='pote'?['360','250'].filter(m=>p.medidas[m].activa):[null];
   mOpen(`<div class="mdl-head"><div><div class="kicker" style="margin-bottom:.25rem"><span class="dot" style="width:10px;height:10px;background:var(--caramel)"></span><span class="caps">${p.nombre}</span></div><h3 class="h-md">Lanzar a la venta</h3></div><button class="x" onclick="mClose()">×</button></div>
    <table class="ptab"><tbody><tr><td>Código</td><td class="n"><b>${cod}</b> <span class="subtle">se asigna ahora · no se reutiliza</span></td></tr>
@@ -1041,7 +1238,7 @@ window.confLanzar=async(n,cod)=>{ W.numero=n; W.estado='activo'; W.proximo=false
 
 // Nuevo producto
 window.nuevoOpen=()=>mOpen(`<div class="mdl-head"><div><div class="kicker" style="margin-bottom:.25rem"><span class="dot" style="width:10px;height:10px;background:var(--caramel)"></span><span class="caps">Productos</span></div><h3 class="h-md">Nuevo producto</h3></div><button class="x" onclick="mClose()">×</button></div>
-  <div class="fgrid"><label class="f full"><span class="caps">Tipo</span><select id="nTipo"><option value="autor">Helado en pote · Autor</option><option value="clasico">Helado en pote · Clásico</option><option value="PL">Paleta</option><option value="AF">Alfajor helado</option><option value="EX">Extra</option></select></label>
+  <div class="fgrid"><label class="f full"><span class="caps">Tipo</span><select id="nTipo"><option value="autor">Helado en pote · Autor</option><option value="clasico">Helado en pote · Clásico</option><option value="PL">Paleta</option><option value="AF">Alfajor helado</option><option value="EX">Extra</option><option value="CB">Combo · potes de la carta</option></select></label>
   <label class="f full"><span class="caps">Nombre</span><input id="nNom" placeholder="Ej: Pistacho & Limón"></label>
   <label class="f full"><span class="caps">Descripción corta</span><input id="nDesc" placeholder="La que se ve en la carta"></label></div>
   <div class="diffbox" style="margin-top:1rem"><div><b>Se crea «En desarrollo»</b>, con código pendiente. Se completa en su ficha.</div></div>
@@ -1050,8 +1247,9 @@ window.crearProd=async()=>{
   const t=el('nTipo').value, nom=el('nNom').value.trim(); if(!nom){ toast('Falta el nombre'); return; }
   let id=norm(nom).slice(0,40)||('p'+Date.now()); if(PROD[id]) id+='-'+Date.now().toString(36);
   const base={nombre:nom,desc:el('nDesc').value.trim(),estado:'dev',numero:0,proximo:false,color:'#C8965A',version:'v1',amigosPct:null};
-  const d=['autor','clasico'].includes(t)
-    ?{...base,tipo:'pote',linea:t,modo:'receta',receta:[{sec:'MIX BASE (1.000 g)',items:[]}],prodG:1000,canales:{L:true,A:true,R:true},
+  const d=t==='CB'?{...base,tipo:'CB',linea:'CB',comp:[],dto:15,dtoAm:0,precios:{L:null,A:null,R:null},canales:{L:true,A:true,R:true}}
+    :['autor','clasico'].includes(t)
+    ?{...base,tipo:'pote',linea:t,modo:'receta',receta:[{sec:'MIX BASE (1.000 g)',items:[],gp:{'360':270,'250':187.5}}],prodG:1000,canales:{L:true,A:true,R:true},
       medidas:{'360':{activa:true,peso:270,pesoTipo:'est',pack:[{c:'PKG-001',q:1},{c:'PKG-003',q:1},{c:'PKG-004',q:1}],precios:{L:null,A:null,R:null}},'250':{activa:false,peso:187.5,pesoTipo:'est',pack:[{c:'PKG-002',q:1},{c:'PKG-003',q:1},{c:'PKG-005',q:1}],precios:{L:null,A:null,R:null}}}}
     :{...base,tipo:t,linea:t,partes:[],pack:t==='PL'?[{c:'PKG-006',q:1},{c:'PKG-007',q:1}]:t==='AF'?[{c:'PKG-008',q:1}]:[],minutos:3,precios:{L:null,A:null,R:null},canales:{L:true,A:true,R:false}};
   await setDoc(doc(db,C.prod,id),d); await hist('producto',nom,'—','Creado en desarrollo'); PROD[id]={id,...d}; mClose(); abrir(id);
@@ -1286,7 +1484,7 @@ window.renderPar=()=>{
   const f=(k,l,s='')=>`<label class="f"><span class="caps">${l}</span><input data-rs="p:${k}" value="${PW[k]}" onchange="PW['${k}']=parseFloat(this.value.replace(/[^0-9.,]/g,'').replace(',','.'))||0;setTimeout(parLive,0)">${s?`<small>${s}</small>`:''}</label>`;
   el('parGrid').innerHTML=`
    <div class="pcard wide"><div class="kicker"><span class="dot" style="width:10px;height:10px;background:var(--espresso-rich)"></span><span class="caps">01 · Mano de obra</span></div><h3 class="h-md">Cómo se calcula</h3>
-    <div class="fgrid four">${f('sueldo','Sueldo mensual ($)')}${f('potesJornada','Potes por jornada')}${f('jornadasSemana','Jornadas por semana')}${f('semanasMes','Semanas por mes')}${f('horasJornada','Horas por jornada','Base del costo por minuto')}${f('batchStd','Batch estándar (g)','Los complementos escalan igual')}</div>
+    <div class="fgrid four">${f('sueldo','Sueldo mensual ($)')}${f('potesJornada','Potes por jornada')}${f('jornadasSemana','Jornadas por semana')}${f('semanasMes','Semanas por mes')}${f('horasJornada','Horas por jornada','Base del costo por minuto')}${f('batchStd','Batch estándar (g)','Los complementos escalan igual')}${f('moCompradoMin','Armado con helado comprado (min/pote)','Clásicos y sabores con helado base comprado · × costo del minuto')}</div>
     <div class="steps light" id="moRes"></div></div>
    <div class="pcard"><div class="kicker"><span class="dot" style="width:10px;height:10px;background:var(--navy)"></span><span class="caps">02 · Impuestos y compras</span></div><h3 class="h-md">IVA y presentación máxima</h3><div class="fgrid">${f('iva','Alícuota (%)','Sobre MP + packaging · la MO no lleva IVA')}${f('presMax','Presentación máxima (kg o L)','Tope del modo automático · sin opciones dentro del tope, usa la más chica')}</div></div>
    <div class="pcard"><div class="kicker"><span class="dot" style="width:10px;height:10px;background:#FF441F"></span><span class="caps">03 · Canales</span></div><h3 class="h-md">Comisión de plataforma</h3><div class="fgrid">${f('comisionRappi','Comisión Rappi (%)','Final, con impuestos')}</div></div>
@@ -1307,12 +1505,12 @@ window.parLive=()=>{
   el('moRes').innerHTML=[['Potes por mes',(PW.potesJornada*PW.jornadasSemana*PW.semanasMes).toLocaleString('es-AR')],['Mano de obra por pote 360 ml','$'+num(m)],['Mano de obra por pote 250 ml · proporcional','$'+num(m*250/360)],['Costo por minuto','$'+num(mi)]].map(([a,v])=>`<div class="row"><span>${a}</span><span>${v}</span></div>`).join('');
   const ef=id=>AMW[id]??PW.amigosBase, k=(id)=>1-ef(id)/100;
   el('amAll').style.visibility=Object.values(AMW).some(v=>v!=null)?'visible':'hidden';
-  el('amRows').innerHTML=prodArr().filter(p=>p.canales?.A).sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(p=>{const x=precios(p,'360'), L=x.L, pa=(p.tipo==='pote'?p.medidas['360'].precios:p.precios).A, A=pa??Math.round(L*k(p.id)), c=x.c;
+  el('amRows').innerHTML=prodArr().filter(p=>p.canales?.A&&p.tipo!=='CB').sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(p=>{const x=precios(p,'360'), L=x.L, pa=(p.tipo==='pote'?p.medidas['360'].precios:p.precios).A, A=pa??Math.round(L*k(p.id)), c=x.c;
     return `<tr><td>${p.nombre} <span class="muted" style="font-size:.72rem">${codigo(p)}</span></td><td class="n"><input class="lin" style="width:3.5rem" value="${ef(p.id)}" onchange="const v=+this.value||0;AMW['${p.id}']=v===PW.amigosBase?null:v;pDirtySet();setTimeout(parLive,0)"> %${AMW[p.id]!==amSaved(p.id)?`<button type="button" class="rst" title="Volver a lo guardado" onclick="AMW['${p.id}']=amSaved('${p.id}');setTimeout(parLive,0)">${RST}</button>`:`<button type="button" class="rst" title="Volver al descuento base" style="visibility:${AMW[p.id]==null?'hidden':'visible'}" onclick="AMW['${p.id}']=null;pDirtySet();setTimeout(parLive,0)">${RST}</button>`}</td><td class="n">${$(L)}</td><td class="n">${$(A)}${pa!=null?' <span class="muted" style="font-size:.7rem">manual</span>':''}</td><td class="n">${pct((A-c)/A*100)}</td></tr>`}).join('');
   rsPaint(el('parGrid'));
 };
 function renderRappi(){
-  const rp=prodArr().filter(p=>p.canales?.R&&p.estado!=='archivado');
+  const rp=prodArr().filter(p=>p.canales?.R&&p.estado!=='archivado'&&p.tipo!=='CB');
   el('rList').innerHTML=RW.length?RW.map((r,k)=>{
     const all=rp.every(p=>r.productos.includes(p.id));
     const chips=rp.map(p=>{const on=r.productos.includes(p.id); const otra=r.activo&&!on?RW.find((o,j)=>j!==k&&o.activo&&o.productos.includes(p.id)&&solapa(o,r)):null;
@@ -1337,7 +1535,7 @@ window.parReset=()=>{ renderPar(); };
 window.parSave=async()=>{
   if(!parDirty) return;
   el('btnPar').disabled=true; el('btnPar').innerHTML='<span class="spin sm inv"></span>Guardando…';
-  const lbl={sueldo:'Sueldo mensual',potesJornada:'Potes por jornada',jornadasSemana:'Jornadas por semana',semanasMes:'Semanas por mes',horasJornada:'Horas por jornada',iva:'IVA',comisionRappi:'Comisión Rappi',pisoRappi:'Piso Rappi',objLanding:'Objetivo Landing',objRappi:'Objetivo Rappi',redondeo:'Redondeo',batchStd:'Batch estándar',amigosBase:'Descuento Amigos base',presMax:'Presentación máxima (kg/L)'};
+  const lbl={sueldo:'Sueldo mensual',potesJornada:'Potes por jornada',jornadasSemana:'Jornadas por semana',semanasMes:'Semanas por mes',horasJornada:'Horas por jornada',iva:'IVA',comisionRappi:'Comisión Rappi',pisoRappi:'Piso Rappi',objLanding:'Objetivo Landing',objRappi:'Objetivo Rappi',redondeo:'Redondeo',batchStd:'Batch estándar',moCompradoMin:'Armado con helado comprado (min/pote)',amigosBase:'Descuento Amigos base',presMax:'Presentación máxima (kg/L)'};
   for(const k of Object.keys(PW)) if(PW[k]!==P[k]) await hist('param',lbl[k]||k,String(P[k]),String(PW[k]));
   await setDoc(doc(db,C.par,'general'),PW);
   const amTxt=(v,b)=>v==null?`base (${b}%)`:v+'%';
