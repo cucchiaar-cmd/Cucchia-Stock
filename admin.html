@@ -633,15 +633,15 @@ function costo(p, m){
       secs.forEach(x=>{ if(x.inf&&b0&&!b0.inf&&gMix){ x.mp=x.costo/gMix*b0.gp; x.pg=x.costo/gMix; x.gpRef=b0.gp; } }); }
     const moC=()=>(+P.moCompradoMin||0)*minuto()*(m==='250'?250/360:1); // armado con helado comprado: minutos por pote × costo del minuto
     if(p.modo==='kg'){ const gB=+(md.gBase??md.peso)||0, mpB=(p.costoKg||0)*gB/1000, mpI=secs.reduce((a,x)=>a+x.mp,0), peso=gB+secs.reduce((a,x)=>a+x.gp,0);
-      const moK=moC(); return {modo:'kg',mp:mpB+mpI,mpB,gB,mpI,secs,peso,pack,iva:(mpI+pack)*iva(),mo:moK,costo:mpB+(mpI+pack)*(1+iva())+moK}; }
+      const moK=moC(); return {modo:'kg',mp:mpB+mpI,mpB,gB,mpI,secs,peso,pack,iva:mpI*iva(),mo:moK,costo:mpB+mpI*(1+iva())+pack+moK}; }
     if((p.receta||[]).some(sc=>sc.gp)){ const mpPote=secs.reduce((a,x)=>a+x.mp,0), peso=secs.reduce((a,x)=>a+x.gp,0), mo=bc?moC():moMed(m);
-      return {modo:'gp',secs,peso,mpPote,pack,iva:(mpPote+pack)*iva(),mo,costo:(mpPote+pack)*(1+iva())+mo}; }
+      return {modo:'gp',secs,peso,mpPote,pack,iva:mpPote*iva(),mo,costo:mpPote*(1+iva())+pack+mo}; }
     const mpBatch=(p.receta||[]).reduce((a,s)=>a+s.items.reduce((b,it)=>b+pi(it)*it.g,0),0);
     const potes=p.prodG/(md.peso||1), mpPote=mpBatch/potes, mo=moMed(m);
-    return {modo:'receta',mpBatch,potes,mpPote,pack,iva:(mpPote+pack)*iva(),mo,costo:(mpPote+pack)*(1+iva())+mo};
+    return {modo:'receta',mpBatch,potes,mpPote,pack,iva:mpPote*iva(),mo,costo:mpPote*(1+iva())+pack+mo};
   }
   const mp=(p.partes||[]).reduce((a,x)=>a+x.g*x.precioG,0), pack=packCost(p.pack), mo=(p.minutos||0)*minuto();
-  return {modo:'unidad',mp,pack,iva:(mp+pack)*iva(),mo,costo:(mp+pack)*(1+iva())+mo};
+  return {modo:'unidad',mp,pack,iva:mp*iva(),mo,costo:mp*(1+iva())+pack+mo};
 }
 function precios(p, m){
   if(p.tipo==='CB'){
@@ -1131,10 +1131,10 @@ ${secTable(s,si,sub,false)}</div>`;}).join('')
         ${p.modo!=='kg'&&c.modo!=='gp'?`<div class="row"><span class="subtle">Producto por receta (g)</span><span><input class="rin" value="${p.prodG}" data-rs="w:prodG" onchange="wset('prodG',+this.value||0)"></span></div>`:''}
       </div></div>`;
     right+=`<div class="panel"><h4>${c.secs?'Composición del pote':'Del batch al pote'}</h4><div class="steps">`+(c.secs
-      ?[...(p.modo==='kg'?[[`Helado base · ${num(c.gB,1).replace(/,0$/,'')} g`,c.mpB]]:[]),...c.secs.map(x=>[x.inf?`${x.sec.charAt(0)+x.sec.slice(1).toLowerCase()} · dentro del helado (${num(x.gpRef||0,1).replace(/,0$/,'')} g de base)`:`${x.sec.charAt(0)+x.sec.slice(1).toLowerCase()} · ${num(x.gp,1).replace(/,0$/,'')} g × ${num(x.pg,2)} $/g`,x.mp]),['Packaging',c.pack],[`IVA ${P.iva}% sobre ${p.modo==='kg'?'intervenciones':'MP'} + packaging`,c.iva],...(c.mo||p.modo!=='kg'?[[(p.modo==='kg'||p.baseCompra?.on)?`Mano de obra · armado ${+P.moCompradoMin||0} min`:'Mano de obra (sin IVA)',c.mo]]:[])].map(([a,v])=>`<div class="row"><span class="subtle">${a}</span><span>${$(v)}</span></div>`).join('')
+      ?[...(p.modo==='kg'?[[`Helado base · ${num(c.gB,1).replace(/,0$/,'')} g`,c.mpB]]:[]),...c.secs.map(x=>[x.inf?`${x.sec.charAt(0)+x.sec.slice(1).toLowerCase()} · dentro del helado (${num(x.gpRef||0,1).replace(/,0$/,'')} g de base)`:`${x.sec.charAt(0)+x.sec.slice(1).toLowerCase()} · ${num(x.gp,1).replace(/,0$/,'')} g × ${num(x.pg,2)} $/g`,x.mp]),['Packaging',c.pack],[`IVA ${P.iva}% sobre ${p.modo==='kg'?'intervenciones':'materia prima'} · el packaging ya lo incluye`,c.iva],...(c.mo||p.modo!=='kg'?[[(p.modo==='kg'||p.baseCompra?.on)?`Mano de obra · armado ${+P.moCompradoMin||0} min`:'Mano de obra (sin IVA)',c.mo]]:[])].map(([a,v])=>`<div class="row"><span class="subtle">${a}</span><span>${$(v)}</span></div>`).join('')
       :p.modo==='kg'
-      ?[['Costo helado · kg × peso',c.mp],['Packaging',c.pack],['IVA sobre packaging',c.iva]].map(([a,v])=>`<div class="row"><span class="subtle">${a}</span><span>${$(v)}</span></div>`).join('')
-      :[['Materia prima de la receta',$(c.mpBatch)],['Potes por receta',num(c.potes,2)],['Materia prima por pote',$(c.mpPote)],['Packaging',$(c.pack)],[`IVA ${P.iva}% sobre MP + packaging`,$(c.iva)],['Mano de obra (sin IVA)',$(c.mo)]].map(([a,v])=>`<div class="row"><span class="subtle">${a}</span><span>${v}</span></div>`).join(''))
+      ?[['Costo helado · kg × peso',c.mp],['Packaging',c.pack],['IVA (incluido en packaging)',c.iva]].map(([a,v])=>`<div class="row"><span class="subtle">${a}</span><span>${$(v)}</span></div>`).join('')
+      :[['Materia prima de la receta',$(c.mpBatch)],['Potes por receta',num(c.potes,2)],['Materia prima por pote',$(c.mpPote)],['Packaging',$(c.pack)],[`IVA ${P.iva}% sobre materia prima · el packaging ya lo incluye`,$(c.iva)],['Mano de obra (sin IVA)',$(c.mo)]].map(([a,v])=>`<div class="row"><span class="subtle">${a}</span><span>${v}</span></div>`).join(''))
       +`<div class="row big"><span class="caps" style="color:var(--cream-muted)">Costo por pote</span><span>${$(c.costo)}</span></div></div>
       ${c.secs?`<p class="subtle" style="font-size:.72rem;margin-top:.5rem">Los g por pote ya incluyen la merma de producción. El costo por gramo de cada sección sale de sus insumos ÷ rinde (o la suma de ingredientes si no cargaste rinde).</p>`:''}
       ${p.modo!=='kg'&&!c.secs?`<p class="subtle" style="font-size:.72rem;margin-top:.5rem">Batch de producción ${P.batchStd.toLocaleString('es-AR')} g = ${num(P.batchStd/1000*c.potes,1)} potes de ${m} ml. El costo por pote no depende del batch.</p>`:''}</div>`;
@@ -1152,7 +1152,7 @@ ${secTable(s,si,sub,false)}</div>`;}).join('')
       <div class="row"><span class="subtle">Minutos por unidad <span class="age prov">estimado</span></span><span><input class="rin" style="width:3.5rem" value="${p.minutos}" data-rs="w:minutos" onchange="wset('minutos',+this.value||0)"> min</span></div>
       <div class="row"><span class="subtle">Costo del minuto · Parámetros</span><span>${$(minuto())}</span></div>
       <div class="row"><span class="subtle">MO por unidad (sin IVA)</span><span>${$(c.mo)}</span></div></div></div>
-      <div class="panel"><h4>Del producto a la unidad</h4><div class="steps">${[['Materia prima (partes)',c.mp],['Packaging',c.pack],[`IVA ${P.iva}% sobre MP + packaging`,c.iva],['Mano de obra estimada (sin IVA)',c.mo]].map(([a,v])=>`<div class="row"><span class="subtle">${a}</span><span>${$(v)}</span></div>`).join('')}<div class="row big"><span class="caps" style="color:var(--cream-muted)">Costo por unidad</span><span>${$(c.costo)}</span></div></div></div>`;
+      <div class="panel"><h4>Del producto a la unidad</h4><div class="steps">${[['Materia prima (partes)',c.mp],['Packaging',c.pack],[`IVA ${P.iva}% sobre materia prima · el packaging ya lo incluye`,c.iva],['Mano de obra estimada (sin IVA)',c.mo]].map(([a,v])=>`<div class="row"><span class="subtle">${a}</span><span>${$(v)}</span></div>`).join('')}<div class="row big"><span class="caps" style="color:var(--cream-muted)">Costo por unidad</span><span>${$(c.costo)}</span></div></div></div>`;
   }
   const pp=pote?p.medidas[m].precios:p.precios, pth=pote?`medidas.${m}.precios`:'precios';
   const box=(k,ch,v,sug,crit,mm)=>`<span class="ch"${k==='R'?' style="color:#ff7a5c"':''}>${ch}</span><div class="pbox"><input class="pv2" value="${$(v)}" data-rs="w:${pth}.${k}" onchange="wset('${pth}.${k}',parseInt(this.value.replace(/\\D/g,''))||null)"><div class="mg">${pct(mm)}${k==='R'?' neto':''}${k==='A'?(p.tipo==='CB'?(pp.A==null?` · suma Amigos −${p.dtoAm??0}%`:''):pp.A==null?` · Landing −${p.amigosPct??P.amigosBase}%`:` · ${(100-v/x.L*100).toFixed(1).replace('.',',')}% bajo tu Landing`):''}</div>${vsObj(ch,mm)}${pp[k]!=null&&(k==='A'||pp[k]!==sug)?` <a style="cursor:pointer;font-size:.66rem;color:var(--caramel);text-decoration:underline" onclick="wset('${pth}.${k}',null)">${k==='A'?'volver al automático':'usar sugerido'}</a>`:''}</div><div class="pbox sug"><div class="v">${$(sug)}</div><div class="mg">${crit}</div></div>`;
@@ -1469,7 +1469,8 @@ function rsPaint(root){ if(!root) return; root.querySelectorAll('[data-rsb]').fo
     const t=(e.type==='checkbox'&&e.closest('label'))||e, par=t.parentElement, d=getComputedStyle(t).display;
     // Elementos de ancho completo: el ícono va superpuesto en su extremo derecho, sin sumar líneas ni mover nada.
     const ps=par&&getComputedStyle(par), cw=par?par.clientWidth-parseFloat(ps.paddingLeft)-parseFloat(ps.paddingRight):0;
-    if(par&&(d==='block'||d==='flex'||d==='grid'||t.offsetWidth>=cw-4)){
+    const pRow=par&&/flex/.test(ps.display)&&!/column/.test(ps.flexDirection);
+    if(par&&!pRow&&(d==='block'||d==='flex'||d==='grid'||t.offsetWidth>=cw-4)){
       if(getComputedStyle(par).position==='static') par.style.position='relative';
       par.appendChild(b); const pr=par.getBoundingClientRect(), er=t.getBoundingClientRect();
       b.style.position='absolute'; b.style.margin='0'; b.style.zIndex='2';
