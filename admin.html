@@ -147,6 +147,16 @@ section.sec{padding:3.5rem 0}
 .pill.on{background:var(--navy);color:var(--cream-base)}
 /* cards de sabor */
 .grid{display:grid;gap:1.5rem}
+.pgrp{margin-bottom:2.75rem}
+.pgrp-h{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.8rem;padding-bottom:.6rem;margin-bottom:1.25rem;border-bottom:2px solid var(--navy)}
+.pgrp-h .h-md{margin:0}
+.pgrp-t{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap}
+.pgrp-c{display:inline-flex;align-items:center;gap:.5rem;padding:.3rem .7rem;border-radius:var(--r-pill);background:var(--cream-mid);color:var(--espresso);font-size:.68rem}
+.pgrp-c b{font-weight:700;color:var(--navy)}
+.pgrp-c .ss{color:var(--bad)}
+.psub{display:flex;align-items:center;gap:.6rem;font-size:.72rem;color:var(--espresso);margin:1.5rem 0 .9rem}
+.psub:first-of-type{margin-top:0}
+.psub::after{content:'';flex:1;height:1px;background:var(--cream-mid)}
 @media(min-width:768px){.grid{grid-template-columns:repeat(2,1fr)}}
 @media(min-width:1100px){.grid{grid-template-columns:repeat(3,1fr)}}
 .card{background:var(--cream-mid);border-radius:var(--r-card);padding:1.1rem;display:flex;flex-direction:column;gap:.9rem;box-shadow:0 1px 3px rgba(78,52,46,.06);transition:box-shadow .3s}
@@ -464,9 +474,8 @@ table.ing input.lin{width:6.5rem;text-align:right}
       </div>
       <div class="pbar">
         <div class="pills caps" id="pills" style="margin:0"></div>
-        <div class="szwrap" id="szwrap"><span class="caps" style="color:var(--espresso);font-size:.7rem">Helados en pote</span><div class="size-sel caps" id="sizeSel"><button class="on" data-s="360">Pote 360</button><button data-s="250">Pote 250</button></div></div>
       </div>
-      <div class="grid" id="cards"></div>
+      <div id="cards"></div>
       <div id="emptyF"></div>
     </div>
   </section>
@@ -1016,16 +1025,26 @@ function renderProd(){
   const venta=p=>p.estado==='activo';
   const cnt=f=>L.filter(p=>f==='all'||(f==='dev'?p.estado==='dev':(p.estado==='activo'&&(p.tipo==='pote'?p.linea===f:p.tipo===f)))).length;
   el('pills').innerHTML=[['all','Todos'],['autor','Helado · Autor'],['clasico','Helado · Clásicos'],['PL','Paletas'],['AF','Alfajores'],['EX','Extras'],['CB','Combos'],['dev','En desarrollo']].map(([f,n])=>`<button class="pill${filtro===f?' on':''}" onclick="setFiltro('${f}')">${n} (${cnt(f)})</button>`).join('');
-  el('szwrap').style.visibility=['PL','AF','EX','CB'].includes(filtro)?'hidden':'visible';
   const vis=L.filter(p=>filtro==='all'||(filtro==='dev'?p.estado==='dev':(venta(p)&&(p.tipo==='pote'?p.linea===filtro:p.tipo===filtro))))
     .sort((a,b)=>(a.estado==='activo'?0:1)-(b.estado==='activo'?0:1)||(a.tipo==='pote'?0:1)-(b.tipo==='pote'?0:1)||(a.linea<b.linea?-1:a.linea>b.linea?1:0)||(a.numero||99)-(b.numero||99));
-  el('cards').innerHTML=vis.map(card).join('');
+  const by=f=>vis.filter(f), grid=a=>`<div class="grid">${a.map(card).join('')}</div>`;
+  const szSel=`<div class="szwrap"><span class="caps" style="color:var(--espresso);font-size:.7rem">Helados en pote</span><div class="size-sel caps">${['360','250'].map(s=>`<button class="${size===s?'on':''}" onclick="setSize('${s}')">Pote ${s}</button>`).join('')}</div></div>`;
+  const chip=(a,txt)=>{const ss=txt?0:a.filter(sinStock).length; return `<span class="pgrp-c caps"><span><b>${a.length}</b> ${txt||(a.length===1?'a la venta':'a la venta')}</span>${ss?`<span class="ss">● ${ss} sin stock</span>`:''}</span>`;};
+  const grp=(tit,a,body,extra='',txt='')=>`<section class="pgrp"><div class="pgrp-h"><div class="pgrp-t"><h3 class="h-md">${tit}</h3>${chip(a,txt)}</div>${extra}</div>${body}</section>`;
+  const va=by(p=>p.estado==='activo'), dv=by(p=>p.estado==='dev');
+  const hel=va.filter(p=>p.tipo==='pote'), cla=hel.filter(p=>p.linea==='clasico'), aut=hel.filter(p=>p.linea!=='clasico');
+  let html='';
+  if(hel.length) html+=grp('Helados',hel,(cla.length?`<div class="psub caps">Clásicos</div>${grid(cla)}`:'')+(aut.length?`<div class="psub caps">De Autor</div>${grid(aut)}`:''),szSel);
+  [['CB','Combos'],['PL','Paletas'],['AF','Alfajores'],['EX','Extras']].forEach(([t,n])=>{const a=va.filter(p=>p.tipo===t); if(a.length) html+=grp(n,a,grid(a));});
+  const otros=by(p=>p.estado!=='activo'&&p.estado!=='dev'); if(otros.length) html+=grp('Fuera de carta',otros,grid(otros),'',otros.length===1?'producto':'productos');
+  if(dv.length){ const szDv=dv.some(p=>p.tipo==='pote')&&!hel.length?szSel:''; html+=grp('En desarrollo',dv,grid(dv),szDv,dv.length===1?'receta':'recetas'); }
+  el('cards').innerHTML=html;
   const lab={autor:'helados de autor',clasico:'clásicos',PL:'paletas',AF:'alfajores',EX:'extras',CB:'combos'}[filtro];
   const devs=L.filter(p=>p.estado==='dev'&&(p.tipo===filtro||p.linea===filtro));
   el('emptyF').innerHTML=vis.length?'':`<div class="diffbox" style="max-width:40rem"><div><b>No hay ${lab||'productos'} a la venta todavía.</b></div>${devs.length?`<div>${devs.length} en desarrollo: ${devs.map(p=>`<a style="cursor:pointer;text-decoration:underline" onclick="abrir('${p.id}')">${p.nombre}</a>`).join(', ')}</div>`:'<div class="subtle">Creá uno con «+ Nuevo producto».</div>'}</div>`;
 }
 window.setFiltro=f=>{filtro=f;renderProd();};
-el('sizeSel').addEventListener('click',e=>{const b=e.target.closest('button'); if(!b)return; size=b.dataset.s; document.querySelectorAll('#sizeSel button').forEach(x=>x.classList.toggle('on',x===b)); renderProd();});
+window.setSize=s=>{size=s;renderProd();};
 function card(p){
   const pote=p.tipo==='pote', cb=p.tipo==='CB', m=pote?size:null, lbl=`${tipoLbl(p)} · ${codigo(p)} · ${pote?size+' ml':cb?cbComps(p).length+' potes':'unidad'}`;
   const top=`<div class="card-top"><span class="tag stamp" style="background:${p.color}26;color:${['#545458','#4E342E','#6B4226'].includes(p.color)?p.color:'#4E342E'}">${lbl}</span>${p.estado==='dev'?(p.proximo?'<span class="caps" style="color:var(--caramel)">● Próximo a producir</span>':'<span class="caps" style="color:var(--ink-2)">En desarrollo</span>'):p.estado==='fuera'?'<span class="caps" style="color:var(--ink-2)">Fuera de carta</span>':sinStock(p)?'<span class="caps" style="color:var(--bad)">● Sin stock</span>':''}</div>`;
