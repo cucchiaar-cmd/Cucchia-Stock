@@ -536,6 +536,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .box.colap.cerrado>h3{margin-bottom:0}
   .box.colap.cerrado>h3 .colap-ch{transform:rotate(-90deg)}
   .box.colap.cerrado>:not(h3){display:none}
+  /* Alertas de stock para Rappi (03/10/2026) */
+  .al-item{border-top:1px dashed var(--line);padding:10px 0;display:flex;gap:12px;align-items:flex-start;justify-content:space-between}
+  .al-item:first-of-type{border-top:0}
+  .al-item .t{font-size:12px;font-weight:700;color:var(--navy)}
+  .al-item ul{margin:4px 0 0 16px;padding:0;font-size:11px;color:var(--muted);line-height:1.55}
+  .al-item ul b{color:var(--navy)}
   .flavq.off{opacity:.45;background:var(--paper);filter:grayscale(1)}
   .flavq.off .qbtn:disabled{cursor:not-allowed}
   .flavq .sinst{font-size:8px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:var(--muted)}
@@ -688,6 +694,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       </div>
     </div>
 
+    <div id="alertasRappi"></div>
     <div class="cols">
       <div class="col">
         <div class="col-head">PENDIENTES <span class="count" id="cPend">0</span></div>
@@ -1059,6 +1066,9 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 </main>
 
 <!-- TICKET -->
+<div class="modal" id="modalAlerta" onclick="if(event.target.id=='modalAlerta')cerrarAlertaStock()">
+  <div class="box" style="max-width:460px;width:calc(100% - 32px);margin:0;max-height:85vh;overflow:auto" id="modalAlertaBody"></div>
+</div>
 <div class="modal" id="modal" onclick="if(event.target.id=='modal')closeT()">
   <div>
     <div class="ticket" id="ticketBody">
@@ -1123,6 +1133,7 @@ const colPromosRappi = collection(db,'promosRappi');
 const colGiftCards = collection(db,'giftcards');
 const colCombos    = collection(db,'combos');
 const refConfig    = doc(db,'config','stock');
+const refAlertas    = doc(db,'config','alertasRappi'); // { pausados: { 'sabor@cap': 'YYYY-MM-DD' } } — lo que Dany ya pausó en Rappi
 const refConfigGC  = doc(db,'config','giftcard'); // { menuImagenB64 } — autoadministrable desde la ficha, sin tocar código
 const refSeed      = doc(db,'meta','seed');
 const refSeedSab   = doc(db,'meta','seedSabores');
@@ -1783,7 +1794,104 @@ function tarjetaPedido(p, esListo, ctx){
     </div>
   </div>`;
 }
+/* ===================== ALERTAS DE STOCK → RAPPI (03/10/2026) =====================
+   El sistema no puede tocar el panel de Rappi. Cuando un sabor (por tamaño) se agota, avisa qué pausar allá:
+   el producto, los combos donde participa y las promos que lo incluyen. Con stock bajo (menos que el mínimo
+   configurado) avisa suave. Lo pausado se marca con «Ya lo pausé» (config/alertasRappi, compartido entre equipos)
+   y, cuando vuelve el stock, avisa qué reactivar. Solo cuenta sabores a la venta y tamaños con algún lote cargado. */
+let PAUSADOS = {};
+let SALDO_PREV = null;
+function clavesConStock(){
+  const out = [];
+  SABORES.filter(s=>s.activo!==false).forEach(s=>{
+    [360].concat(s.ofrece250?[250]:[]).forEach(cap=>{
+      const sd = saldoSabor(s.id,cap);
+      if(sd.inicial>0) out.push({key:s.id+'@'+cap, s, cap, final:sd.final});
+    });
+  });
+  return out;
+}
+function nombreClave(x){ return x.s.nombre+(x.cap!==360?' '+x.cap+'ml':''); }
+function combosDeClave(key){
+  const {id,capacidad} = parseClaveCart(key);
+  return COMBOS.filter(c=>c.activo!==false && (!c.canales || c.canales.Rappi!==false) && (c.comp||[]).some(x=>x.sabor===id && (x.capacidad||360)===capacidad));
+}
+function promosDeSabor(id){
+  const f = fechaArgentinaISO();
+  return PROMOS_RAPPI.filter(p=>p.activo!==false && promoVigente(p,f) && Array.isArray(p.sabores) && p.sabores.includes(id));
+}
+function detalleAlerta(x, modo){
+  const cbs = combosDeClave(x.key), prs = promosDeSabor(x.s.id);
+  const li = [];
+  if(modo==='pausar'){
+    li.push(`Pausar el producto <b>${nombreClave(x)}</b>`);
+    cbs.forEach(c=>li.push(`Pausar el combo <b>${c.nombre}</b> (y su promo −% del combo)`));
+    prs.forEach(p=>li.push(`Revisar la promo <b>${p.titulo||p.nombre||'Promo'}</b>${p.pct?' ('+p.pct+'%)':''}: incluye este sabor`));
+  } else if(modo==='reactivar'){
+    li.push(`Reactivar el producto <b>${nombreClave(x)}</b>`);
+    cbs.forEach(c=>{ const st=stockCombo(c); li.push(st>0?`Reactivar el combo <b>${c.nombre}</b>`:`El combo <b>${c.nombre}</b> sigue sin stock por otro sabor: dejarlo pausado`); });
+  } else {
+    li.push(`Quedan <b>${x.final}</b> pote${x.final===1?'':'s'}${cbs.length?` · participa en ${cbs.map(c=>'<b>'+c.nombre+'</b>').join(', ')}`:''}`);
+  }
+  return li;
+}
+function alertasStockActuales(){
+  const xs = clavesConStock(), res = {pausar:[], reactivar:[], bajo:[]};
+  xs.forEach(x=>{
+    if(x.final<=0){ if(!PAUSADOS[x.key]) res.pausar.push(x); }
+    else if(PAUSADOS[x.key]) res.reactivar.push(x);
+    else if(x.final<STOCK_MIN) res.bajo.push(x);
+  });
+  return res;
+}
+function itemAlerta(x, modo, conBoton){
+  const tit = modo==='pausar' ? `● ${nombreClave(x)} · sin stock` : modo==='reactivar' ? `● ${nombreClave(x)} · volvió el stock (${x.final})` : `${nombreClave(x)} · stock bajo`;
+  const color = modo==='pausar' ? 'var(--bad)' : modo==='reactivar' ? 'var(--wa)' : 'var(--muted)';
+  const btn = !conBoton ? '' : modo==='pausar'
+    ? `<button class="btn btn-pri btn-xs" onclick="marcarPausado('${x.key}',true)">Ya lo pausé</button>`
+    : modo==='reactivar' ? `<button class="btn btn-ok btn-xs" onclick="marcarPausado('${x.key}',false)">Ya lo reactivé</button>` : '';
+  return `<div class="al-item"><div><div class="t" style="color:${color}">${tit}</div><ul>${detalleAlerta(x,modo).map(t=>'<li>'+t+'</li>').join('')}</ul></div>${btn}</div>`;
+}
+function renderAlertasRappi(){
+  const el = document.getElementById('alertasRappi'); if(!el) return;
+  const a = alertasStockActuales();
+  if(!a.pausar.length && !a.reactivar.length && !a.bajo.length){ el.innerHTML=''; return; }
+  el.innerHTML = `<div class="box" style="margin-bottom:16px">
+    <h3>Rappi · revisar <span style="font-family:var(--mont);font-size:9.5px;font-weight:600;color:var(--muted);letter-spacing:.4px">— el sistema no toca el panel de Rappi: esto se hace a mano allá</span></h3>
+    ${a.pausar.map(x=>itemAlerta(x,'pausar',true)).join('')}
+    ${a.reactivar.map(x=>itemAlerta(x,'reactivar',true)).join('')}
+    ${a.bajo.length?`<div class="grupo-lbl" style="margin-top:${a.pausar.length||a.reactivar.length?'10px':'0'}">Stock bajo · menos de ${STOCK_MIN}</div>${a.bajo.map(x=>itemAlerta(x,'bajo',false)).join('')}`:''}
+  </div>`;
+}
+async function marcarPausado(key, pausado){
+  const nuevo = {...PAUSADOS};
+  if(pausado) nuevo[key] = fechaArgentinaISO(); else delete nuevo[key];
+  PAUSADOS = nuevo; renderAlertasRappi();
+  document.querySelectorAll('#modalAlertaBody button').forEach(b=>{ if((b.getAttribute('onclick')||'').includes("'"+key+"'")){ b.disabled=true; b.textContent='✓ Anotado'; } });
+  try{ await setDoc(refAlertas, {pausados: nuevo}); }catch(e){ alert('No se pudo guardar: '+(e.message||e)); }
+}
+// Se llama con cada cambio de lotes: compara contra el saldo anterior y abre el cartel solo con lo que cambió recién.
+function chequearCambiosStock(){
+  const xs = clavesConStock(), ahora = {};
+  xs.forEach(x=>ahora[x.key]=x.final);
+  const prev = SALDO_PREV; SALDO_PREV = ahora;
+  if(!prev || !dataReady) return;
+  const agot = xs.filter(x=>x.final<=0 && (prev[x.key]??1)>0 && !PAUSADOS[x.key]);
+  const vuelve = xs.filter(x=>x.final>0 && (prev[x.key]??0)<=0 && PAUSADOS[x.key]);
+  const bajo = xs.filter(x=>x.final>0 && x.final<STOCK_MIN && (prev[x.key]??STOCK_MIN)>=STOCK_MIN);
+  if(!agot.length && !vuelve.length && !bajo.length) return;
+  document.getElementById('modalAlertaBody').innerHTML = `
+    <h3>${agot.length?'⚠ Sin stock: pausar en Rappi':vuelve.length?'Volvió el stock: reactivar en Rappi':'Stock bajo'}</h3>
+    ${agot.map(x=>itemAlerta(x,'pausar',true)).join('')}
+    ${vuelve.map(x=>itemAlerta(x,'reactivar',true)).join('')}
+    ${bajo.map(x=>itemAlerta(x,'bajo',false)).join('')}
+    <div class="meta" style="margin:10px 0 12px">Queda anotado en el Tablero hasta que lo marques.</div>
+    <div class="actions"><button class="btn btn-pri" onclick="cerrarAlertaStock()">Entendido</button></div>`;
+  document.getElementById('modalAlerta').classList.add('show');
+}
+function cerrarAlertaStock(){ document.getElementById('modalAlerta').classList.remove('show'); }
 function renderTablero(){
+  renderAlertasRappi();
   const okCanal = p => filtroCanalActivo==='all' || p.canalContacto===filtroCanalActivo;
   const hoyISO = fmtISO(new Date());
   const pend = PEDIDOS.filter(p=>p.estado==='pendiente' && okCanal(p));
@@ -4029,6 +4137,7 @@ function checkAllLoaded(){
   pintarIngresoPickers();
   renderTablero();
   restaurarBoxes(); pintarPickers(); renderCart();
+  SALDO_PREV = null; chequearCambiosStock();
   pintarAdminSabores();
   pintarAdminPromosRappi();
   pintarAuditSaborSelect();
@@ -4049,7 +4158,7 @@ function iniciarListeners(){
       return {...l, cant: l.cant||0, egresado: l.egresado||0};
     });
     loaded.lotes = true;
-    if(dataReady){ pintarPickers(); }
+    if(dataReady){ pintarPickers(); chequearCambiosStock(); renderAlertasRappi(); }
     if(dataReady && document.getElementById('stock').classList.contains('show')){ renderStock(); renderAuditoria(); }
     checkAllLoaded();
   });
@@ -4105,6 +4214,11 @@ function iniciarListeners(){
     loaded.promosRappi = true;
     if(dataReady && document.getElementById('admin').classList.contains('show')) pintarAdminPromosRappi();
     checkAllLoaded();
+  });
+  onSnapshot(refAlertas, snap=>{
+    PAUSADOS = (snap.exists() && snap.data().pausados) || {};
+    // si el cartel está abierto y ya se marcó todo, se cierra solo al refrescar
+    if(dataReady) renderAlertasRappi();
   });
   onSnapshot(colCombos, snap=>{
     COMBOS = snap.docs.map(d=>({id:d.id, ...d.data()}));
@@ -4199,7 +4313,7 @@ Object.assign(window, {
   abrirNuevaGiftCard, cerrarNuevaGiftCard, crearGiftCard, editarGiftCard, guardarFormGiftCard, copiarGiftCardNumero,
   abrirCanjeGiftCard, cerrarCanjeGiftCard, ajustarCanjeQty, confirmarCanjeGiftCard,
   cancelarGiftCardPedido, eliminarGiftCardConfirmada, irAEditarGiftCard, actualizarReferenciaAmigosGC, actualizarMensajeWhatsAppGC, copiarMensajeWhatsAppGC, mensajeWhatsAppGC, compartirMensajeWhatsAppGC, descargarImagenMenuGC, subirImagenMenuGC,
-  onCanalVentaChange, toggleBox, previsualizarCuponGiftCard, cerrarPreviewCuponGiftCard, descargarCuponDesdePreview
+  onCanalVentaChange, toggleBox, marcarPausado, cerrarAlertaStock, previsualizarCuponGiftCard, cerrarPreviewCuponGiftCard, descargarCuponDesdePreview
 });
 Object.defineProperties(window, {
   PEDIDOS: { get: () => PEDIDOS, configurable:true },
