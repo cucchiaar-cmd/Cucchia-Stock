@@ -429,7 +429,7 @@ table.ing input.lin{width:6.5rem;text-align:right}
     <h3 class="h-md">Ingresar</h3>
     <label class="f"><span class="caps">Email</span><input id="lgEmail" name="email" type="email" autocomplete="username email" inputmode="email" autocapitalize="none" spellcheck="false" required></label>
     <label class="f"><span class="caps">Contraseña</span><input id="lgPass" name="password" type="password" autocomplete="current-password" required></label>
-    <label style="display:flex;gap:.5rem;align-items:center;font-size:.82rem;color:var(--ink-2)"><input type="checkbox" id="lgKeep" checked> Mantener la sesión iniciada en este equipo</label>
+    <input type="checkbox" id="lgKeep" checked hidden>
     <div id="lgErr" style="color:var(--bad);font-size:.8rem"></div>
     <button type="submit" class="btn btn-pri caps">Ingresar</button>
     <a style="font-size:.8rem;cursor:pointer;text-decoration:underline;color:var(--espresso-rich)" onclick="recuperar()">¿Olvidaste la contraseña?</a>
@@ -685,7 +685,7 @@ async function hist(tipo, que, antes, despues, impacto='—', dir=''){
 
 // ───────── arranque ─────────
 window.ingresar = async ()=>{ el('lgErr').textContent=''; el('lgErr').style.color='var(--bad)'; const m=el('lgEmail').value.trim(); const bt=el('lgForm').querySelector('button[type=submit]'); bt.disabled=true; bt.innerHTML='<span class="spin sm inv"></span>Ingresando…';
-  try{ await setPersistence(auth, el('lgKeep').checked?browserLocalPersistence:browserSessionPersistence); await signInWithEmailAndPassword(auth, m, el('lgPass').value); try{ localStorage.setItem('adm_email',m); localStorage.setItem('adm_keep',el('lgKeep').checked?'1':'0'); }catch(_){} }
+  try{ await setPersistence(auth, browserLocalPersistence); /* 03/10/2026: siempre sesión guardada, igual que Ventas. Con «sesión temporal» la sesión compartida entre Finanzas y Ventas se movía de lugar y pedía login al ir y venir. */ await signInWithEmailAndPassword(auth, m, el('lgPass').value); try{ localStorage.setItem('adm_email',m); localStorage.setItem('adm_keep',el('lgKeep').checked?'1':'0'); }catch(_){} }
   catch(e){ el('lgErr').textContent='No se pudo ingresar: revisá email y contraseña.'; }
   finally{ bt.disabled=false; bt.textContent='Ingresar'; } };
 window.cerrarSesion = ()=>signOut(auth);
@@ -693,7 +693,7 @@ window.recuperar = async ()=>{ const m=el('lgEmail').value.trim(); if(!m){ el('l
   try{ await sendPasswordResetEmail(auth,m); el('lgErr').style.color='var(--ok)'; el('lgErr').textContent='Te mandamos un email para crear una contraseña nueva. Revisá también spam.'; }catch(e){ el('lgErr').style.color='var(--bad)'; el('lgErr').textContent='No se pudo enviar el email. Revisá la dirección.'; } };
 onAuthStateChanged(auth, async u=>{
   el('boot').classList.add('hide');
-  if(!u){ el('login').classList.remove('hide'); try{ const m=localStorage.getItem('adm_email'); if(m&&!el('lgEmail').value) el('lgEmail').value=m; el('lgKeep').checked=localStorage.getItem('adm_keep')!=='0'; }catch(_){} (el('lgEmail').value?el('lgPass'):el('lgEmail')).focus(); return; }
+  if(!u){ el('login').classList.remove('hide'); try{ const m=localStorage.getItem('adm_email'); if(m&&!el('lgEmail').value) el('lgEmail').value=m; el('lgKeep').checked=true; }catch(_){} (el('lgEmail').value?el('lgPass'):el('lgEmail')).focus(); return; }
   el('login').classList.add('hide');
   boot('Conectando con la base…');
   try{ await withTimeout(seedIfNeeded(),120000); await withTimeout(migrar(),120000); }catch(e){ console.error(e); bootErr(e); return; }
