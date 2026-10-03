@@ -448,6 +448,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     --ddl:#C4622D; --choco:#4A2418; --frutilla:#C2536B; --americana:#B8792A; --nuez:#8B5E3C;
     --espresso:#7B4F35; --sambayon:#D4A82A; --limon:#6B7A35;
     --bad:#B23A3A; --rappi:#FF441F; --warn:#C98A2E;
+    --caramel:#C8965A; /* mismo caramelo que los botones de alta de Finanzas («+ Nuevo producto») */
     --bebas:'Bebas Neue',sans-serif; --mont:'Montserrat',system-ui,sans-serif; --play:'Playfair Display',serif;
   }
   *{box-sizing:border-box;margin:0;padding:0}
@@ -465,6 +466,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   nav a{display:flex;align-items:center;gap:11px;padding:10px 14px;color:#A99C84;text-decoration:none;font-weight:600;font-size:12px;cursor:pointer;border-radius:7px;margin-bottom:2px;transition:.15s;letter-spacing:.3px}
   nav a:hover{background:#20203c;color:#F2EAD6}
   nav a.active{background:var(--kraft);color:var(--navy);font-weight:700}
+  /* Botón destacado «Cargar pedido» (03/10/2026): fuera del menú, debajo de todo, para que no compita con Tablero (la pantalla de inicio) */
+  .nav-cta{display:flex;align-items:center;gap:10px;white-space:nowrap;width:calc(100% - 24px);margin:18px 12px 0;padding:13px 12px;border:0;border-radius:10px;background:var(--caramel);color:var(--navy);font-family:var(--mont);font-weight:700;font-size:12.5px;letter-spacing:.3px;cursor:pointer;box-shadow:0 6px 18px rgba(0,0,0,.35);transition:.15s;text-align:left}
+  .nav-cta:hover{filter:brightness(1.06);transform:translateY(-1px)}
+  .nav-cta .pl{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:50%;background:var(--navy);color:var(--caramel);font-size:20px;line-height:1;flex:none}
+  .nav-cta.on{background:var(--kraft);color:var(--navy);box-shadow:none}
+  .nav-cta.on .pl{background:var(--navy);color:var(--kraft)}
   .ico{font-size:13px;width:16px;text-align:center}
   .sidefoot{margin-top:auto;padding:16px 22px 0;border-top:1px solid #2c2c4a}
   .sidefoot .lbl{font-size:8px;letter-spacing:2.5px;color:var(--soft);font-weight:700}
@@ -671,13 +678,13 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   </div>
   <div class="tag">El frío justo.<br>La seda. El crujir.</div>
   <nav>
-    <a onclick="go('carga',this)"><span class="ico">＋</span> Cargar pedido</a>
     <a id="navTablero" class="active" onclick="go('tablero',this)"><span class="ico">▤</span> Tablero</a>
     <a id="navReportes" onclick="go('reportes',this)"><span class="ico">▦</span> Caja del día</a>
     <a onclick="go('stock',this)"><span class="ico">◧</span> Stock</a>
     <a onclick="go('dashboard',this)"><span class="ico">◈</span> Dashboard</a>
     <a onclick="go('admin',this)"><span class="ico">❖</span> Configuración</a>
   </nav>
+  <button class="nav-cta" id="navCarga" onclick="go('carga',null)"><span class="pl">＋</span><span>NUEVO PEDIDO</span></button>
   <div class="sidefoot"><div class="lbl">VENDIDO HOY</div><div class="big" id="sfVendido">$103.500</div><button class="btn btn-xs btn-gold" style="margin-top:12px;width:100%" onclick="cerrarSesion()">Cerrar sesión</button></div>
 </aside>
 
@@ -690,7 +697,6 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         <button class="on" onclick="filt('all',this)">Todos</button>
         <button onclick="filt('wa',this)"><span class="dot dw"></span>WhatsApp</button>
         <button onclick="filt('manual',this)"><span class="dot dm"></span>Manual</button>
-        <button onclick="filt('tel',this)"><span class="dot dt"></span>Teléfono</button>
       </div>
     </div>
 
@@ -726,7 +732,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           <div class="field"><label>Dirección</label><input id="pDireccion" placeholder="Dirección (si es delivery)"></div>
           <div class="field"><label>Referencia / timbre</label><input id="pReferencia" placeholder="Ej: timbre azul, depto 3B"></div>
           <div class="grid2">
-            <div class="field"><label>Canal de contacto</label><select id="pCanalContacto"><option value="wa">WhatsApp</option><option value="manual">Manual</option><option value="tel">Teléfono</option></select></div>
+            <div class="field"><label>Canal de contacto</label><select id="pCanalContacto"><option value="wa">WhatsApp</option><option value="manual">Manual</option></select></div>
             <div class="field"><label>Canal de venta</label><select id="pCanalVenta" onchange="onCanalVentaChange(this)"><option value="Landing">Landing</option><option value="Rappi">Rappi</option><option value="Amigos">Amigos</option><option value="Propio">Propio (sin cargo)</option><option disabled>──────</option><option value="__giftcard__">Gift Card</option></select></div>
           </div>
           <div class="field" id="wrapDescuentoRappi" style="display:none">
@@ -848,7 +854,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     </div>
 
     <div id="a-sab" class="atab show">
-      <p class="sub" style="margin-bottom:14px;text-transform:none;letter-spacing:.2px">Nombres, precios y la opción de 250ml se definen en <b>Finanzas</b> y llegan con «Publicar en Ventas». Acá solo se prende o apaga cada sabor según disponibilidad: el apagado deja de ofrecerse en el bot y en la carga manual.</p>
+      <p class="sub" style="margin-bottom:14px;text-transform:none;letter-spacing:.2px">Solo consulta. Todo lo de los productos (nombres, precios, 250ml, combos, fuera de carta) se define en <b>Finanzas</b> y llega con «Publicar en Ventas». Lo que no tiene stock se bloquea solo en Nuevo pedido. <a id="lnkFinanzas" href="admin.html" target="_blank" style="color:var(--navy);font-weight:700">Abrir Finanzas →</a></p>
       <div class="grupo-lbl">Línea Clásicos</div>
       <div id="admSabCl"></div>
       <div class="grupo-lbl">Línea De Autor</div>
@@ -1124,7 +1130,7 @@ const TEST_ENV = new URLSearchParams(location.search).has('test');
 const PFX = TEST_ENV ? 'test_' : '';
 const collection = (d, n, ...r) => fsCollection(d, PFX+n, ...r);
 const doc = (d, ...r) => (d===db && typeof r[0]==='string') ? fsDoc(d, PFX+r[0], ...r.slice(1)) : fsDoc(d, ...r);
-if(TEST_ENV){ document.title='[PRUEBA] '+document.title; const b=document.getElementById('testBadge'); if(b) b.style.display='inline-block'; }
+if(TEST_ENV){ const lf=document.getElementById('lnkFinanzas'); if(lf) lf.href='admin.html?test'; document.title='[PRUEBA] '+document.title; const b=document.getElementById('testBadge'); if(b) b.style.display='inline-block'; }
 const colLotes     = collection(db,'lotes');
 const colEgresos   = collection(db,'egresos');
 const colSabores   = collection(db,'sabores');
@@ -1146,6 +1152,7 @@ function go(id,el){
   document.getElementById(id).classList.add('show');
   document.querySelectorAll('nav a').forEach(a=>a.classList.remove('active'));
   if(el) el.classList.add('active');
+  const cta=document.getElementById('navCarga'); if(cta) cta.classList.toggle('on', id==='carga');
   window.scrollTo(0,0);
   closeMenu();
   if(id==='stock') renderStock();
@@ -2128,7 +2135,6 @@ function formEdicionPedido(p){
       <div class="field"><label>Canal de contacto</label><select id="editCanalContacto_${p.id}" onchange="${sucio}">
         <option value="wa" ${p.canalContacto==='wa'?'selected':''}>WhatsApp</option>
         <option value="manual" ${p.canalContacto==='manual'?'selected':''}>Manual</option>
-        <option value="tel" ${p.canalContacto==='tel'?'selected':''}>Teléfono</option>
       </select></div>
       <div class="field"><label>Canal de venta</label><select id="editCanalVenta_${p.id}" onchange="actualizarTotalEdicion();${sucio}">
         <option value="Landing" ${p.canalVenta==='Landing'?'selected':''}>Landing</option>
@@ -3457,21 +3463,22 @@ function toggleAdmPrecios250(id){
 function pintarAdminSabores(){
   // Configuración (30/09/2026): nombre, línea y precios vienen de Finanzas («Publicar en Ventas»). Acá solo disponibilidad.
   const pz = v => '$ ' + (+v||0).toLocaleString('es-AR');
+  // 03/10/2026: solo lectura. Finanzas manda; acá se ve precio y stock. «Eliminar» queda para limpiar duplicados sin historial.
+  const stk = (id,cap) => { const f = saldoSabor(id,cap).final; return f>0 ? `<b>${f}</b> pote${f===1?'':'s'}` : '<b style="color:var(--bad)">sin stock</b>'; };
   const row = s => {
-    const ofrece250 = s.ofrece250===true;
-    return `<div class="listrow" id="admChip_${s.id}" style="flex-direction:column;align-items:stretch;gap:10px">
+    const ofrece250 = s.ofrece250===true, off = s.activo===false;
+    return `<div class="listrow" id="admChip_${s.id}" style="flex-direction:column;align-items:stretch;gap:8px${off?';opacity:.6':''}">
     <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
-      <div class="nm"><span class="sw-c" style="background:${s.color}"></span>${s.nombre} <span class="typetag">${s.linea}</span></div>
+      <div class="nm"><span class="sw-c" style="background:${s.color}"></span>${s.nombre} <span class="typetag">${s.linea}</span>${off?' <span class="typetag">Fuera de carta</span>':''}</div>
       <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
         <div class="priceWrap">Rappi ${pz(s.precioRappi)}</div>
         <div class="priceWrap">Landing ${pz(s.precioLanding)}</div>
         <div class="priceWrap">Amigos ${pz(s.precioAmigos)}</div>
-        <span class="sw ${s.activo!==false?'on':''}" id="admActivo_${s.id}" onclick="this.classList.toggle('on');marcarSaborSucio('${s.id}')" title="Disponible para vender"><i></i></span>
-        <button class="btn btn-pri btn-xs" id="admGuardar_${s.id}" onclick="guardarSabor('${s.id}')">Guardar</button>
         <button class="btn btn-danger btn-xs" onclick="eliminarSabor('${s.id}')" title="Solo se puede eliminar si no tiene pedidos ni stock cargado">Eliminar</button>
       </div>
     </div>
-    ${ofrece250?`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding-top:10px;border-top:1px solid var(--line)">
+    <div class="meta">Stock 360: ${stk(s.id,360)}${ofrece250?` · Stock 250: ${stk(s.id,250)}`:''}</div>
+    ${ofrece250?`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding-top:8px;border-top:1px solid var(--line)">
       <span class="typetag">Ofrece 250ml</span>
       <div class="priceWrap">Rappi 250 ${pz(s.precio250Rappi)}</div>
       <div class="priceWrap">Landing 250 ${pz(s.precio250Landing)}</div>
@@ -3705,9 +3712,9 @@ function renderReportesView(){
     }
   }
 
-  const nomCC = {wa:'WhatsApp', manual:'Manual', tel:'Teléfono', rappi:'Rappi'};
+  const nomCC = {wa:'WhatsApp', manual:'Manual', rappi:'Rappi'};
   const clrCC = {wa:'var(--wa)', manual:'var(--navy)', tel:'var(--tel)', rappi:'var(--rappi)'};
-  const porCC = {wa:{n:0,v:0,potes:0}, manual:{n:0,v:0,potes:0}, tel:{n:0,v:0,potes:0}, rappi:{n:0,v:0,potes:0}};
+  const porCC = {wa:{n:0,v:0,potes:0}, manual:{n:0,v:0,potes:0}, rappi:{n:0,v:0,potes:0}};
   listosHoy.forEach(p=>{ const c=p.canalContacto || (p.canalVenta==='Rappi'?'rappi':'manual'); if(porCC[c]){ porCC[c].n++; porCC[c].v+=p.total||0; porCC[c].potes+=p.sabores.reduce((a,x)=>a+x.cant,0); } });
   const maxCC = Math.max(1, ...Object.values(porCC).map(x=>x.v));
   document.getElementById('repCanalContacto').innerHTML = Object.keys(porCC).map(c=>
@@ -4158,7 +4165,7 @@ function iniciarListeners(){
       return {...l, cant: l.cant||0, egresado: l.egresado||0};
     });
     loaded.lotes = true;
-    if(dataReady){ pintarPickers(); chequearCambiosStock(); renderAlertasRappi(); }
+    if(dataReady){ pintarPickers(); chequearCambiosStock(); renderAlertasRappi(); if(document.getElementById('admin').classList.contains('show')) pintarAdminSabores(); }
     if(dataReady && document.getElementById('stock').classList.contains('show')){ renderStock(); renderAuditoria(); }
     checkAllLoaded();
   });
@@ -4230,7 +4237,8 @@ function iniciarListeners(){
     checkAllLoaded();
   });
   onSnapshot(query(colPedidos, orderBy('ts','desc')), snap=>{
-    PEDIDOS = snap.docs.map(d=>({id:d.id, ...d.data()}));
+    // 03/10/2026: «Teléfono» se eliminó como canal de contacto (era redundante con WhatsApp). Los pedidos viejos con 'tel' se leen como WhatsApp.
+    PEDIDOS = snap.docs.map(d=>{ const p={id:d.id, ...d.data()}; if(p.canalContacto==='tel') p.canalContacto='wa'; return p; });
     loaded.pedidos = true;
     actualizarVendidoHoy();
     if(dataReady){
