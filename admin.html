@@ -577,11 +577,11 @@ const auth = getAuth(fbApp);
 const TEST = new URLSearchParams(location.search).has('test');
 const VC = n => (TEST?'test_':'')+n;
 { const t=document.getElementById('tstPill'); if(t){ t.textContent=TEST?'Entorno de prueba':'Ventas real'; t.title=TEST?'Lee y publica en la copia de prueba de Ventas (test_*)':'Publicar en Ventas cambia el sistema de pedidos en vivo'; if(!TEST) t.style.cssText='background:var(--cream-mid);color:var(--espresso);border-color:var(--cream-muted)'; } if(TEST) document.title='[PRUEBA] '+document.title; }
-const VENTAS_COLS = ['sabores','lotes','egresos','pedidos','promosRappi','giftcards','clientes','config','meta'];
+const VENTAS_COLS = ['sabores','combos','lotes','egresos','pedidos','promosRappi','giftcards','clientes','config','meta'];
 const C = { par:'adm_params', ins:'adm_insumos', prod:'adm_productos', prov:'adm_proveedores', hist:'adm_historial', promo:'adm_promosRappi', cat:'adm_catalogo' };
 
 // ───────── estado ─────────
-let P = null, INS = {}, PROD = {}, PROV = {}, HIST = [], PROMO = {}, VSAB = [], LOTES = [], VPROMO = [], VCFG = {};
+let P = null, INS = {}, PROD = {}, PROV = {}, HIST = [], PROMO = {}, VSAB = [], LOTES = [], VPROMO = [], VCFG = {}, VCOMB = [];
 let view = 'prod', size = '360', filtro = 'all', W = null, WID = null, wDirty = false, wMed = '360';
 const $  = n => '$' + Math.round(n||0).toLocaleString('es-AR');
 const pct= n => (isFinite(n)? n.toFixed(1).replace('.',',') : '—') + '%';
@@ -985,6 +985,7 @@ function listeners(){
   onSnapshot(collection(db,VC('sabores')), s=>{ VSAB=s.docs.map(d=>({id:d.id,...d.data()})); go(); });
   onSnapshot(collection(db,VC('promosRappi')), s=>{ VPROMO=s.docs.map(d=>({id:d.id,...d.data()})); });
   onSnapshot(doc(db,VC('config'),'stock'), s=>{ VCFG=s.exists()?s.data():{}; });
+  onSnapshot(collection(db,VC('combos')), s=>{ VCOMB=s.docs.map(d=>({id:d.id,...d.data()})); });
   onSnapshot(collection(db,VC('lotes')), s=>{ LOTES=s.docs.map(d=>d.data()); go(); });
 }
 function renderAll(){
@@ -1611,39 +1612,57 @@ function pubPlan(){
   // Finanzas manda: los sabores de Ventas que no salen de Finanzas se retiran de la venta (se apagan, no se borran:
   // pueden tener pedidos o stock). Si no tienen nada asociado se pueden eliminar desde Ventas.
   const sueltos=VSAB.filter(s=>!usados.has(s.id)), ret=sueltos.filter(s=>s.activo!==false);
-  return {out, sueltos, pr, com, ret};
+  // Combos (02/10/2026): colección «combos» de Ventas (doc = id del combo en Finanzas). Cada combo lleva sus potes
+  // ya traducidos a sabores de Ventas y los precios finales por canal. Ventas lo vende como un ítem y descuenta pote por pote.
+  const cbs={altas:[],cambios:[],bajas:[],faltan:[]};
+  const cbWant=prodArr().filter(p=>p.tipo==='CB'&&p.estado!=='dev').map(p=>{
+    const x=precios(p), agr={}; let falta=null;
+    cbComps(p).forEach(c=>{ const vid=idMap[c.q.id]||ventasId(c.q); if(!vid){ falta=c.q.nombre; return; } const k=vid+'@'+c.m; agr[k]=agr[k]||{sabor:vid,capacidad:+c.m,cant:0}; agr[k].cant++; });
+    const ch=p.canales||{L:true,A:true,R:true};
+    return {id:p.id,p,falta,d:{codigo:codigo(p),nombre:p.nombre,orden:p.numero||99,activo:p.estado==='activo',comp:Object.values(agr),
+      canales:{Landing:!!ch.L,Amigos:!!ch.A,Rappi:!!ch.R},precioLanding:x.L,precioAmigos:x.A,precioRappi:x.R,listaLanding:Math.round(x.sumL),listaAmigos:Math.round(x.sumA),listaRappi:Math.round(x.sumR)}};
+  });
+  const cbCmp=d=>JSON.stringify(['codigo','nombre','orden','activo','comp','canales','precioLanding','precioAmigos','precioRappi','listaLanding','listaAmigos','listaRappi'].map(k=>d[k]??null));
+  cbWant.forEach(w=>{ if(w.falta){ cbs.faltan.push(w); return; } const v=VCOMB.find(x=>x.id===w.id); if(!v) cbs.altas.push(w); else if(cbCmp(v)!==cbCmp(w.d)) cbs.cambios.push({...w,v}); });
+  VCOMB.forEach(v=>{ if(!cbWant.some(w=>w.id===v.id)) cbs.bajas.push(v); });
+  cbs.n=cbs.altas.length+cbs.cambios.length+cbs.bajas.length;
+  return {out, sueltos, pr, com, ret, cbs};
 }
+const cbTxt=d=>`${d.nombre} · ${d.codigo} · ${d.comp.map(c=>`${c.cant>1?c.cant+'× ':''}${(VSAB.find(s=>s.id===c.sabor)||{nombre:c.sabor}).nombre} ${c.capacidad}`).join(' + ')} · Landing ${$(d.precioLanding)} · Amigos ${$(d.precioAmigos)} · Rappi ${$(d.precioRappi)}${d.activo?'':' · apagado'}`;
+const cbDif=(v,d)=>{ const L={nombre:'Nombre',codigo:'Código',activo:'A la venta',precioLanding:'Landing',precioAmigos:'Amigos',precioRappi:'Rappi'}; const xs=Object.keys(L).filter(k=>JSON.stringify(v[k]??null)!==JSON.stringify(d[k]??null)).map(k=>`${L[k]} <span class="muted">${pubFmt(k,v[k])} →</span> ${pubFmt(k,d[k])}`); if(JSON.stringify(v.comp)!==JSON.stringify(d.comp)) xs.push('composición'); if(JSON.stringify(v.canales)!==JSON.stringify(d.canales)) xs.push('canales'); return `${d.nombre}: ${xs.join(' · ')||'listas de referencia'}`; };
 const promoTxt=d=>`${d.nombre} · ${+d.pct||0}% · ${d.vip?'PRO':'todos'} · ${d.activo!==false?'activa':'apagada'} · ${vigTxt(d)} · ${(d.sabores||[]).length} sabor${(d.sabores||[]).length===1?'':'es'}`;
 let PUBSEL=null, PUBLINK={}; // PUBLINK: producto de Finanzas → sabor existente de Ventas elegido a mano (evita duplicados por nombre distinto)
 // Los onclick/onchange del modal corren en el ámbito global: exponer las variables del módulo (lectura y escritura)
 Object.defineProperty(window,'PUBSEL',{get:()=>PUBSEL,set:v=>{PUBSEL=v;},configurable:true});
 Object.defineProperty(window,'PUBLINK',{get:()=>PUBLINK,set:v=>{PUBLINK=v;},configurable:true});
 window.pubOpen=()=>{
-  const {out,sueltos,pr,com,ret}=pubPlan(); if(!PUBSEL){ PUBSEL=new Set(out.filter(r=>r.ch.length).map(r=>r.id)); if(pr.n) PUBSEL.add('__promos'); if(com.n) PUBSEL.add('__com'); if(ret.length) PUBSEL.add('__ret'); }
-  const n=out.filter(r=>PUBSEL.has(r.id)&&r.ch.length).length+(pr.n&&PUBSEL.has('__promos')?1:0)+(com.n&&PUBSEL.has('__com')?1:0)+(ret.length&&PUBSEL.has('__ret')?1:0);
+  const {out,sueltos,pr,com,ret,cbs}=pubPlan(); if(!PUBSEL){ PUBSEL=new Set(out.filter(r=>r.ch.length).map(r=>r.id)); if(pr.n) PUBSEL.add('__promos'); if(com.n) PUBSEL.add('__com'); if(ret.length) PUBSEL.add('__ret'); if(cbs.n) PUBSEL.add('__cb'); }
+  const n=out.filter(r=>PUBSEL.has(r.id)&&r.ch.length).length+(pr.n&&PUBSEL.has('__promos')?1:0)+(com.n&&PUBSEL.has('__com')?1:0)+(ret.length&&PUBSEL.has('__ret')?1:0)+(cbs.n&&PUBSEL.has('__cb')?1:0);
   const ck=k=>`<input type="checkbox" ${PUBSEL.has(k)?'checked':''} onchange="PUBSEL[this.checked?'add':'delete']('${k}');pubOpen()">`;
   const destino=TEST?'Entorno de prueba · test_sabores':'Ventas real · sistema de pedidos';
   const vacio=TEST&&!VSAB.length;
   mOpen(`<div class="mdl-head"><div><div class="kicker" style="margin-bottom:.25rem"><span class="dot" style="width:10px;height:10px;background:${TEST?'var(--caramel)':'#FF441F'}"></span><span class="caps">${destino}</span></div><h3 class="h-md">Publicar en Ventas</h3></div><button class="x" onclick="PUBSEL=null;mClose()">×</button></div>
   ${TEST?`<div class="diffbox" style="margin-bottom:1rem"><div><b>Entorno de prueba.</b> Publica en una copia de Ventas. Para verla, abrí Ventas agregando <b>?test</b> al final de la dirección.</div><div>${vacio?'La copia está vacía: generala primero.':'Podés volver a copiar los datos reales cuando quieras (pisa la copia actual).'} <button class="lnk" onclick="pubCopiar()">Copiar datos reales de Ventas al entorno de prueba</button></div><div id="pubCp" class="subtle"></div></div>`
       :`<div class="diffbox" style="margin-bottom:1rem"><div><b>Esto cambia el sistema de pedidos en vivo.</b> Para probar antes, abrí «PRUEBA - FINANZAS».</div></div>`}
-  ${vacio?'':`<p class="subtle" style="font-size:.82rem;margin-bottom:.8rem">Helados en pote que no están en desarrollo. Solo se publican nombre, línea, estado y precios (360 y 250). El stock, los pedidos y el resto de Ventas no se tocan. Paletas, alfajores y extras todavía no se publican.</p>
+  ${vacio?'':`<p class="subtle" style="font-size:.82rem;margin-bottom:.8rem">Helados en pote que no están en desarrollo. Solo se publican nombre, línea, estado y precios (360 y 250). El stock, los pedidos y el resto de Ventas no se tocan. Los combos se publican con su composición y precios por canal. Paletas, alfajores y extras todavía no se publican.</p>
   ${(()=>{ const rs=out.filter(r=>r.ch.length); return rs.length?`<div class="tbl-wrap" style="max-height:52vh;overflow:auto"><table class="ing" style="min-width:0"><thead><tr class="caps"><th></th><th>Producto</th><th>Qué cambia en Ventas</th></tr></thead><tbody>
   ${rs.map(r=>`<tr class="${PUBSEL.has(r.id)?'sel':''}"><td><input type="checkbox" ${PUBSEL.has(r.id)?'checked':''} onchange="PUBSEL[this.checked?'add':'delete']('${r.id}');pubOpen()"></td>
     <td class="nm">${r.p.nombre} <span class="muted" style="font-size:.72rem">${codigo(r.p)}</span>${r.nuevo?' <span class="age prov">nuevo en Ventas</span>':''}${(r.nuevo||PUBLINK[r.p.id])&&(sueltos.length||PUBLINK[r.p.id])?`<br><select class="lin" style="margin-top:.35rem;font-size:.75rem;padding:.2rem .4rem" title="Si en Ventas ya existe con otro nombre, vinculalo para no duplicarlo" onchange="const v=this.value;PUBSEL=null;if(v)PUBLINK['${r.p.id}']=v;else delete PUBLINK['${r.p.id}'];pubOpen()"><option value="">Crear como sabor nuevo</option>${[...sueltos,...(PUBLINK[r.p.id]?VSAB.filter(x=>x.id===PUBLINK[r.p.id]):[])].map(x=>`<option value="${x.id}"${PUBLINK[r.p.id]===x.id?' selected':''}>Es «${x.nombre}» en Ventas</option>`).join('')}</select>`:''}</td>
     <td style="font-size:.8rem">${r.ch.map(k=>`${PUB_LBL[k]}: <span class="muted">${r.nuevo?'':pubFmt(k,r.v[k])+' → '}</span><b>${pubFmt(k,r.d[k])}</b>`).join('<br>')}</td></tr>`).join('')}
   </tbody></table></div>`:'<div class="diffbox"><div>Los sabores ya están al día en Ventas.</div></div>'; })()}
-  ${pr.n||com.n||ret.length?`<div class="tbl-wrap" style="margin-top:1rem"><table class="ing" style="min-width:0"><thead><tr class="caps"><th></th><th>También</th><th>Qué cambia en Ventas</th></tr></thead><tbody>
+  ${pr.n||com.n||ret.length||cbs.n||cbs.faltan.length?`<div class="tbl-wrap" style="margin-top:1rem"><table class="ing" style="min-width:0"><thead><tr class="caps"><th></th><th>También</th><th>Qué cambia en Ventas</th></tr></thead><tbody>
     ${pr.n?`<tr class="${PUBSEL.has('__promos')?'sel':''}"><td>${ck('__promos')}</td><td class="nm">Descuentos Rappi</td><td style="font-size:.8rem">${[...pr.altas.map(w=>`<b>Alta:</b> ${promoTxt(w.d)}`),...pr.cambios.map(w=>`<b>Cambia:</b> <span class="muted">${promoTxt(w.v)} →</span> ${promoTxt(w.d)}`),...pr.bajas.map(v=>`<b>Se elimina:</b> <span class="muted">${promoTxt(v)}</span>`)].join('<br>')}</td></tr>`:''}
     ${com.n?`<tr class="${PUBSEL.has('__com')?'sel':''}"><td>${ck('__com')}</td><td class="nm">Comisión Rappi</td><td style="font-size:.8rem"><span class="muted">${com.ven==null?'—':num(com.ven)+'%'} →</span> <b>${num(com.fin)}%</b> <span class="muted">· los pedidos ya despachados conservan su %</span></td></tr>`:''}
+    ${cbs.n?`<tr class="${PUBSEL.has('__cb')?'sel':''}"><td>${ck('__cb')}</td><td class="nm">Combos</td><td style="font-size:.8rem">${[...cbs.altas.map(w=>`<b>Alta:</b> ${cbTxt(w.d)}`),...cbs.cambios.map(w=>`<b>Cambia:</b> ${cbDif(w.v,w.d)}`),...cbs.bajas.map(v=>`<b>Se elimina:</b> <span class="muted">${v.nombre}</span>`)].join('<br>')}</td></tr>`:''}
+    ${cbs.faltan.length?`<tr><td></td><td class="nm">Combos sin publicar</td><td style="font-size:.8rem;color:var(--bad)">${cbs.faltan.map(w=>`${w.p.nombre}: «${w.falta}» todavía no está en Ventas. Publicá ese sabor primero.`).join('<br>')}</td></tr>`:''}
     ${ret.length?`<tr class="${PUBSEL.has('__ret')?'sel':''}"><td>${ck('__ret')}</td><td class="nm">Sabores que no están en Finanzas</td><td style="font-size:.8rem"><b>Se retira de la venta:</b> ${ret.map(x=>x.nombre).join(', ')} <span class="muted">· quedan apagados en Ventas, no se borran</span></td></tr>`:''}
   </tbody></table></div>`:''}`}
   <div class="mdl-foot" style="align-items:center;justify-content:space-between"><span class="subtle" style="font-size:.8rem">${n} cambio${n===1?'':'s'} a publicar</span><span style="display:flex;gap:.5rem"><button class="btn btn-sec caps" onclick="PUBSEL=null;mClose()">Cancelar</button><button class="btn btn-save caps" id="pubOk" data-state="${n?'dirty':'saved'}" ${n?'':'disabled'} onclick="pubGo()">${n?(TEST?'Publicar en prueba':'Publicar en Ventas real'):'Nada para publicar'}</button></span></div>`,900);
 };
 window.pubGo=async()=>{
-  const {out,pr,com,ret}=pubPlan(), sel=out.filter(r=>PUBSEL?.has(r.id)&&r.ch.length), doP=pr.n&&PUBSEL?.has('__promos'), doC=com.n&&PUBSEL?.has('__com'), doR=ret.length&&PUBSEL?.has('__ret');
-  if(!sel.length&&!doP&&!doC&&!doR) return;
-  if(!TEST&&!confirm(`Vas a cambiar el sistema de pedidos en vivo: ${[sel.length?`${sel.length} sabor${sel.length===1?'':'es'}`:'',doP?'descuentos Rappi':'',doC?'comisión Rappi':'',doR?`retirar ${ret.length} sabor${ret.length===1?'':'es'}`:''].filter(Boolean).join(', ')}. ¿Seguimos?`)) return;
+  const {out,pr,com,ret,cbs}=pubPlan(), sel=out.filter(r=>PUBSEL?.has(r.id)&&r.ch.length), doP=pr.n&&PUBSEL?.has('__promos'), doC=com.n&&PUBSEL?.has('__com'), doR=ret.length&&PUBSEL?.has('__ret'), doCB=cbs.n&&PUBSEL?.has('__cb');
+  if(!sel.length&&!doP&&!doC&&!doR&&!doCB) return;
+  if(!TEST&&!confirm(`Vas a cambiar el sistema de pedidos en vivo: ${[sel.length?`${sel.length} sabor${sel.length===1?'':'es'}`:'',doP?'descuentos Rappi':'',doC?'comisión Rappi':'',doR?`retirar ${ret.length} sabor${ret.length===1?'':'es'}`:'',doCB?'combos':''].filter(Boolean).join(', ')}. ¿Seguimos?`)) return;
   const b=el('pubOk'); b.disabled=true; b.innerHTML='<span class="spin sm inv"></span>Publicando…';
   try{
     const bt=writeBatch(db);
@@ -1651,8 +1670,9 @@ window.pubGo=async()=>{
     if(doP){ pr.altas.forEach(w=>bt.set(doc(db,VC('promosRappi'),w.id),{...w.d,ts:serverTimestamp()})); pr.cambios.forEach(w=>bt.set(doc(db,VC('promosRappi'),w.id),w.d,{merge:true})); pr.bajas.forEach(v=>bt.delete(doc(db,VC('promosRappi'),v.id))); }
     if(doC) bt.set(doc(db,VC('config'),'stock'),{comisionRappi:com.fin},{merge:true});
     if(doR) ret.forEach(x=>bt.set(doc(db,VC('sabores'),x.id),{activo:false},{merge:true}));
+    if(doCB){ [...cbs.altas,...cbs.cambios].forEach(w=>bt.set(doc(db,VC('combos'),w.id),{...w.d,ts:serverTimestamp()})); cbs.bajas.forEach(v=>bt.delete(doc(db,VC('combos'),v.id))); }
     await withTimeout(bt.commit(),30000);
-    const extra=[doP?`Descuentos Rappi: ${pr.altas.length} alta${pr.altas.length===1?'':'s'}, ${pr.cambios.length} cambio${pr.cambios.length===1?'':'s'}, ${pr.bajas.length} baja${pr.bajas.length===1?'':'s'}`:'',doC?`Comisión Rappi ${com.ven==null?'—':num(com.ven)+'%'}→${num(com.fin)}%`:'',doR?`Retirados de la venta: ${ret.map(x=>x.nombre).join(', ')}`:''].filter(Boolean);
+    const extra=[doP?`Descuentos Rappi: ${pr.altas.length} alta${pr.altas.length===1?'':'s'}, ${pr.cambios.length} cambio${pr.cambios.length===1?'':'s'}, ${pr.bajas.length} baja${pr.bajas.length===1?'':'s'}`:'',doC?`Comisión Rappi ${com.ven==null?'—':num(com.ven)+'%'}→${num(com.fin)}%`:'',doR?`Retirados de la venta: ${ret.map(x=>x.nombre).join(', ')}`:'',doCB?`Combos: ${cbs.altas.length} alta${cbs.altas.length===1?'':'s'}, ${cbs.cambios.length} cambio${cbs.cambios.length===1?'':'s'}, ${cbs.bajas.length} baja${cbs.bajas.length===1?'':'s'}`:''].filter(Boolean);
     const det=sel.map(r=>`${r.p.nombre}${r.nuevo?' (nuevo)':''}: `+r.ch.map(k=>`${PUB_LBL[k]} ${r.nuevo?'':pubFmt(k,r.v[k])+'→'}${pubFmt(k,r.d[k])}`).join(', ')).join(' · ');
     await hist('producto',`Publicación en Ventas${TEST?' · entorno de prueba':''}`,'—',[sel.length?`${sel.length} producto${sel.length===1?'':'s'}`:'',...extra.map(x=>x.split(':')[0].split(' ').slice(0,2).join(' '))].filter(Boolean).join(' + '),[det,...extra].filter(Boolean).join(' · '));
     PUBSEL=null; mClose(); toast(TEST?'Publicado en el entorno de prueba':'Publicado en Ventas');
