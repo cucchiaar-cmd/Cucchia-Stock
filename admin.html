@@ -624,6 +624,13 @@ const redo = v => { const r=P.redondeo||1; return Math.ceil(v/r)*r; };
 // Combos (01/10/2026): composición fija de potes existentes. Costo = suma del costo de cada pote (sin packaging extra).
 // Precios: Rappi y Landing = suma de lista del canal − descuento del combo (15% por defecto, sin redondeo);
 // Amigos = suma de precios Amigos de cada pote − descuento extra Amigos (0% por defecto). Editables como siempre.
+// Mestura (03/10/2026): proveedor de helado base. Su lista (columna Fábrica, $/kg sin IVA) vive en el catálogo con SKU MES-<nombre>.
+// Cada helado que se usa es un insumo («Helado Mestura · …», categoría «Helados Mestura») vinculado a su SKU: Clásicos (baseIns)
+// y sabores con helado comprado (baseCompra.ins) toman el precio de ahí. Cargar una lista nueva de Mestura actualiza todo.
+const MESTURA_LISTA = [["chocolate", 13000], ["choc. Blanco", 13000], ["choc. Almendras", 15000], ["suizo", 15000], ["Chocolate amargo", 16000], ["ferrero", 16000], ["marroc", 16000], ["mousse de choc", 16000], ["dulce de leche", 12000], ["d.l.granizado", 13000], ["d leche c/ alm", 15000], ["d leche c/ nuez", 15000], ["super D. de L.", 16000], ["samabayon", 16000], ["samba/alm.", 18000], ["samba/nueces", 18000], ["samba/ cereza", 18000], ["samba/ granizado", 16000], ["americana", 12000], ["granizado", 12000], ["fritulla a la crema", 12000], ["frutilla a la reina", 12000], ["cerezas", 12000], ["crema de nuez", 14000], ["pistachio", 16000], ["Menta", 14000], ["bananan split", 14000], ["lemon pie", 14000], ["tramontana", 14000], ["crema oreo", 15000], ["crema kinder", 15000], ["nutella", 16000], ["limon", 11000], ["frutilla", 11000], ["naranja c/ mango", 11000], ["durazno", 12000], ["anana", 11000], ["champan", 12000], ["melon", 12000], ["frambueza", 14000], ["pomelo", 14000], ["kiwi", 14000]];
+const mesSku = n => 'MES-'+String(n).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const mesDesc = n => { const t=String(n).trim(); return t.charAt(0).toUpperCase()+t.slice(1)+' · helado x kg'; };
+const heladosBase = () => Object.values(INS).filter(i=>!i.archivado&&i.categoria==='Helados Mestura').sort((a,b)=>a.nombre.localeCompare(b.nombre));
 const cbComps = p => (p.comp||[]).map(c=>({...c,q:PROD[c.p]})).filter(c=>c.q&&c.q.tipo==='pote');
 function costo(p, m){
   if(p.tipo==='CB'){ const cs=cbComps(p).map(c=>({...c,costo:costo(c.q,c.m).costo})); return {modo:'combo',comps:cs,costo:cs.reduce((a,c)=>a+c.costo,0)}; }
@@ -636,13 +643,13 @@ function costo(p, m){
     // en lugar de la receta propia, hasta migrar a producción propia. La receta queda guardada.
     const bc=p.modo!=='kg'&&p.baseCompra?.on;
     const secs=(p.receta||[]).filter(sc=>p.modo!=='kg'||sc.items.length||sc.gp).map((sc,i)=>{ const g=sc.items.reduce((a,it)=>a+(+it.g||0),0), cst=sc.items.reduce((a,it)=>a+pi(it)*(+it.g||0),0), base=sc.rinde>0?+sc.rinde:g, gp=+(sc.gp?.[m])||0;
-      const pgS=(bc&&i===0)?(+p.baseCompra.costoKg||0)/1000:(base?cst/base:0); return {sec:(bc&&i===0)?'Helado base comprado':sc.sec,g,costo:cst,base,pg:pgS,gp:sc.inf?0:gp,mp:sc.inf?0:pgS*gp,compra:bc&&i===0,inf:!!sc.inf}; });
+      const pgS=(bc&&i===0)?((p.baseCompra.ins&&INS[p.baseCompra.ins])?pr(p.baseCompra.ins):(+p.baseCompra.costoKg||0)/1000):(base?cst/base:0); return {sec:(bc&&i===0)?'Helado base comprado':sc.sec,g,costo:cst,base,pg:pgS,gp:sc.inf?0:gp,mp:sc.inf?0:pgS*gp,compra:bc&&i===0,inf:!!sc.inf}; });
     // «Va dentro del helado base» (ej. aromáticos infusionados): su costo se suma por cada gramo de helado base del pote
     { const b0=secs[0], r0=p.receta?.[0]; const gMix=r0?(r0.rinde>0?+r0.rinde:r0.items.reduce((a,it)=>a+(+it.g||0),0)):0;
       secs.forEach(x=>{ if(x.inf&&b0&&!b0.inf&&gMix){ x.mp=x.costo/gMix*b0.gp; x.pg=x.costo/gMix; x.gpRef=b0.gp; } }); }
     const moC=()=>(+P.moCompradoMin||0)*minuto()*(m==='250'?250/360:1); // armado con helado comprado: minutos por pote × costo del minuto
-    if(p.modo==='kg'){ const gB=+(md.gBase??md.peso)||0, mpB=(p.costoKg||0)*gB/1000, mpI=secs.reduce((a,x)=>a+x.mp,0), peso=gB+secs.reduce((a,x)=>a+x.gp,0);
-      const moK=moC(); return {modo:'kg',mp:mpB+mpI,mpB,gB,mpI,secs,peso,pack,iva:mpI*iva(),mo:moK,costo:mpB+mpI*(1+iva())+pack+moK}; }
+    if(p.modo==='kg'){ const gB=+(md.gBase??md.peso)||0, bIns=p.baseIns&&INS[p.baseIns], mpB0=bIns?pr(p.baseIns)*gB:0, mpB=bIns?mpB0*(1+iva()):(p.costoKg||0)*gB/1000, mpI=secs.reduce((a,x)=>a+x.mp,0), peso=gB+secs.reduce((a,x)=>a+x.gp,0);
+      const moK=moC(); return {modo:'kg',mp:mpB+mpI,mpB,gB,mpI,secs,peso,pack,iva:mpI*iva()+mpB0*iva(),mo:moK,costo:mpB+mpI*(1+iva())+pack+moK}; }
     if((p.receta||[]).some(sc=>sc.gp)){ const mpPote=secs.reduce((a,x)=>a+x.mp,0), peso=secs.reduce((a,x)=>a+x.gp,0), mo=bc?moC():moMed(m);
       return {modo:'gp',secs,peso,mpPote,pack,iva:mpPote*iva(),mo,costo:mpPote*(1+iva())+pack+mo}; }
     const mpBatch=(p.receta||[]).reduce((a,s)=>a+s.items.reduce((b,it)=>b+pi(it)*it.g,0),0);
@@ -949,6 +956,36 @@ async function migrar(){
     for(const e of ev) await hist(...e);
     hechas.push('2026-10-02-intervenciones');
   }
+  if(!hechas.includes('2026-10-03-mestura-proveedor')){
+    boot('Dando de alta a Mestura como proveedor…','Lista de helados · columna Fábrica, sin IVA');
+    const ins={}, prov={}, prods=[];
+    (await getDocs(collection(db,C.ins))).forEach(d=>ins[d.id]=d.data());
+    (await getDocs(collection(db,C.prov))).forEach(d=>prov[d.id]=d.data());
+    (await getDocs(collection(db,C.prod))).forEach(d=>prods.push({id:d.id,...d.data()}));
+    const b=writeBatch(db), ev=[], F='2026-10-03';
+    let pv=Object.keys(prov).find(k=>/mestura/i.test(prov[k].nombre||''));
+    if(!pv){ const n=Math.max(0,...Object.keys(prov).map(k=>+k.split('-')[1]||0))+1; pv='PRV-'+String(n).padStart(3,'0');
+      b.set(doc(db,C.prov,pv),{codigo:pv,nombre:'Mestura',rubro:'Helados (base de Clásicos y helado comprado)',carga:'Lista Excel',contacto:''}); ev.push(['insumo',`Proveedor Mestura · ${pv}`,'—','Alta']); }
+    const LP={}; MESTURA_LISTA.forEach(([n,v])=>{ const sku=mesSku(n); LP[sku]=v; b.set(doc(db,C.cat,sku),{sku,desc:mesDesc(n),un:'KG',precio:v,g:1000,cat:'Helados Mestura',prov:pv,lista:F,baja:false}); });
+    ev.push(['insumo',`Lista Mestura ${new Date(F+'T12:00').toLocaleDateString('es-AR')}`,'—',`${MESTURA_LISTA.length} helados al catálogo (Fábrica, sin IVA)`]);
+    // Producto de Finanzas → helado de la lista de Mestura
+    const MAP={ddlgranizado:['d.l.granizado','DDL granizado'],chocolateclasico:['chocolate','Chocolate'],frutillaalacrema:['fritulla a la crema','Frutilla a la crema'],frutillaconcrema:['fritulla a la crema','Frutilla a la crema'],americana:['americana','Americana'],cremadenuez:['crema de nuez','Crema de nuez'],sambayon:['samabayon','Sambayón']};
+    let nx=Math.max(0,...Object.keys(ins).filter(k=>k.startsWith('ING')).map(k=>+k.split('-')[1]||0))+1; const hecho={};
+    for(const p of prods){ if(p.tipo!=='pote') continue; const mp=MAP[norm(p.nombre)]; if(!mp) continue;
+      const usaKg=p.modo==='kg', usaBC=p.modo!=='kg'&&p.baseCompra; if(!usaKg&&!usaBC) continue;
+      const sku=mesSku(mp[0]), kg=LP[sku]; if(!kg) continue;
+      let cod=hecho[sku]; if(!cod){ cod='ING-'+String(nx++).padStart(3,'0'); hecho[sku]=cod;
+        b.set(doc(db,C.ins,cod),{codigo:cod,nombre:'Helado Mestura · '+mp[1],tipo:'ingrediente',categoria:'Helados Mestura',ref:mesDesc(mp[0]),precio:kg/1000,unidad:'g',estado:'ok',actualizado:F,proveedor:pv,cands:[sku],modo:'sku',sku});
+        ev.push(['insumo',`Helado Mestura · ${mp[1]} · ${cod}`,'—',`Alta · ${$(kg)}/kg sin IVA`,'Vinculado a la lista de Mestura']); }
+      const {id,...d}=p;
+      if(usaKg){ d.baseIns=cod; ev.push(['producto',`${p.nombre} · helado base`,`${$(p.costoKg)}/kg c/IVA cargado a mano`,`Helado Mestura · ${mp[1]} (${$(kg)}/kg sin IVA)`,'El precio ahora sale de Insumos / lista de Mestura']); }
+      else { d.baseCompra={...p.baseCompra,ins:cod,prov:'Mestura'}; ev.push(['producto',`${p.nombre} · helado comprado`,`${$(p.baseCompra.costoKg)}/kg sin IVA a mano`,`Helado Mestura · ${mp[1]} (${$(kg)}/kg sin IVA)`,'El precio ahora sale de Insumos / lista de Mestura']); }
+      b.set(doc(db,C.prod,p.id),d); }
+    b.set(ref,{ids:[...hechas,'2026-10-03-mestura-proveedor']},{merge:true});
+    await withTimeout(b.commit(),30000);
+    for(const e of ev) await hist(...e);
+    hechas.push('2026-10-03-mestura-proveedor');
+  }
 }
 async function seedIfNeeded(){
   const s=await getDoc(doc(db,C.par,'general'));
@@ -1088,7 +1125,7 @@ function secTable(s,si,sub,kg){ return `<table class="t"><thead><tr><th>Insumo</
 // Helado base: receta propia o comprado al proveedor (solo 1ª sección de sabores con receta). Muestra la comparación.
 function baseSel(p,m){ const bc=p.baseCompra||{on:false,costoKg:0,prov:''}, alt=costo({...p,baseCompra:{...bc,on:!bc.on}},m).costo, act=costo(p,m).costo, d=alt-act;
   return `<div class="secgp"><label>Helado base <select class="rsel" data-rs="w:baseCompra.on" onchange="W.baseCompra=W.baseCompra||{costoKg:0,prov:''};W.baseCompra.on=this.value==='1';dirty()"><option value="0"${bc.on?'':' selected'}>Receta propia</option><option value="1"${bc.on?' selected':''}>Comprado</option></select></label>
-    ${bc.on?`<label>$/kg sin IVA <input class="rin" style="width:5rem" value="${bc.costoKg||''}" data-rs="w:baseCompra.costoKg" onchange="W.baseCompra.costoKg=+String(this.value).replace(/\D/g,'')||0;dirty()"></label><label>proveedor <input class="rin" style="width:7rem;text-align:left" value="${bc.prov||''}" data-rs="w:baseCompra.prov" onchange="W.baseCompra.prov=this.value;dirty()"></label>`:''}
+    ${bc.on?`<label>helado <select class="rsel" data-rs="w:baseCompra.ins" onchange="W.baseCompra.ins=this.value||null;dirty()"><option value="">Precio a mano</option>${heladosBase().map(i=>`<option value="${i.codigo}"${bc.ins===i.codigo?' selected':''}>${i.nombre.replace(/^Helado Mestura · /,'Mestura · ')}</option>`).join('')}</select></label>`+(bc.ins&&INS[bc.ins]?`<span style="margin-left:0">${$(pr(bc.ins)*1000)}/kg sin IVA <button class="lnk" onclick="insOpc('${bc.ins}')">ver</button></span>`:`<label>$/kg sin IVA <input class="rin" style="width:5rem" value="${bc.costoKg||''}" data-rs="w:baseCompra.costoKg" onchange="W.baseCompra.costoKg=+String(this.value).replace(/\D/g,'')||0;dirty()"></label><label>proveedor <input class="rin" style="width:7rem;text-align:left" value="${bc.prov||''}" data-rs="w:baseCompra.prov" onchange="W.baseCompra.prov=this.value;dirty()"></label>`):''}
     <span style="color:var(--cream-muted);font-weight:400">${bc.on?'con receta propia':'comprado'}: ${$(alt)} / pote ${m} (${d>=0?'+':'−'}${$(Math.abs(d))})</span></div>
     ${bc.on?'<div class="secgp" style="margin-top:0"><span style="margin-left:0;color:var(--cream-muted);font-weight:400">La receta del mix queda guardada pero no se usa para el costo mientras el helado base sea comprado.</span></div>':''}`; }
 // Cabecera de sección: gramos en el pote (por tamaño) y rinde opcional → costo por gramo
@@ -1103,8 +1140,10 @@ function renderDet(){
   const estado=p.estado==='dev'?'<span class="st st-dev caps">En desarrollo</span>':`<select class="rsel" data-rs="w:estado" onchange="wset('estado',this.value)"><option value="activo"${p.estado==='activo'?' selected':''}>Activo${sinStock(p)?' · sin stock':''}</option><option value="fuera"${p.estado==='fuera'?' selected':''}>Fuera de carta</option></select>`;
   let left='';
   if(pote&&p.modo==='kg'){
-    left=`<h4>Helado base <span class="src alt caps">comprado · Mestura</span></h4>
-      <div class="steps"><div class="row"><span class="subtle">Costo por kg c/IVA</span><span><input class="rin" style="width:6rem" value="${p.costoKg}" data-rs="w:costoKg" onchange="wset('costoKg',+this.value||0)"></span></div>
+    left=`<h4>Helado base <span class="src alt caps">comprado · ${p.baseIns?'Mestura':'precio a mano'}</span></h4>
+      <div class="steps"><div class="row"><span class="subtle">Helado de Mestura</span><span><select class="rsel" data-rs="w:baseIns" onchange="wset('baseIns',this.value||null)"><option value="">Precio cargado a mano</option>${heladosBase().map(i=>`<option value="${i.codigo}"${p.baseIns===i.codigo?' selected':''}>${i.nombre.replace(/^Helado Mestura · /,'')}</option>`).join('')}</select></span></div>
+      ${p.baseIns&&INS[p.baseIns]?`<div class="row"><span class="subtle">Precio · desde Insumos <button class="lnk" onclick="insOpc('${p.baseIns}')">ver</button></span><span>${$(pr(p.baseIns)*1000)}/kg sin IVA · ${$(pr(p.baseIns)*1000*(1+iva()))} c/IVA</span></div>`
+        :`<div class="row"><span class="subtle">Costo por kg c/IVA</span><span><input class="rin" style="width:6rem" value="${p.costoKg}" data-rs="w:costoKg" onchange="wset('costoKg',+this.value||0)"></span></div>`}
       <div class="row"><span class="subtle">Helado · g por pote ${m} ml</span><span><input class="rin" style="width:4.5rem" value="${p.medidas[m].gBase??p.medidas[m].peso}" data-rs="w:medidas.${m}.gBase" onchange="wset('medidas.${m}.gBase',+String(this.value).replace(',','.')||0)"></span></div></div>
       <h4 style="margin-top:1.4rem">Intervenciones</h4>`+(p.receta||[]).map((s,si)=>{ const sub=s.items.reduce((a,it)=>a+pi(it)*it.g,0);
         return `<div style="margin-top:.9rem"><input class="secin" value="${s.sec}" data-rs="w:receta.${si}.sec" onchange="wset('receta.${si}.sec',this.value,0)">${secGP(s,si,m,sub)}${secTable(s,si,sub,true)}</div>`; }).join('')
@@ -1225,7 +1264,7 @@ window.guardarProd=async()=>{
       if(a.medidas[m].activa!==b.medidas[m].activa) ev.push(['producto',`${b.nombre} · ${m} ml`,a.medidas[m].activa?'se ofrece':'no se ofrece',b.medidas[m].activa?'se ofrece':'no se ofrece']); }
   }
   let ver=b.version;
-  if(a.tipo==='pote'&&(JSON.stringify(a.receta)!==JSON.stringify(b.receta)||a.prodG!==b.prodG||a.costoKg!==b.costoKg||a.modo!==b.modo||JSON.stringify(a.baseCompra||null)!==JSON.stringify(b.baseCompra||null)||JSON.stringify(['360','250'].map(mm=>a.medidas[mm]?.gBase))!==JSON.stringify(['360','250'].map(mm=>b.medidas[mm]?.gBase)))){
+  if(a.tipo==='pote'&&(JSON.stringify(a.receta)!==JSON.stringify(b.receta)||a.prodG!==b.prodG||a.costoKg!==b.costoKg||(a.baseIns||null)!==(b.baseIns||null)||a.modo!==b.modo||JSON.stringify(a.baseCompra||null)!==JSON.stringify(b.baseCompra||null)||JSON.stringify(['360','250'].map(mm=>a.medidas[mm]?.gBase))!==JSON.stringify(['360','250'].map(mm=>b.medidas[mm]?.gBase)))){
     const mm=(b.version||'v1').match(/^v(\d+)(?:\.(\d+))?/); ver=mm?`v${mm[1]}.${(+mm[2]||0)+1}`:'v1.1'; b.version=ver;
     ev.push(['receta',b.nombre,a.version||'—',ver,`costo 360 ${$(costo(a,'360').costo)} → ${$(costo(b,'360').costo)}`,costo(b,'360').costo<=costo(a,'360').costo?'up':'dn']); }
   if(a.tipo==='CB'&&(JSON.stringify(a.comp)!==JSON.stringify(b.comp)||(a.dto??15)!==(b.dto??15)||(a.dtoAm??0)!==(b.dtoAm??0)))
@@ -1369,14 +1408,18 @@ window.opcSave=async()=>{
 
 // ═════════ CATÁLOGO DE PROVEEDORES ═════════
 let catQ='', catF='all', catOpen=false;
+// Los oninput/onchange del modal corren en el ámbito global: sin esto la búsqueda y el filtro del catálogo no tenían efecto (03/10/2026)
+Object.defineProperty(window,'catQ',{get:()=>catQ,set:v=>{catQ=v;},configurable:true});
+Object.defineProperty(window,'catF',{get:()=>catF,set:v=>{catF=v;},configurable:true});
 const linkMap=()=>{ const m={}; Object.entries(INS).forEach(([c,i])=>{ if(i.archivado) return; (i.cands||[]).forEach(s=>(m[s]=m[s]||[]).push(c)); }); return m; };
 window.catVer=()=>{ catOpen=true; const cats=[...new Set(Object.values(CAT).map(x=>x.cat))].sort();
   const listas=[...new Set(Object.values(CAT).map(x=>x.lista))].sort().reverse();
-  mOpen(`<div class="mdl-head"><div><div class="kicker" style="margin-bottom:.25rem"><span class="dot" style="width:10px;height:10px;background:var(--caramel)"></span><span class="caps">Catálogo de proveedores</span></div><h3 class="h-md">Lista completa · ${Object.keys(CAT).length} productos</h3><p class="subtle" style="font-size:.8rem">Última lista: ${listas[0]?new Date(listas[0]+'T12:00').toLocaleDateString('es-AR'):'—'} · Alyser</p></div><button class="x" onclick="mClose()">×</button></div>
+  mOpen(`<div class="mdl-head"><div><div class="kicker" style="margin-bottom:.25rem"><span class="dot" style="width:10px;height:10px;background:var(--caramel)"></span><span class="caps">Catálogo de proveedores</span></div><h3 class="h-md">Lista completa · ${Object.keys(CAT).length} productos</h3><p class="subtle" style="font-size:.8rem">Última lista · ${[...new Set(Object.values(CAT).map(x=>x.prov))].map(pv=>{ const l=Object.values(CAT).filter(x=>x.prov===pv).map(x=>x.lista).sort().pop(); return `${PROV[pv]?.nombre||pv} ${l?new Date(l+'T12:00').toLocaleDateString('es-AR'):'—'}`; }).join(' · ')}</p></div><button class="x" onclick="mClose()">×</button></div>
   <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem">
     <input id="cQ" class="lin" style="flex:1;min-width:14rem" placeholder="Buscar producto o SKU…" value="${catQ}" oninput="catQ=this.value;catRender()">
     <select id="cF" class="lin" onchange="catF=this.value;catRender()"><option value="all">Todos</option><option value="vinc"${catF==='vinc'?' selected':''}>Vinculados a insumos</option><option value="baja"${catF==='baja'?' selected':''}>No están en la última lista</option>${cats.map(c=>`<option${catF===c?' selected':''}>${c}</option>`).join('')}</select>
-    <label class="btn btn-gold caps btn-sm" style="cursor:pointer">Cargar lista nueva (PDF)<input type="file" accept="application/pdf" style="display:none" onchange="catPdf(this.files[0]);this.value=''"></label>
+    <label class="btn btn-gold caps btn-sm" style="cursor:pointer">Lista Alyser (PDF)<input type="file" accept="application/pdf" style="display:none" onchange="catPdf(this.files[0]);this.value=''"></label>
+    <label class="btn btn-gold caps btn-sm" style="cursor:pointer">Lista Mestura (Excel)<input type="file" accept=".xlsx,.xls" style="display:none" onchange="catExcel(this.files[0]);this.value=''"></label>
   </div>
   <div class="tbl-wrap" style="max-height:58vh;overflow:auto"><table class="ing" style="min-width:0"><thead><tr class="caps"><th>Producto</th><th>Rubro</th><th>Presentación</th><th style="text-align:right">Precio</th><th style="text-align:right">$ / g</th><th>Opción de</th></tr></thead><tbody id="cRows"></tbody></table></div>
   <p class="subtle" id="cInfo" style="font-size:.75rem;margin-top:.5rem"></p>`,1100); catRender(); };
@@ -1429,7 +1472,24 @@ window.catPdf=async file=>{ if(!file) return;
   if(items.length<50){ el('cInfo').textContent=`Solo reconocí ${items.length} productos: no parece una lista de Alyser con el formato habitual.`; return; }
   const seen=new Set(); items=items.filter(x=>!seen.has(x.sku)&&seen.add(x.sku));
   const f=lin.join(' ').match(/(\d{2})\/(\d{2})\/(20\d{2})/)||file.name.match(/(\d{2})[-_.](\d{2})[-_.](20\d{2})/); const fecha=f?`${f[3]}-${f[2]}-${f[1]}`:hoyISO();
-  const prov='PRV-001', ant=Object.values(CAT).filter(x=>x.prov===prov);
+  catRevisar(items,fecha,'PRV-001',file.name);
+};
+// Lista de Mestura en Excel (03/10/2026): primera hoja, columna A = gusto, columna B = precio Fábrica $/kg sin IVA.
+async function cargarXLSX(){ if(window.XLSX) return; await new Promise((ok,ko)=>{ const sc=document.createElement('script'); sc.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'; sc.onload=ok; sc.onerror=()=>ko(new Error('No se pudo cargar el lector de Excel')); document.head.appendChild(sc); }); }
+window.catExcel=async file=>{ if(!file) return;
+  el('cInfo').innerHTML='<span class="spin sm"></span> Leyendo la lista…';
+  const pv=Object.keys(PROV).find(k=>/mestura/i.test(PROV[k].nombre||'')); if(!pv){ el('cInfo').textContent='Mestura no está dado de alta como proveedor.'; return; }
+  let items=[];
+  try{ await cargarXLSX(); const wb=XLSX.read(await file.arrayBuffer()); const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
+    rows.forEach(r=>{ const n=r[0], v=r[1]; if(typeof n==='string'&&typeof v==='number'&&v>0&&!/precio|kilos|promedio/i.test(n)) items.push({sku:mesSku(n),desc:mesDesc(n),un:'KG',precio:v,g:1000,cat:'Helados Mestura'}); });
+  }catch(e){ console.error(e); el('cInfo').textContent='No se pudo leer el Excel ('+(e.message||e)+').'; return; }
+  if(items.length<5){ el('cInfo').textContent=`Solo reconocí ${items.length} helados: tiene que ser la lista de Mestura (gusto en la columna A y precio Fábrica en la B).`; return; }
+  const seen=new Set(); items=items.filter(x=>!seen.has(x.sku)&&seen.add(x.sku));
+  catRevisar(items,hoyISO(),pv,file.name);
+};
+// Revisión de una lista nueva (Alyser PDF o Mestura Excel): diferencias, impacto en insumos y costos, y «Aplicar lista».
+function catRevisar(items,fecha,prov,archivo){
+  const seen=new Set(items.map(x=>x.sku)), ant=Object.values(CAT).filter(x=>x.prov===prov);
   const nuevos=items.filter(x=>!CAT[x.sku]), cambios=items.filter(x=>CAT[x.sku]&&CAT[x.sku].precio!==x.precio), bajas=ant.filter(x=>!seen.has(x.sku)&&!x.baja);
   // impacto: insumos y productos
   const NC={...CAT}; items.forEach(x=>NC[x.sku]={...(CAT[x.sku]||{}),...x,prov,lista:fecha,baja:false}); bajas.forEach(x=>NC[x.sku]={...x,baja:true});
@@ -1438,10 +1498,10 @@ window.catPdf=async file=>{ if(!file) return;
   CAT=NC; Object.keys(INS).forEach(c=>insA[c]=pr(c)); prods.forEach(p=>aft[p.id]=costo(p,'360').costo); CAT=C0;
   const insCh=Object.keys(INS).filter(c=>!INS[c].archivado&&Math.abs(insA[c]-insB[c])>1e-6);
   const prCh=prods.filter(p=>Math.abs(aft[p.id]-bef[p.id])>=1);
-  NUEVA={items,fecha,prov,nuevos,cambios,bajas,insCh,insB,insA,prCh,bef,aft,archivo:file.name};
+  NUEVA={items,fecha,prov,nuevos,cambios,bajas,insCh,insB,insA,prCh,bef,aft,archivo:archivo};
   const sube=cambios.filter(x=>x.precio>CAT[x.sku].precio).length;
   catOpen=false;
-  mOpen(`<div class="mdl-head"><div><div class="kicker" style="margin-bottom:.25rem"><span class="dot" style="width:10px;height:10px;background:var(--caramel)"></span><span class="caps">Lista nueva · ${file.name}</span></div><h3 class="h-md">Revisá antes de aplicar</h3></div><button class="x" onclick="mClose()">×</button></div>
+  mOpen(`<div class="mdl-head"><div><div class="kicker" style="margin-bottom:.25rem"><span class="dot" style="width:10px;height:10px;background:var(--caramel)"></span><span class="caps">Lista nueva · ${archivo}</span></div><h3 class="h-md">Revisá antes de aplicar</h3></div><button class="x" onclick="mClose()">×</button></div>
   <div class="fgrid" style="margin-bottom:1rem"><label class="f"><span class="caps">Fecha de la lista</span><input id="nlF" type="date" value="${fecha}"></label><label class="f"><span class="caps">Proveedor</span><input value="${PROV[prov]?.nombre||prov}" disabled></label></div>
   <div class="kpis" style="grid-template-columns:repeat(4,1fr);margin-bottom:1rem">${[['Productos leídos',items.length],['Cambian de precio',`${cambios.length}`,`${sube} suben · ${cambios.length-sube} bajan`],['Nuevos',nuevos.length],['Ya no están',bajas.length]].map(k=>`<div class="kpi"><span class="l caps">${k[0]}</span><span class="n">${k[1]}</span><span class="d">${k[2]||'&nbsp;'}</span></div>`).join('')}</div>
   <h4 style="margin:.4rem 0">Insumos que cambian de precio (${insCh.length})</h4>
