@@ -1194,12 +1194,21 @@ let PROMOS_RAPPI = [];
 // Vigencia (30/09/2026): cada promo puede tener desde/hasta (YYYY-MM-DD, opcionales). Aplica solo si la fecha
 // del pedido cae dentro del rango. Al editar un pedido se usa su fecha original.
 const promoVigente = (p, f) => (!p.desde || f >= p.desde) && (!p.hasta || f <= p.hasta);
-function descuentoLineaRappi(saborId, esVip, fecha){
-  const f = fecha || fechaArgentinaISO();
-  const promosSabor = PROMOS_RAPPI.filter(p=>p.activo!==false && promoVigente(p,f) && Array.isArray(p.sabores) && p.sabores.includes(saborId));
+// 05/10/2026: el 250 ml es una opción propia de la promo («<sabor>@250»); el id solo es el 360.
+function descuentoLineaRappi(saborId, esVip, fecha, capacidad){
+  const f = fecha || fechaArgentinaISO(), clave = (capacidad||360)===250 ? saborId+'@250' : saborId;
+  const promosSabor = PROMOS_RAPPI.filter(p=>p.activo!==false && promoVigente(p,f) && Array.isArray(p.sabores) && p.sabores.includes(clave));
   const vipAplicables = promosSabor.filter(p=>!!p.vip);
   const base = (esVip && vipAplicables.length) ? vipAplicables : promosSabor.filter(p=>!p.vip);
   return base.reduce((total,p)=> total + (+p.pct || 0), 0);
+}
+// Combos (05/10/2026): el descuento de Rappi de un combo es una promo (campo 'combos' de la promo), con la misma regla PRO/común que los sabores.
+function descuentoComboRappi(comboId, esVip, fecha){
+  const f = fecha || fechaArgentinaISO();
+  const pr = PROMOS_RAPPI.filter(p=>p.activo!==false && promoVigente(p,f) && Array.isArray(p.combos) && p.combos.includes(comboId));
+  const vip = pr.filter(p=>!!p.vip);
+  const base = (esVip && vip.length) ? vip : pr.filter(p=>!p.vip);
+  return base.reduce((t,p)=>t+(+p.pct||0),0);
 }
 function precioCanalPedido(s, canal, capacidad){
   if(!s) return 0;
@@ -1261,8 +1270,8 @@ function stockCombo(c){
 function txtComposicion(c){
   return (c.comp||[]).map(x=>(x.cant>1?x.cant+'× ':'')+((sabor(x.sabor)||{nombre:x.sabor}).nombre)+(x.capacidad!==360?' '+x.capacidad+'ml':'')).join(' + ');
 }
-function lineasCombo(c, canal, n){
-  const precio = precioComboCanal(c,canal), comp = c.comp||[];
+function lineasCombo(c, canal, n, precioFinal){
+  const precio = precioFinal!=null ? precioFinal : precioComboCanal(c,canal), comp = c.comp||[];
   const bases = comp.map(x=>precioCanalPedido(sabor(x.sabor),canal,x.capacidad)*(x.cant||1));
   const tot = bases.reduce((a,b)=>a+b,0);
   let resto = precio;
@@ -1281,14 +1290,15 @@ function calcularCarrito(cart, canal, esVip, fecha){
     const n = cart[k];
     if(esClaveCombo(k)){
       const c = comboDe(k.slice(CB_PFX.length)); if(!c) return;
-      const precio = precioComboCanal(c,canal), lista = listaComboCanal(c,canal);
+      const pctP = canal==='Rappi' ? descuentoComboRappi(c.id,esVip,fecha) : 0;
+      const precio = Math.round(precioComboCanal(c,canal)*(1-pctP/100)), lista = listaComboCanal(c,canal);
       bruto += lista*n; potes += potesCombo(c)*n;
-      lineas.push(...lineasCombo(c,canal,n));
+      lineas.push(...lineasCombo(c,canal,n,precio));
       combos.push({id:c.id, nombre:c.nombre, codigo:c.codigo||'', cant:n, precio, lista});
       html.push(`<div class="cartline"><span><span class="typetag">Combo</span> ${c.nombre}${n>1?' x'+n:''}<span class="meta" style="display:block;font-weight:500;margin-top:2px">${txtComposicion(c)}</span></span><span class="price">${fmt$(lista*n)}</span></div>`);
     } else {
       const {id,capacidad} = parseClaveCart(k); const s = sabor(id); if(!s) return;
-      const b = precioCanalPedido(s,canal,capacidad), pct = canal==='Rappi' ? descuentoLineaRappi(id,esVip,fecha) : 0;
+      const b = precioCanalPedido(s,canal,capacidad), pct = canal==='Rappi' ? descuentoLineaRappi(id,esVip,fecha,capacidad) : 0;
       bruto += b*n; potes += n;
       lineas.push({id, capacidad, cant:n, precioUnit:Math.round(b*(1-pct/100))});
       html.push(`<div class="cartline"><span><span class="sw-c" style="background:${s.color};display:inline-block;vertical-align:middle;margin-right:7px"></span>${s.nombre} · ${capacidad}ml${n>1?' x'+n:''}</span><span class="price">${fmt$(b*n)}</span></div>`);
@@ -1828,7 +1838,7 @@ function promosDeSabor(id){
   return PROMOS_RAPPI.filter(p=>p.activo!==false && promoVigente(p,f) && Array.isArray(p.sabores) && p.sabores.includes(id));
 }
 function detalleAlerta(x, modo){
-  const cbs = combosDeClave(x.key), prs = promosDeSabor(x.s.id);
+  const cbs = combosDeClave(x.key), prs = promosDeSabor(x.cap===250 ? x.s.id+'@250' : x.s.id);
   const li = [];
   if(modo==='pausar'){
     li.push(`Pausar el producto <b>${nombreClave(x)}</b>`);
@@ -3595,8 +3605,9 @@ function pintarAdminPromosRappi(){
   const el = document.getElementById('admPromosRappi');
   if(!el) return;
   el.innerHTML = PROMOS_RAPPI.length ? PROMOS_RAPPI.map(p=>{
-    const sab = (Array.isArray(p.sabores)?p.sabores:[]).map(id=>sabor(id)?.nombre||id);
-    const txt = SABORES.length && sab.length===SABORES.length ? 'Todos los sabores' : (sab.join(', ') || 'Sin sabores');
+    const sab = (Array.isArray(p.sabores)?p.sabores:[]).map(k=>{ const [id,cap]=k.split('@'); return (sabor(id)?.nombre||id)+(cap?' '+cap+'ml':''); });
+    const cbs = (Array.isArray(p.combos)?p.combos:[]).map(id=>'Combo '+(comboDe(id)?.nombre||id));
+    const txt = [sab.join(', '), cbs.join(', ')].filter(Boolean).join(' · ') || 'Sin productos';
     const fd = d => d ? d.split('-').reverse().join('/') : '';
     const rango = p.hasta ? 'Hasta '+fd(p.hasta) : 'Sin fecha de cierre';
     // Vigencia en su propio recuadro (mismo patrón que los chips de promos: kraft2 + borde line + radio 6px)
@@ -4232,7 +4243,7 @@ function iniciarListeners(){
     loaded.combos = true;
     if(dataReady){
       pintarPickerCombos(); renderCart();
-      if(document.getElementById('admin').classList.contains('show')) pintarAdminCombos();
+      if(document.getElementById('admin').classList.contains('show')){ pintarAdminCombos(); pintarAdminPromosRappi(); }
     }
     checkAllLoaded();
   });
