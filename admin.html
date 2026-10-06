@@ -1153,6 +1153,21 @@ let ORIG=new WeakMap();
 const mkOrig=()=>{ ORIG=new WeakMap(); (W?.receta||[]).forEach(s=>s.items.forEach(it=>ORIG.set(it,{c:it.c,g:it.g,sku:it.sku||null}))); };
 const itCambio=it=>{ const o=ORIG.get(it); return !!o&&(o.c!==it.c||o.g!==it.g||(o.sku||null)!==(it.sku||null)); };
 window.itReset=(si,ii)=>{ const it=W.receta[si].items[ii], o=ORIG.get(it); if(!o) return; it.c=o.c; it.g=o.g; if(o.sku) it.sku=o.sku; else delete it.sku; dirty(); };
+// Eliminar producto (06/10/2026): queda un respaldo en adm_respaldos; se saca de las promos. Un pote que está en un combo no se puede eliminar.
+// En Ventas, al publicar: un combo eliminado se quita; un sabor eliminado queda apagado (conserva stock y pedidos).
+window.prodEliminar=async()=>{ const p=PROD[WID]; if(!p) return;
+  const usados=prodArr().filter(c=>c.tipo==='CB'&&(c.comp||[]).some(x=>x.p===p.id));
+  if(usados.length){ alert(`No se puede eliminar «${p.nombre}»: es parte de ${usados.map(c=>'«'+c.nombre+'»').join(', ')}. Sacalo de ${usados.length===1?'ese combo':'esos combos'} primero.`); return; }
+  const prs=Object.values(PROMO).filter(r=>(r.productos||[]).some(k=>k.split('@')[0]===p.id));
+  const ven=p.tipo==='CB'?'Al publicar en Ventas, el combo se quita de la venta (los pedidos ya hechos no cambian).':p.tipo==='pote'?'Al publicar en Ventas, el sabor queda apagado (su stock y sus pedidos se conservan).':'';
+  if(!confirm(`¿Eliminar «${p.nombre}»?\n\n${ven}${prs.length?`\nTambién se saca de ${prs.length===1?'la promo':'las promos'} ${prs.map(r=>'«'+r.nombre+'»').join(', ')}.`:''}\n\nQueda un respaldo en la base por si hay que recuperarlo.`)) return;
+  try{
+    await setDoc(doc(db,'adm_respaldos','producto-'+p.id+'-'+Date.now()),{fecha:new Date().toISOString(),motivo:'producto eliminado',json:JSON.stringify(p)});
+    for(const r of prs){ const {id,...d}=r; await setDoc(doc(db,C.promo,id),{...d,productos:(r.productos||[]).filter(k=>k.split('@')[0]!==p.id)}); }
+    await deleteDoc(doc(db,C.prod,p.id));
+    await hist('producto',`${p.nombre} · ${codigo(p)}`,'existente','eliminado',prs.length?`Sacado de ${prs.map(r=>r.nombre).join(', ')} · respaldo en adm_respaldos`:'Respaldo en adm_respaldos');
+    wDirty=false; W=null; el('detalle').classList.add('hide'); el('lista').classList.remove('hide'); renderProd(); window.scrollTo(0,0); toast('Eliminado: '+p.nombre);
+  }catch(e){ console.error(e); toast('No se pudo eliminar: '+(e.message||e)); } };
 window.abrir=(id,m='360')=>{ WID=id; W=clone(PROD[id]); mkOrig(); wDirty=false; wMed=(W.tipo==='pote'&&!W.medidas[m]?.activa)?'360':m; el('lista').classList.add('hide'); el('detalle').classList.remove('hide'); renderDet(); window.scrollTo(0,0); };
 window.volver=()=>{ if(wDirty&&!confirm('Hay cambios sin guardar. ¿Descartarlos?')) return; W=null; wDirty=false; el('detalle').classList.add('hide'); el('lista').classList.remove('hide'); renderProd(); window.scrollTo(0,0); };
 const later=f=>setTimeout(f,0);
@@ -1289,6 +1304,7 @@ ${secTable(s,si,sub,false)}</div>`;}).join('')
         <button class="btn btn-save caps" id="wSave" onclick="guardarProd()">Guardado ✓</button>
         ${p.estado==='dev'?`<button class="btn btn-gold caps" onclick="lanzar()">Lanzar a la venta</button>`:''}
         <button class="btn-sub" onclick="verHist('${p.nombre.replace(/'/g,"\\'")}')">Ver historial</button>
+        <button class="btn-sub" style="color:#ff7a5c;border-color:rgba(255,122,92,.5)" onclick="prodEliminar()">Eliminar</button>
       </div><span id="wHint" style="font-size:.75rem;color:var(--cream-muted)"></span></div></div>
     <div class="dossier"><div class="panel"><div class="corner"></div>${left}</div><div style="display:flex;flex-direction:column;gap:1.5rem">${right}</div></div>
   </div></section>`;
