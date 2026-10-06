@@ -1455,7 +1455,8 @@ function renderAuditoria(){
 // Stock (360ml y 250ml son pools de lotes separados, con su propio saldo/alerta/lote más viejo).
 function filasStock(){
   const filas = [];
-  SABORES.forEach(s=>{
+  // 06/10/2026: los sabores fuera de carta (apagados desde Finanzas) van al final, en gris y sin alerta de reposición
+  [...SABORES.filter(s=>s.activo!==false), ...SABORES.filter(s=>s.activo===false)].forEach(s=>{
     filas.push({s, capacidad:360});
     if(s.ofrece250) filas.push({s, capacidad:250});
   });
@@ -1464,7 +1465,7 @@ function filasStock(){
 function renderStock(){
   const filas = filasStock();
   const totalPotes = filas.reduce((a,f)=>a+saldoSabor(f.s.id,f.capacidad).final,0);
-  const enAlerta = filas.filter(f=>saldoSabor(f.s.id,f.capacidad).final < STOCK_MIN).length;
+  const enAlerta = filas.filter(f=>f.s.activo!==false && saldoSabor(f.s.id,f.capacidad).final < STOCK_MIN).length;
   const valorInmovilizado = filas.reduce((a,f)=>a + saldoSabor(f.s.id,f.capacidad).final * precioCanalPedido(f.s,'Landing',f.capacidad), 0);
   let loteMasViejoDias = 0;
   LOTES.forEach(l=>{ if((l.cant-l.egresado)>0){ const d=diasEntre(l.fecha); if(d>loteMasViejoDias) loteMasViejoDias=d; } });
@@ -1478,13 +1479,14 @@ function renderStock(){
   document.getElementById('stockTable').innerHTML = filas.map(f=>{
     const {s,capacidad} = f;
     const {inicial,egresado,final} = saldoSabor(s.id,capacidad);
-    const alerta = final < STOCK_MIN
+    const off = s.activo===false;
+    const alerta = off ? '<span class="typetag">Fuera de carta</span>' : final < STOCK_MIN
       ? '<span class="badge badge-warn">⚠ Reponer</span>'
       : '<span class="badge badge-ok">OK</span>';
     const lote = loteMasViejoConStock(s.id,capacidad);
     const loteTxt = lote ? (lote.id+' · '+fmtFecha(lote.fecha)+' ('+diasEntre(lote.fecha)+'d)') : '— sin stock —';
     const tagCap = capacidad===250 ? ' <span class="typetag">250ml</span>' : '';
-    return `<div class="stockrow">
+    return `<div class="stockrow"${off?' style="opacity:.5;filter:grayscale(1)" title="Fuera de carta: se maneja desde Finanzas"':''}>
       <div class="nm" style="font-weight:700;display:flex;align-items:center;gap:8px"><span class="sw-c" style="background:${s.color}"></span>${s.nombre}<span class="typetag">${s.linea}</span>${tagCap}</div>
       <div class="val" data-label="Inicial">${inicial}</div>
       <div class="val" data-label="Egresado">${egresado}</div>
