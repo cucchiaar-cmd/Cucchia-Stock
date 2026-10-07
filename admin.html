@@ -1395,6 +1395,11 @@ function impMatch(nom,usados){ const C=Object.values(INS).filter(i=>i.tipo==='in
   const tk=impTok(nom).length?impTok(nom):impTok(nom,true); if(!tk.length) return null; const pare=(x,t)=>x===t||(x.length>=5&&t.length>=5&&x.slice(0,5)===t.slice(0,5));
   const sc=C.map(i=>{ const ti=impTok(i.nombre), hit=ti.filter(t=>tk.some(x=>pare(x,t))).length; return {c:i.codigo,hit,s:hit/Math.max(ti.length,1)*.6+hit/tk.length*.4+(usados.has(i.codigo)?.15:0)}; }).filter(x=>x.hit).sort((a,b)=>b.s-a.s);
   return sc[0]&&sc[0].s>=.55&&(!sc[1]||sc[0].s-sc[1].s>=.1)?sc[0].c:null; }
+const impNumAR=t=>{ t=String(t||'').trim(); if(!t) return 0; return /\.\d{3}(,|$)/.test(t)?parseFloat(t.replace(/\./g,'').replace(',','.')):parseFloat(t.replace(',','.'))||0; };
+function impNv(it){ const nom=it.n.replace(/\s*\([^)]*\)\s*/g,' ').replace(/\s+/g,' ').trim()||it.n, m=String(it.nota||'').match(/(\d+(?:[.,]\d+)?)\s*(kg|g)\b[^$]{0,25}\$\s*([\d.,]+)/i);
+  return {nom,cat:'',gr:m?impNumAR(m[1])*(/kg/i.test(m[2])?1000:1):'',pkg:m?impNumAR(m[3]):'',iva:true}; }
+window.impNv=impNv;
+const impPg=nv=>{ const pk=impNumAR(nv.pkg), gr=impNumAR(nv.gr); return pk>0&&gr>0?pk/(nv.iva?1+iva():1)/gr:0; };
 let IMP=null; Object.defineProperty(window,'IMP',{get:()=>IMP,set:v=>{IMP=v;},configurable:true});
 window.impAbrir=()=>{ const p=W; mOpen(`<div class="mdl-head"><div><div class="kicker" style="margin-bottom:.25rem"><span class="dot" style="width:10px;height:10px;background:var(--caramel)"></span><span class="caps">Importar ficha · ${p.numero?codigo(p):'en desarrollo'}</span></div><h3 class="h-md">${p.nombre}</h3></div><button class="x" onclick="mClose()">×</button></div>
   <p style="margin:.2rem 0 .8rem">Subí la ficha técnica en Excel (la que sale del chat de formulación o la ficha base editada). Antes de tocar nada vas a ver qué cambia y el costo nuevo.</p>
@@ -1417,7 +1422,7 @@ window.impSet=(path,v)=>{ const k=path.split('.'); let o=IMP; for(let i=0;i<k.le
 // Arma la receta y el proceso que quedarían
 function impArmar(conNuevos){ const d=IMP.d, R=[], r250=(()=>{ const s0=(W.receta||[])[0]; const a=+(s0?.gp?.['360'])||0, b=+(s0?.gp?.['250'])||0; return a&&b?b/a:250/360; })();
   let last=null; const nuevos=[];
-  d.secs.forEach(s=>{ if(s.act==='ignorar') return; const its=s.items.filter(it=>it.act==='usar'&&(it.c||conNuevos)).map(it=>{ if(!it.c) nuevos.push(it); return {c:it.c||('NUEVO:'+it.n),g:+it.g||0,...(it.nota?{nota:it.nota}:{})}; });
+  d.secs.forEach(s=>{ if(s.act==='ignorar') return; const its=s.items.filter(it=>it.act==='usar'&&(it.c||(conNuevos&&it.cNuevo))).map(it=>{ if(!it.c) nuevos.push(it); return {c:it.c||it._tmp,g:+it.g||0,...(it.nota?{nota:it.nota}:{})}; });
     if(s.act==='unir'&&last){ last.items.push(...its); return; }
     const gp=+s.gp||0, sec={sec:s.nombre,items:its,gp:s.inf&&s.gp0!=null?{'360':s.gp0,'250':s.gp250}:{'360':s.inf?0:gp,'250':s.inf?0:(s.gp250!=null&&gp===s.gp0?s.gp250:Math.round(gp*r250*10)/10)}}; if(+s.rinde>0) sec.rinde=+s.rinde; if(s.inf) sec.inf=true; R.push(sec); last=sec; });
   return {receta:R,nuevos}; }
@@ -1426,7 +1431,9 @@ window.impRender=()=>{ const box=el('mdlBox'), sc=box?.scrollTop||0, p=W, d=IMP.
     <div class="fgrid" style="margin-bottom:.6rem"><label class="f"><span class="caps">Archivo</span><input value="${IMP.archivo.replace(/"/g,'&quot;')}" disabled></label>
     ${IMP.hojas.length>1?`<label class="f"><span class="caps">Hoja</span><select onchange="impHoja(this.value)">${IMP.hojas.map(h=>`<option${h===IMP.hoja?' selected':''}>${h}</option>`).join('')}</select></label>`:''}</div>`;
   if(!d){ mOpen(head+`<div class="diffbox" style="border-color:var(--bad)"><div style="color:var(--bad)"><b>No se pudo leer esta hoja:</b> ${IMP.err}</div></div><div class="mdl-foot"><button class="btn btn-sec caps" onclick="impAbrir()">Elegir otro archivo</button></div>`,980); return; }
-  const ops=sel=>`<option value="">— elegir insumo —</option><option value="__nuevo"${sel==='__nuevo'?' selected':''}>+ Crear insumo nuevo (sin precio)</option>`+Object.values(INS).filter(i=>i.tipo==='ingrediente'&&!i.archivado).sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(i=>`<option value="${i.codigo}"${i.codigo===sel?' selected':''}>${i.nombre}</option>`).join('');
+  d.secs.forEach(s=>s.items.forEach(it=>{ if(it.cNuevo&&!it.nv) it.nv=impNv(it); }));
+  const cats=[...new Set(Object.values(INS).map(i=>i.categoria).filter(Boolean))].sort();
+  const ops=sel=>`<option value="">— elegir insumo —</option><option value="__nuevo"${sel==='__nuevo'?' selected':''}>+ Crear insumo nuevo (con su precio)</option>`+Object.values(INS).filter(i=>i.tipo==='ingrediente'&&!i.archivado).sort((a,b)=>a.nombre.localeCompare(b.nombre)).map(i=>`<option value="${i.codigo}"${i.codigo===sel?' selected':''}>${i.nombre}</option>`).join('');
   const usos=d.secs.flatMap(s=>s.act==='ignorar'?[]:s.items.filter(it=>it.act==='usar'));
   const sinIns=usos.filter(it=>!it.c&&it.cNuevo!==true).length, nuevos=usos.filter(it=>it.cNuevo).length;
   const sinGp=d.secs.filter((s,i)=>s.act==='nueva'&&!s.inf&&!(+s.gp)&&!(i===0&&W.modo==='kg')).map(s=>s.nombre);
@@ -1440,10 +1447,11 @@ window.impRender=()=>{ const box=el('mdlBox'), sc=box?.scrollTop||0, p=W, d=IMP.
     const todos=d.secs.filter(x=>x.act!=='ignorar').flatMap(x=>x.items.filter(i=>i.act==='usar'&&i.c).map(i=>i.c)), mv=q.filter(e=>todos.includes(e.c)), qt=q.filter(e=>!todos.includes(e.c)), nm=e=>INS[e.c]?.nombre||e.c;
     return (qt.length?`<div style="font-size:.78rem;color:var(--bad);margin-top:.35rem">Se quita de la receta: ${qt.map(nm).join(', ')}</div>`:'')+(mv.length?`<div style="font-size:.78rem;color:var(--warn);margin-top:.2rem">Pasa a otra sección: ${mv.map(nm).join(', ')}</div>`:''); };
   const secQuita=R0.filter((r,i)=>!d.secs.some(s=>s._ef===i)).map(r=>r.sec);
-  const A=impArmar(false), cAnt=costo(W,'360').costo, cNue=costo({...W,receta:A.receta},'360').costo;
+  const tmp=[]; usos.filter(it=>it.cNuevo&&!it.c).forEach((it,k)=>{ it._tmp='TMP-'+k; INS[it._tmp]={codigo:it._tmp,nombre:it.nv?.nom||it.n,tipo:'ingrediente',unidad:'g',precio:it.nv?impPg(it.nv):0}; tmp.push(it._tmp); });
+  const A=impArmar(true), cAnt=costo(W,'360').costo, cNue=costo({...W,receta:A.receta},'360').costo; tmp.forEach(c=>delete INS[c]);
   const avisos=[sinIns?`<b style="color:var(--bad)">${sinIns} ingrediente${sinIns===1?'':'s'} sin insumo asignado</b>: elegí uno, creá uno nuevo o marcá «no importar».`:'',
     sinGp.length?`<b style="color:var(--bad)">Falta «g por pote»</b> en ${sinGp.map(n=>'«'+n+'»').join(', ')}: sin eso no suma al costo ni se escala.`:'',
-    nuevos?`${nuevos} insumo${nuevos===1?'':'s'} nuevo${nuevos===1?'':'s'} se crea${nuevos===1?'':'n'} sin precio: cargalo${nuevos===1?'':'s'} en Insumos (el costo de abajo no los incluye).`:'',
+    nuevos?(()=>{ const sp=usos.filter(it=>it.cNuevo&&!it.c&&!impPg(it.nv||{})).length; return `${nuevos} insumo${nuevos===1?'':'s'} nuevo${nuevos===1?'':'s'} se crea${nuevos===1?'':'n'} al pasar a la ficha${sp?` · <b>${sp} sin precio</b> (cuesta${sp===1?'':'n'} $0 hasta que lo cargues en Insumos)`:' con su precio (incluido en el costo)'}.`; })():'',
     gramos.length?`${gramos.length} paso${gramos.length===1?'':'s'} del proceso mencionan gramos: <b>no se escalan</b> en la hoja del batch. Conviene escribirlos sin gramos.<div class="subtle" style="font-size:.75rem;margin-top:.2rem">${gramos.slice(0,4).map(l=>'· '+l.slice(0,110)).join('<br>')}${gramos.length>4?'<br>…':''}</div>`:'',
     !d.fases.length?'El Excel no trae proceso de elaboración: <b>se mantiene el proceso actual</b>.':'',
     secQuita.length?`<b style="color:var(--bad)">Secciones que dejan de estar en la receta:</b> ${secQuita.map(n=>'«'+n+'»').join(', ')}.`:'',
@@ -1459,14 +1467,23 @@ window.impRender=()=>{ const box=el('mdlBox'), sc=box?.scrollTop||0, p=W, d=IMP.
     ${s.act!=='ignorar'?`<table class="ing" style="min-width:0;margin-top:.5rem;width:100%"><tbody>${s.items.map((it,ii)=>`<tr style="${it.act==='ignorar'?'opacity:.5':''}">
       <td style="width:34%">${it.n}${it.ref?' <span class="subtle" style="font-size:.72rem">(preparación de otra sección)</span>':''}${it.av.length?`<div style="font-size:.72rem;color:var(--warn)">${it.av.join(' · ')}</div>`:''}<div class="subtle" style="font-size:.72rem">${it.nota||''}</div></td>
       <td class="n" style="width:5.5rem;font-weight:700">${fmtW(+it.g||0)}${antes(s,it)}</td>
-      <td>${it.act==='usar'?`<select style="width:100%;${!it.c&&!it.cNuevo?'border-color:var(--bad);color:var(--bad)':''}" onchange="const v=this.value; IMP.d.secs[${si}].items[${ii}].cNuevo=v==='__nuevo'; IMP.d.secs[${si}].items[${ii}].c=v&&v!=='__nuevo'?v:null; impRender()">${ops(it.cNuevo?'__nuevo':it.c)}</select>`:'<span class="subtle">no se importa</span>'}</td>
-      <td style="width:5.5rem;text-align:right"><button style="font-size:.68rem;background:transparent;border:1px solid rgba(0,0,0,.25);color:var(--ink-2);border-radius:6px;padding:.25rem .45rem;cursor:pointer" onclick="impSet('d.secs.${si}.items.${ii}.act','${it.act==='usar'?'ignorar':'usar'}')">${it.act==='usar'?'No importar':'Importar'}</button></td></tr>`).join('')}</tbody></table>${quita(s)}`:''}</div>`).join('');
+      <td>${it.act==='usar'?`<select style="width:100%;${!it.c&&!it.cNuevo?'border-color:var(--bad);color:var(--bad)':''}" onchange="const v=this.value; const it=IMP.d.secs[${si}].items[${ii}]; it.cNuevo=v==='__nuevo'; it.c=v&&v!=='__nuevo'?v:null; if(it.cNuevo&&!it.nv) it.nv=impNv(it); impRender()">${ops(it.cNuevo?'__nuevo':it.c)}</select>${!it.c&&!it.cNuevo?'<div style="font-size:.72rem;color:var(--bad);margin-top:.2rem">No está en Insumos: elegí uno de la lista o «+ Crear insumo nuevo» y cargás el precio acá.</div>':''}`:'<span class="subtle">no se importa</span>'}</td>
+      <td style="width:5.5rem;text-align:right"><button style="font-size:.68rem;background:transparent;border:1px solid rgba(0,0,0,.25);color:var(--ink-2);border-radius:6px;padding:.25rem .45rem;cursor:pointer" onclick="impSet('d.secs.${si}.items.${ii}.act','${it.act==='usar'?'ignorar':'usar'}')">${it.act==='usar'?'No importar':'Importar'}</button></td></tr>${it.act==='usar'&&it.cNuevo&&!it.c?(()=>{ const nv=it.nv, P_=`IMP.d.secs[${si}].items[${ii}].nv`, pg_=impPg(nv), inp='style="width:100%;background:#fff;color:#222;border:1px solid #bbb;border-radius:4px;padding:.25rem .4rem"';
+      return `<tr><td colspan="4" style="background:rgba(200,150,90,.12);padding:.6rem .7rem"><div style="font-size:.7rem;font-weight:700;letter-spacing:.06em;margin-bottom:.4rem" class="caps">Insumo nuevo</div>
+      <div style="display:grid;grid-template-columns:2fr 1.3fr 1fr .8fr auto;gap:.5rem;align-items:end">
+        <label style="font-size:.7rem">Nombre<input ${inp} value="${nv.nom.replace(/"/g,'&quot;')}" onchange="${P_}.nom=this.value"></label>
+        <label style="font-size:.7rem">Categoría<input ${inp} list="impCats" value="${nv.cat.replace(/"/g,'&quot;')}" placeholder="Ej: Frutos secos" onchange="${P_}.cat=this.value"></label>
+        <label style="font-size:.7rem">Precio del paquete $<input ${inp} value="${nv.pkg}" placeholder="opcional" onchange="${P_}.pkg=this.value;impRender()"></label>
+        <label style="font-size:.7rem">Gramos<input ${inp} value="${nv.gr}" placeholder="g" onchange="${P_}.gr=this.value;impRender()"></label>
+        <label style="font-size:.7rem;display:flex;gap:.3rem;align-items:center;padding-bottom:.35rem"><input type="checkbox" ${nv.iva?'checked':''} onchange="${P_}.iva=this.checked;impRender()">con IVA</label></div>
+      <div style="font-size:.75rem;margin-top:.35rem">${pg_?`= <b>$${num(pg_,2)} por g sin IVA</b> · ${$(pg_*(+it.g||0))} sin IVA por los ${fmtW(+it.g||0)} de la receta`:'<span style="color:var(--warn)">Sin precio: se crea igual y lo cargás después en Insumos (mientras tanto cuesta $0).</span>'}</div></td></tr>`; })():''}`).join('')}</tbody></table>${quita(s)}`:''}</div>`).join('');
   const bloq=sinIns||sinGp.length;
   mOpen(head+`<div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-bottom:.4rem">
     <div class="kpi"><span class="l caps">Versión</span><span class="n" style="font-size:1.1rem">${W.version||'—'} → <input style="width:4.8rem;background:#fff;color:#222;border:1px solid #bbb;border-radius:4px;padding:.1rem .35rem;font-size:.95rem" value="${IMP.ver}" placeholder="auto" onchange="IMP.ver=this.value.trim()"></span><span class="d">vacío = sube sola al guardar</span></div>
     <div class="kpi"><span class="l caps">Costo pote 360</span><span class="n" style="font-size:1.1rem">${$(cAnt)} → ${$(cNue)}</span><span class="d">${cNue>=cAnt?'+':'−'}${$(Math.abs(cNue-cAnt))} · con IVA, packaging y MO</span></div>
     <div class="kpi"><span class="l caps">Proceso</span><span class="n" style="font-size:1.1rem">${d.fases.length} fases · ${d.pcc.length} PCC</span><span class="d">${d.fases.length?'reemplaza el actual':'se mantiene el actual'}</span></div></div>
     ${avisos.length?`<div class="diffbox" style="margin-top:.6rem;border-color:var(--warn)">${avisos.map(a=>`<div style="margin:.15rem 0">${a}</div>`).join('')}</div>`:''}
+    <datalist id="impCats">${cats.map(c=>`<option>${c}</option>`).join('')}</datalist>
     ${secHtml}
     ${d.fases.length?`<div style="margin-top:1rem"><h4 style="margin:0 0 .3rem">Proceso</h4><ol style="margin:0;padding-left:1.2rem;font-size:.85rem">${d.fases.map(f=>`<li>${f.t}${f.base?' <span class="subtle">· solo base propia</span>':''} <span class="subtle">(${f.d.split('\n').length} pasos)</span></li>`).join('')}</ol></div>`:''}
     <div class="mdl-foot"><button class="btn btn-sec caps" onclick="mClose()">Cancelar</button><button class="btn btn-gold caps" ${bloq?'disabled style="opacity:.5"':''} onclick="impAplicar()">Pasar a la ficha</button></div>
@@ -1475,12 +1492,13 @@ window.impRender=()=>{ const box=el('mdlBox'), sc=box?.scrollTop||0, p=W, d=IMP.
 window.impAplicar=async()=>{ const d=IMP.d;
   // insumos nuevos: se crean sin precio (quedan a la vista en Insumos)
   const nuevos=d.secs.filter(s=>s.act!=='ignorar').flatMap(s=>s.items.filter(it=>it.act==='usar'&&it.cNuevo&&!it.c));
-  if(nuevos.length&&!confirm(`Se van a crear ${nuevos.length} insumo${nuevos.length===1?'':'s'} nuevo${nuevos.length===1?'':'s'} sin precio:\n\n${nuevos.map(it=>'· '+it.n).join('\n')}\n\n¿Seguir?`)) return;
+  if(nuevos.length&&!confirm(`Se van a crear ${nuevos.length} insumo${nuevos.length===1?'':'s'} nuevo${nuevos.length===1?'':'s'}:\n\n${nuevos.map(it=>{ const nv=it.nv||impNv(it), p=impPg(nv); return '· '+nv.nom+(p?` — $${num(p,2)}/g sin IVA`:' — sin precio'); }).join('\n')}\n\n¿Seguir?`)) return;
   try{ let n=Math.max(0,...Object.keys(INS).filter(k=>k.startsWith('ING')).map(k=>+k.split('-')[1]))+1; const hechos={};
-    for(const it of nuevos){ const nom=it.n.replace(/\s*\([^)]*\)\s*/g,' ').replace(/\s+/g,' ').trim()||it.n, k=norm(nom);
-      if(hechos[k]){ it.c=hechos[k]; continue; } const c='ING-'+String(n++).padStart(3,'0');
-      const ni={codigo:c,nombre:nom,tipo:'ingrediente',unidad:'g',categoria:'Sin categoría',precio:0,estado:'sin',ref:'Sin precio · cargar',actualizado:null};
-      await setDoc(doc(db,C.ins,c),ni); INS[c]=ni; it.c=c; hechos[k]=c; await hist('insumo',`${nom} · ${c}`,'—','Alta sin precio',`Desde la ficha importada de ${W.nombre}`); }
+    for(const it of nuevos){ const nv=it.nv||impNv(it), nom=(nv.nom||it.n).trim(), k=norm(nom), precio=Math.round(impPg(nv)*10000)/10000;
+      if(hechos[k]){ it.c=hechos[k]; continue; } const ex=Object.values(INS).find(i=>norm(i.nombre)===k&&!i.archivado); if(ex){ it.c=ex.codigo; hechos[k]=ex.codigo; continue; }
+      const c='ING-'+String(n++).padStart(3,'0'), ref=precio?`${num(impNumAR(nv.gr),0)} g a ${$(impNumAR(nv.pkg))}${nv.iva?' con IVA':' sin IVA'}`:'Sin precio · cargar';
+      const ni={codigo:c,nombre:nom,tipo:'ingrediente',unidad:'g',categoria:(nv.cat||'').trim()||'Otros',precio,estado:precio>0?'ok':'sin',ref,actualizado:precio>0?hoyISO():null};
+      await setDoc(doc(db,C.ins,c),ni); INS[c]=ni; it.c=c; hechos[k]=c; await hist('insumo',`${nom} · ${c}`,'—',precio>0?`Alta · ${num(precio,2)} $/g sin IVA`:'Alta sin precio',`Desde la ficha importada de ${W.nombre}`); }
   }catch(e){ console.error(e); toast('No se pudieron crear los insumos: '+(e.message||e)); return; }
   const A=impArmar(false); W.receta=A.receta;
   if(d.fases.length||d.pcc.length) W.proceso={fases:d.fases,pcc:d.pcc,fuente:'Importado de '+IMP.archivo};
