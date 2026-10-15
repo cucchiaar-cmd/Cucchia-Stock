@@ -1559,7 +1559,7 @@ function secGP(s,si,m,sub){ const g=s.items.reduce((a,it)=>a+(+it.g||0),0), base
     <span>${num(pgS,2)} $/g</span></div>`; }
 function renderDet(){
   const p=W, pote=p.tipo==='pote', m=wMed, x=precios(p,m), c=costo(p,m);
-  const estado=p.estado==='dev'?'<span class="st st-dev caps">En desarrollo</span>':`<select class="rsel" data-rs="w:estado" onchange="wset('estado',this.value)"><option value="activo"${p.estado==='activo'?' selected':''}>Activo${sinStock(p)?' · sin stock':''}</option><option value="fuera"${p.estado==='fuera'?' selected':''}>Fuera de carta</option></select>`;
+  const estado=p.estado==='dev'?'<span class="st st-dev caps">En desarrollo</span>':`<select class="rsel" data-rs="w:estado" onchange="wset('estado',this.value)"><option value="activo"${p.estado==='activo'?' selected':''}>Activo${sinStock(p)?' · sin stock':(p.tipo==='pote'&&VSAB.length&&!ventasId(p)?' · falta publicar en Ventas':'')}</option><option value="fuera"${p.estado==='fuera'?' selected':''}>Fuera de carta</option></select>`;
   let left='';
   if(pote&&p.modo==='kg'){
     left=`<h4>Helado base <span class="src alt caps">comprado · ${p.baseIns?'Mestura':'precio a mano'}</span></h4>
@@ -2140,14 +2140,17 @@ function pubPlan(){
     return {id:p.id,p,falta,d:{codigo:codigo(p),nombre:p.nombre,orden:p.numero||99,activo:p.estado==='activo',comp:Object.values(agr),
       canales:{Landing:!!ch.L,Amigos:!!ch.A,Rappi:!!ch.R},precioLanding:x.L,precioAmigos:x.A,precioRappi:x.R,listaLanding:Math.round(x.sumL),listaAmigos:Math.round(x.sumA),listaRappi:Math.round(x.sumR)}};
   });
-  const cbCmp=d=>JSON.stringify(['codigo','nombre','orden','activo','comp','canales','precioLanding','precioAmigos','precioRappi','listaLanding','listaAmigos','listaRappi'].map(k=>d[k]??null));
+  const cbCmp=d=>JSON.stringify(['codigo','nombre','orden','activo','comp','canales','precioLanding','precioAmigos','precioRappi','listaLanding','listaAmigos','listaRappi'].map(k=>k==='comp'?cbCompN(d.comp):k==='canales'?jCanon(d.canales):(d[k]??null)));
   cbWant.forEach(w=>{ if(w.falta){ cbs.faltan.push(w); return; } const v=VCOMB.find(x=>x.id===w.id); if(!v) cbs.altas.push(w); else if(cbCmp(v)!==cbCmp(w.d)) cbs.cambios.push({...w,v}); });
   VCOMB.forEach(v=>{ if(!cbWant.some(w=>w.id===v.id)) cbs.bajas.push(v); });
   cbs.n=cbs.altas.length+cbs.cambios.length+cbs.bajas.length;
   return {out, sueltos, pr, com, ret, cbs};
 }
 const cbTxt=d=>`${d.nombre} · ${d.codigo} · ${d.comp.map(c=>`${c.cant>1?c.cant+'× ':''}${(VSAB.find(s=>s.id===c.sabor)||{nombre:c.sabor}).nombre} ${c.capacidad}`).join(' + ')} · Landing ${$(d.precioLanding)} · Amigos ${$(d.precioAmigos)} · Rappi ${$(d.precioRappi)}${d.activo?'':' · apagado'}`;
-const cbDif=(v,d)=>{ const L={nombre:'Nombre',codigo:'Código',activo:'A la venta',precioLanding:'Landing',precioAmigos:'Amigos',precioRappi:'Rappi'}; const xs=Object.keys(L).filter(k=>JSON.stringify(v[k]??null)!==JSON.stringify(d[k]??null)).map(k=>`${L[k]} <span class="muted">${pubFmt(k,v[k])} →</span> ${pubFmt(k,d[k])}`); if(JSON.stringify(v.comp)!==JSON.stringify(d.comp)) xs.push('composición'); if(JSON.stringify(v.canales)!==JSON.stringify(d.canales)) xs.push('canales'); return `${d.nombre}: ${xs.join(' · ')||'listas de referencia'}`; };
+// Firestore guarda las claves de los objetos en otro orden: se comparan ordenadas (15/10/2026)
+const jCanon=o=>JSON.stringify(o??null,(k,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(x=>[x,v[x]])):v);
+const cbCompN=c=>jCanon((c||[]).map(x=>({sabor:x.sabor,capacidad:+x.capacidad||360,cant:+x.cant||0})).sort((a,b)=>(a.sabor+a.capacidad).localeCompare(b.sabor+b.capacidad)));
+const cbDif=(v,d)=>{ const L={nombre:'Nombre',codigo:'Código',activo:'A la venta',precioLanding:'Landing',precioAmigos:'Amigos',precioRappi:'Rappi'}; const xs=Object.keys(L).filter(k=>JSON.stringify(v[k]??null)!==JSON.stringify(d[k]??null)).map(k=>`${L[k]} <span class="muted">${pubFmt(k,v[k])} →</span> ${pubFmt(k,d[k])}`); if(cbCompN(v.comp)!==cbCompN(d.comp)) xs.push('composición'); if(jCanon(v.canales)!==jCanon(d.canales)) xs.push('canales'); return `${d.nombre}: ${xs.join(' · ')||'listas de referencia'}`; };
 const promoTxt=d=>`${d.nombre} · ${+d.pct||0}% · ${d.vip?'PRO':'todos'} · ${d.activo!==false?'activa':'apagada'} · ${vigTxt(d)} · ${(d.sabores||[]).length} sabor${(d.sabores||[]).length===1?'':'es'}${(d.combos||[]).length?` · ${d.combos.length} combo${d.combos.length===1?'':'s'}`:''}`;
 let PUBSEL=null, PUBLINK={}; // PUBLINK: producto de Finanzas → sabor existente de Ventas elegido a mano (evita duplicados por nombre distinto)
 // Los onclick/onchange del modal corren en el ámbito global: exponer las variables del módulo (lectura y escritura)
@@ -2180,7 +2183,7 @@ window.pubOpen=()=>{
 window.pubGo=async()=>{
   const {out,pr,com,ret,cbs}=pubPlan(), sel=out.filter(r=>PUBSEL?.has(r.id)&&r.ch.length), doP=pr.n&&PUBSEL?.has('__promos'), doC=com.n&&PUBSEL?.has('__com'), doR=ret.length&&PUBSEL?.has('__ret'), doCB=cbs.n&&PUBSEL?.has('__cb');
   if(!sel.length&&!doP&&!doC&&!doR&&!doCB) return;
-  if(!TEST&&!confirm(`Vas a cambiar el sistema de pedidos en vivo: ${[sel.length?`${sel.length} sabor${sel.length===1?'':'es'}`:'',doP?'descuentos Rappi':'',doC?'comisión Rappi':'',doR?`retirar ${ret.length} sabor${ret.length===1?'':'es'}`:'',doCB?'combos':''].filter(Boolean).join(', ')}. ¿Seguimos?`)) return;
+  // 15/10/2026: sin confirm() del navegador; la ventana «Publicar en Ventas» con el botón rojo ya es la confirmación.
   const b=el('pubOk'); b.disabled=true; b.innerHTML='<span class="spin sm inv"></span>Publicando…';
   try{
     const bt=writeBatch(db);

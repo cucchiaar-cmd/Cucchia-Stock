@@ -596,10 +596,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .badge{font-size:8.5px;font-weight:700;letter-spacing:.6px;padding:3px 9px;border-radius:20px;text-transform:uppercase}
   .badge-ok{background:rgba(60,122,85,.13);color:var(--wa)}
   .badge-warn{background:rgba(178,58,58,.13);color:var(--bad)}
-  .stockrow{display:grid;grid-template-columns:1.5fr .7fr .7fr .7fr .9fr .9fr;gap:10px;align-items:center;background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:11px 15px;margin-bottom:7px}
+  .stockrow{display:grid;grid-template-columns:1.5fr .6fr .6fr .6fr .8fr 1.5fr;gap:10px;align-items:center;background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:11px 15px;margin-bottom:7px}
   .stockrow .lbl9{font-size:8px;font-weight:700;letter-spacing:1px;color:var(--soft);text-transform:uppercase;margin-bottom:2px}
   .stockrow .val{font-family:var(--bebas);font-size:17px;color:var(--navy);letter-spacing:.4px}
-  .stockhead{display:grid;grid-template-columns:1.5fr .7fr .7fr .7fr .9fr .9fr;gap:10px;padding:0 15px;margin-bottom:8px}
+  .lotes-st{display:flex;flex-direction:column;gap:3px;font-size:10px;font-weight:600;color:var(--muted)}
+  .lotes-st .lt{display:flex;gap:6px;align-items:baseline;flex-wrap:wrap}
+  .lotes-st .lt b{color:var(--navy);font-size:11px}
+  .lotes-st .lt.prim b{color:var(--navy)} .lotes-st .lt.prim::before{content:'▸';color:var(--caramel);margin-right:-2px}
+  .lotes-st .lt.venc{color:#B23A2B} .lotes-st .lt.venc b{color:#B23A2B}
+  .stockhead{display:grid;grid-template-columns:1.5fr .6fr .6fr .6fr .8fr 1.5fr;gap:10px;padding:0 15px;margin-bottom:8px}
   .stockhead span{font-size:8.5px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase}
   .lotrow{display:grid;grid-template-columns:.6fr 1.2fr .65fr .8fr .6fr .6fr .6fr .7fr 1.1fr;gap:8px;align-items:center;background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:9px 13px;margin-bottom:6px;font-size:10.8px;font-weight:600}
   .lothead{display:grid;grid-template-columns:.6fr 1.2fr .65fr .8fr .6fr .6fr .6fr .7fr 1.1fr;gap:8px;padding:0 13px;margin-bottom:7px}
@@ -803,7 +808,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     <div id="s-dash" class="atab show">
       <div class="kpis" id="stockKpis"></div>
       <div class="stockhead">
-        <span>Sabor</span><span>Inicial</span><span>Egresado</span><span>Final</span><span>Alerta stock</span><span>Lote a despachar</span>
+        <span>Sabor</span><span>Inicial</span><span>Egresado</span><span>Final</span><span>Alerta stock</span><span>Lotes en stock · sale primero el de arriba</span>
       </div>
       <div id="stockTable"></div>
     </div>
@@ -1493,8 +1498,10 @@ function renderStock(){
     const alerta = off ? '<span class="typetag">Fuera de carta</span>' : final < STOCK_MIN
       ? '<span class="badge badge-warn">⚠ Reponer</span>'
       : '<span class="badge badge-ok">OK</span>';
-    const lote = loteMasViejoConStock(s.id,capacidad);
-    const loteTxt = lote ? (lote.id+' · '+fmtFecha(lote.fecha)+' ('+diasEntre(lote.fecha)+'d)') : '— sin stock —';
+    // 16/10/2026: todos los lotes con saldo, en orden de salida (FIFO, el mismo que usa el descuento de stock)
+    const activos = LOTES.filter(l=>l.sabor===s.id && capacidadLote(l)===capacidad && (l.cant-l.egresado)>0).sort((a,b)=>new Date(a.fecha)-new Date(b.fecha));
+    const loteTxt = activos.length ? '<div class="lotes-st">'+activos.map((l,i)=>{ const d=diasEntre(l.fecha), v=d>DIAS_LIMITE;
+        return `<div class="lt${i===0&&activos.length>1?' prim':''}${v?' venc':''}"><b>${l.cant-l.egresado} pote${l.cant-l.egresado===1?'':'s'}</b><span>${l.id} · ${fmtFecha(l.fecha)} · ${v?'⚠ ':''}${d}d</span></div>`; }).join('')+'</div>' : '— sin stock —';
     const tagCap = capacidad===250 ? ' <span class="typetag">250ml</span>' : '';
     return `<div class="stockrow"${off?' style="opacity:.5;filter:grayscale(1)" title="Fuera de carta: se maneja desde Finanzas"':''}>
       <div class="nm" style="font-weight:700;display:flex;align-items:center;gap:8px"><span class="sw-c" style="background:${s.color}"></span>${s.nombre}<span class="typetag">${s.linea}</span>${tagCap}</div>
@@ -1502,7 +1509,7 @@ function renderStock(){
       <div class="val" data-label="Egresado">${egresado}</div>
       <div class="val" data-label="Final">${final}</div>
       <div data-label="Alerta stock">${alerta}</div>
-      <div data-label="Lote a despachar" style="font-size:10px;font-weight:600;color:var(--muted)">${loteTxt}</div>
+      <div data-label="Lotes en stock" style="font-size:10px;font-weight:600;color:var(--muted)">${loteTxt}</div>
     </div>`;
   }).join('');
 
