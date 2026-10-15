@@ -604,6 +604,16 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .lotrow{display:grid;grid-template-columns:.6fr 1.2fr .65fr .8fr .6fr .6fr .6fr .7fr 1.1fr;gap:8px;align-items:center;background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:9px 13px;margin-bottom:6px;font-size:10.8px;font-weight:600}
   .lothead{display:grid;grid-template-columns:.6fr 1.2fr .65fr .8fr .6fr .6fr .6fr .7fr 1.1fr;gap:8px;padding:0 13px;margin-bottom:7px}
   .lothead span{font-size:8.5px;font-weight:700;letter-spacing:.8px;color:var(--muted);text-transform:uppercase}
+  .lothead span.ord{cursor:pointer;user-select:none;white-space:nowrap} .lothead span.ord:hover{color:var(--navy)} .lothead span.ord.on{color:var(--navy)}
+  .lothead span.ord i{font-style:normal;font-size:8px;margin-left:3px;opacity:.35} .lothead span.ord.on i{opacity:1}
+  .lotfil{display:grid;grid-template-columns:.6fr 1.2fr .65fr .8fr .6fr .6fr .6fr .7fr 1.1fr;gap:8px;padding:0 13px;margin-bottom:9px;align-items:center}
+  .lotfil input,.lotfil select{width:100%;padding:5px 6px;font-size:9.5px;min-width:0}
+  .lotfil .on{border-color:var(--navy);background:#fff;font-weight:700}
+  .lotfil .lf-res{font-size:9px;color:var(--muted);font-weight:600;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .lotfil .lf-ord{display:none}
+  .ing-ult{font-size:9.5px;color:var(--muted);font-weight:600;margin-top:3px} .ing-ult b{color:var(--navy)} .ing-ult .hoy{color:var(--wa);font-weight:700}
+  .ing-pend{border-color:var(--sambayon)!important;box-shadow:0 0 0 1px var(--sambayon) inset}
+  .ing-ok{border-color:var(--wa)!important}
   .egrow{display:grid;grid-template-columns:.7fr .8fr 1.4fr .6fr .8fr 1.1fr .8fr;gap:8px;align-items:center;background:var(--paper);border:1px solid var(--line);border-radius:7px;padding:9px 13px;margin-bottom:6px;font-size:10.8px;font-weight:600}
   .eghead{display:grid;grid-template-columns:.7fr .8fr 1.4fr .6fr .8fr 1.1fr .8fr;gap:8px;padding:0 13px;margin-bottom:7px}
   .eghead span{font-size:8.5px;font-weight:700;letter-spacing:.8px;color:var(--muted);text-transform:uppercase}
@@ -640,6 +650,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     .menu-overlay.show{display:block}
     main{padding:18px;padding-top:60px}
     .stockhead,.lothead,.eghead{display:none}
+    .lotfil{display:flex;flex-wrap:wrap;gap:6px}.lotfil>*{flex:1 1 140px}.lotfil .lf-vacio{display:none}.lotfil .lf-ord{display:block}
     .stockrow,.lotrow,.egrow{grid-template-columns:1fr;gap:2px;padding:12px 14px}
     .stockrow>div,.lotrow>div,.egrow>div{display:flex;justify-content:flex-start;align-items:baseline;gap:8px;padding:3px 0}
     .stockrow>div[data-label]::before,.lotrow>div[data-label]::before,.egrow>div[data-label]::before{content:attr(data-label) ":";font-size:8px;font-weight:700;letter-spacing:1px;color:var(--muted);text-transform:uppercase;flex:none;min-width:98px}
@@ -814,16 +825,15 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         <div id="ingPickDa"></div>
       </div>
       <div class="box">
-        <h3>Historial de ingresos <span style="font-family:var(--mont);font-size:9.5px;font-weight:600;color:var(--muted)">— total de potes que entraron a stock, filtrable por sabor</span></h3>
-        <div class="field" style="max-width:280px"><label>Sabor</label><select id="ingHistSabor" onchange="renderLotes()"><option value="">Todos los sabores</option></select></div>
-        <div class="kpis" style="grid-template-columns:repeat(2,1fr);margin-top:10px">
+        <h3>Historial de ingresos <span style="font-family:var(--mont);font-size:9.5px;font-weight:600;color:var(--muted)">— según los filtros de la tabla de abajo</span></h3>
+        <div class="kpis" style="grid-template-columns:repeat(3,1fr);margin-top:10px">
           <div class="kpi"><span class="emoji">●</span><div class="n" id="ingHistTotal">0</div><div class="l">Potes ingresados</div></div>
-          <div class="kpi"><span class="emoji">▦</span><div class="n" id="ingHistLotes">0</div><div class="l">Lotes registrados</div></div>
+          <div class="kpi"><span class="emoji">▦</span><div class="n" id="ingHistLotes">0</div><div class="l">Lotes</div></div>
+          <div class="kpi"><span class="emoji">◐</span><div class="n" id="ingHistSaldo">0</div><div class="l">Saldo en stock</div></div>
         </div>
       </div>
-      <div class="lothead">
-        <span>Lote</span><span>Sabor</span><span>Línea</span><span>Fecha</span><span>Ingresado</span><span>Egresado</span><span>Saldo</span><span>Alerta</span><span>Acciones</span>
-      </div>
+      <div class="lothead" id="lotHead"></div>
+      <div class="lotfil" id="lotFil"></div>
       <div id="lotesTable"></div>
     </div>
 
@@ -1507,49 +1517,73 @@ function nextLoteId(){
   LOTES.forEach(l=>{ const m = /^L(\d+)$/.exec(l.id); if(m) max = Math.max(max, +m[1]); });
   return 'L'+String(max+1).padStart(3,'0');
 }
+// Lotes (15/10/2026): cada encabezado ordena (click: ▼ descendente / ▲ ascendente) y debajo hay un filtro por columna.
+// Arriba, el resumen (potes ingresados, lotes, saldo) sigue a los filtros. Orden inicial: fecha, lo más nuevo primero.
+const LF = {lote:'', sabor:'', linea:'', fecha:'', ing:'', saldo:'', alerta:'', ord:'fecha', dir:-1};
+const LCOLS = [['lote','Lote'],['sabor','Sabor'],['linea','Línea'],['fecha','Fecha'],['ing','Ingresado'],['egr','Egresado'],['saldo','Saldo'],['dias','Alerta'],[null,'Acciones']];
+function loteDatos(l){ const s=sabor(l.sabor)||{nombre:l.sabor,linea:'',color:'var(--navy)'}, dias=diasEntre(l.fecha), saldo=l.cant-l.egresado; return {l,s,dias,saldo,vencido:saldo>0&&dias>DIAS_LIMITE}; }
+function lfSet(k,v){ LF[k]=v; renderLotes(); }
+function lfOrden(k){ if(LF.ord===k) LF.dir=-LF.dir; else { LF.ord=k; LF.dir=(k==='sabor'||k==='linea'||k==='lote')?1:-1; } renderLotes(); }
+function lfLimpiar(){ Object.assign(LF,{lote:'',sabor:'',linea:'',fecha:'',ing:'',saldo:'',alerta:''}); renderLotes(); }
 function pintarFiltroIngresos(){
-  const sel = document.getElementById('ingHistSabor');
-  if(!sel) return;
-  const actual = sel.value;
-  sel.innerHTML = '<option value="">Todos los sabores</option>' + SABORES.map(s=>`<option value="${s.id}">${s.nombre}</option>`).join('');
-  sel.value = actual;
+  const h=document.getElementById('lotHead'); if(!h) return;
+  h.innerHTML=LCOLS.map(([k,t])=>k?`<span class="ord${LF.ord===k?' on':''}" onclick="lfOrden('${k}')" title="Ordenar">${t}<i>${LF.ord===k?(LF.dir>0?'▲':'▼'):'▼'}</i></span>`:`<span>${t}</span>`).join('');
+  const act=document.activeElement&&document.activeElement.id; const sel=(id,k,ops)=>`<select id="${id}" class="${LF[k]?'on':''}" onchange="lfSet('${k}',this.value)">${ops.map(([v,t])=>`<option value="${v}"${String(LF[k])===String(v)?' selected':''}>${t}</option>`).join('')}</select>`;
+  const fechas=[...new Set(LOTES.map(l=>l.fecha).filter(Boolean))].sort().reverse(), hoy=fechaArgentinaISO();
+  const lineas=[...new Set(SABORES.map(s=>s.linea).filter(Boolean))];
+  const filtrosActivos=['lote','sabor','linea','fecha','ing','saldo','alerta'].some(k=>LF[k]);
+  const ordOps=LCOLS.filter(c=>c[0]).flatMap(([k,t])=>[[k+':-1',t+' ▼'],[k+':1',t+' ▲']]);
+  document.getElementById('lotFil').innerHTML=
+    `<input id="lfLote" class="${LF.lote?'on':''}" placeholder="Lote…" value="${LF.lote}" oninput="lfSet('lote',this.value)">`+
+    sel('lfSabor','sabor',[['','Todos los sabores'],...SABORES.map(s=>[s.id,s.nombre])])+
+    sel('lfLinea','linea',[['','Todas las líneas'],...lineas.map(x=>[x,x])])+
+    sel('lfFecha','fecha',[['','Todas las fechas'],['hoy','Hoy'],['7','Últimos 7 días'],['30','Últimos 30 días'],...fechas.map(f=>[f,fmtFecha(f)+(f===hoy?' · hoy':'')])])+
+    sel('lfIng','ing',[['','360 y 250'],['360','Solo 360'],['250','Solo 250']])+
+    `<span class="lf-vacio"></span>`+
+    sel('lfSaldo','saldo',[['','Con y sin saldo'],['con','Con saldo'],['sin','Agotados']])+
+    sel('lfAlerta','alerta',[['','Todas las alertas'],['venc','⚠ Vencidos'],['ok','En fecha']])+
+    `<div class="lf-res">${sel('lfOrd','ord',[])}${filtrosActivos?`<button class="btn btn-ghost btn-xs" onclick="lfLimpiar()">Limpiar filtros</button>`:''}</div>`;
+  const o=document.getElementById('lfOrd'); if(o){ o.classList.add('lf-ord'); o.innerHTML=ordOps.map(([v,t])=>`<option value="${v}"${v===LF.ord+':'+LF.dir?' selected':''}>Ordenar: ${t}</option>`).join(''); o.onchange=function(){ const [k,d]=this.value.split(':'); LF.ord=k; LF.dir=+d; renderLotes(); }; }
+  if(act==='lfLote'){ const i=document.getElementById('lfLote'); i.focus(); i.setSelectionRange(i.value.length,i.value.length); }
 }
 function renderLotes(){
-  pintarFiltroIngresos();
-  const filtroEl = document.getElementById('ingHistSabor');
-  const filtroSabor = filtroEl ? filtroEl.value : '';
-  const lotesFiltrados = filtroSabor ? LOTES.filter(l=>l.sabor===filtroSabor) : LOTES;
+  pintarFiltroIngresos(); pintarUltimosIngresos();
+  const hoy=fechaArgentinaISO(), hace=n=>{ const d=new Date(hoy+'T12:00:00'); d.setDate(d.getDate()-n); return d.toISOString().slice(0,10); };
+  let rows=LOTES.map(loteDatos).filter(x=>{
+    if(LF.lote&&!String(x.l.id).toLowerCase().includes(LF.lote.toLowerCase())) return false;
+    if(LF.sabor&&x.l.sabor!==LF.sabor) return false;
+    if(LF.linea&&x.s.linea!==LF.linea) return false;
+    if(LF.fecha){ if(LF.fecha==='hoy'){ if(x.l.fecha!==hoy) return false; } else if(/^\d+$/.test(LF.fecha)){ if((x.l.fecha||'')<hace(+LF.fecha)) return false; } else if(x.l.fecha!==LF.fecha) return false; }
+    if(LF.ing&&capacidadLote(x.l)!==+LF.ing) return false;
+    if(LF.saldo==='con'&&x.saldo<=0) return false; if(LF.saldo==='sin'&&x.saldo>0) return false;
+    if(LF.alerta==='venc'&&!x.vencido) return false; if(LF.alerta==='ok'&&x.vencido) return false;
+    return true; });
+  const val=x=>({lote:+String(x.l.id).replace(/\D/g,'')||0,sabor:x.s.nombre,linea:x.s.linea,fecha:x.l.fecha||'',ing:x.l.cant,egr:x.l.egresado,saldo:x.saldo,dias:x.dias})[LF.ord];
+  rows.sort((a,b)=>{ const va=val(a), vb=val(b); let c=typeof va==='string'?va.localeCompare(vb,'es'):va-vb; if(!c) c=ordenCatalogo(a.l.sabor)-ordenCatalogo(b.l.sabor)||(+String(a.l.id).replace(/\D/g,'')-+String(b.l.id).replace(/\D/g,'')); return c*LF.dir; });
 
   const totEl = document.getElementById('ingHistTotal');
-  if(totEl) totEl.innerText = lotesFiltrados.reduce((a,l)=>a+l.cant,0);
+  if(totEl) totEl.innerText = rows.reduce((a,x)=>a+x.l.cant,0);
   const cantEl = document.getElementById('ingHistLotes');
-  if(cantEl) cantEl.innerText = lotesFiltrados.length;
+  if(cantEl) cantEl.innerText = rows.length;
+  const salEl = document.getElementById('ingHistSaldo');
+  if(salEl) salEl.innerText = rows.reduce((a,x)=>a+Math.max(0,x.saldo),0);
 
-  const rows = [...lotesFiltrados].sort((a,b)=>{
-    const ia = ordenCatalogo(a.sabor), ib = ordenCatalogo(b.sabor);
-    if(ia!==ib) return ia-ib;
-    return new Date(a.fecha)-new Date(b.fecha);
-  });
-  document.getElementById('lotesTable').innerHTML = rows.map(l=>{
+  document.getElementById('lotesTable').innerHTML = rows.length ? rows.map(({l,s,dias,saldo,vencido})=>{
     if(editingLoteId===l.id) return filaEdicionLote(l);
-    const s = sabor(l.sabor) || {nombre:l.sabor, linea:'', color:'var(--navy)'};
-    const dias = diasEntre(l.fecha);
-    const saldo = l.cant - l.egresado;
-    const vencido = saldo>0 && dias>DIAS_LIMITE;
     const alerta = vencido ? '<span class="badge badge-warn">⚠ '+dias+'d</span>' : '<span class="badge badge-ok">'+dias+'d</span>';
     const tagCap = capacidadLote(l)===250 ? ' <span class="typetag">250ml</span>' : '';
     return `<div class="lotrow">
       <div data-label="Lote" style="font-weight:700">${l.id}</div>
       <div data-label="Sabor" style="display:flex;align-items:center;gap:6px"><span class="sw-c" style="background:${s.color}"></span>${s.nombre}${tagCap}</div>
       <div data-label="Línea">${s.linea}</div>
-      <div data-label="Fecha">${fmtFecha(l.fecha)}</div>
+      <div data-label="Fecha">${fmtFecha(l.fecha)}${l.fecha===hoy?' <span class="badge badge-ok">hoy</span>':''}</div>
       <div data-label="Ingresado">${l.cant}</div>
       <div data-label="Egresado">${l.egresado}</div>
       <div data-label="Saldo">${saldo}</div>
       <div data-label="Alerta">${alerta}</div>
       <div data-label="Acciones" style="display:flex;gap:6px"><button class="btn btn-ghost btn-xs" onclick="editarLote('${l.id}')">Editar</button><button class="btn btn-danger btn-xs" onclick="eliminarLote('${l.id}')">Eliminar</button></div>
     </div>`;
-  }).join('');
+  }).join('') : '<div class="meta" style="padding:8px 4px">No hay lotes con estos filtros.</div>';
 }
 
 function filaEdicionLote(l){
@@ -1597,32 +1631,60 @@ async function eliminarLote(id){
   await deleteDoc(doc(db,'lotes',id));
 }
 
+// Registrar ingreso (15/10/2026): el botón muestra el estado de cada fila.
+//  · sin cantidad → apagado · cantidad cargada sin registrar → amarillo «Registrar ●» (mismo aviso que «Guardar ●»)
+//  · registrado → verde «✓ Registrado» con el lote; si se vuelve a tocar algo, pasa a amarillo otra vez.
+// Debajo de cada sabor, el último ingreso que tiene (fecha, potes, lote) para ver de un vistazo qué entró y qué no.
+const ING_OK = {};
 function pintarIngresoPickers(){
   const row = s => `<div class="listrow" id="ingChip_${s.id}" style="flex-wrap:wrap">
-      <div class="nm"><span class="sw-c" style="background:${s.color}"></span>${s.nombre} <span class="typetag">${s.linea}</span></div>
+      <div><div class="nm"><span class="sw-c" style="background:${s.color}"></span>${s.nombre} <span class="typetag">${s.linea}</span></div><div class="ing-ult" id="ingUlt_${s.id}"></div></div>
       <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-        <input type="date" id="ingFecha_${s.id}" value="${fmtISO(new Date())}" style="width:132px;padding:6px 8px;font-size:10.5px">
-        <input type="number" id="ingCant_${s.id}" min="1" value="20" style="width:64px;padding:6px 8px;font-size:10.5px;text-align:center">
-        <select id="ingCap_${s.id}" style="padding:6px 8px;font-size:10.5px" title="Capacidad del pote">
+        <input type="date" id="ingFecha_${s.id}" value="${fechaArgentinaISO()}" style="width:132px;padding:6px 8px;font-size:10.5px" oninput="ingEstado('${s.id}')">
+        <input type="number" id="ingCant_${s.id}" min="1" value="" placeholder="potes" style="width:64px;padding:6px 8px;font-size:10.5px;text-align:center" oninput="ingEstado('${s.id}')">
+        <select id="ingCap_${s.id}" style="padding:6px 8px;font-size:10.5px" title="Capacidad del pote" onchange="ingEstado('${s.id}')">
           <option value="360">360ml</option>
           <option value="250">250ml</option>
         </select>
-        <button class="btn btn-pri btn-xs" onclick="registrarIngresoFila('${s.id}')">Registrar</button>
+        <button class="btn btn-ghost btn-xs" id="ingBtn_${s.id}" onclick="registrarIngresoFila('${s.id}')" disabled style="opacity:.55">Registrar</button>
       </div>
     </div>`;
   document.getElementById('ingPickCl').innerHTML = SABORES.filter(s=>s.linea==='Clásicos').map(row).join('');
   document.getElementById('ingPickDa').innerHTML = SABORES.filter(s=>s.linea==='De Autor').map(row).join('');
+  pintarUltimosIngresos();
+}
+function ingEstado(saborId){
+  const btn=document.getElementById('ingBtn_'+saborId), fila=document.getElementById('ingChip_'+saborId); if(!btn) return;
+  const cant=+document.getElementById('ingCant_'+saborId).value;
+  btn.classList.remove('btn-ghost','btn-warn','btn-ok','btn-pri'); fila.classList.remove('ing-pend','ing-ok');
+  if(cant>0){ delete ING_OK[saborId]; btn.disabled=false; btn.style.opacity=''; btn.classList.add('btn-warn'); btn.innerText='Registrar ●'; fila.classList.add('ing-pend'); return; }
+  const ok=ING_OK[saborId];
+  if(ok){ btn.disabled=true; btn.style.opacity=''; btn.classList.add('btn-ok'); btn.innerText='✓ Registrado · '+ok.lote+' · '+ok.cant+(ok.cap===250?' (250)':''); fila.classList.add('ing-ok'); return; }
+  btn.disabled=true; btn.style.opacity='.55'; btn.classList.add('btn-ghost'); btn.innerText='Registrar';
+}
+function pintarUltimosIngresos(){
+  const hoy=fechaArgentinaISO();
+  SABORES.forEach(s=>{ const e=document.getElementById('ingUlt_'+s.id); if(!e) return;
+    const ls=LOTES.filter(l=>l.sabor===s.id).sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')||String(b.id).localeCompare(String(a.id),undefined,{numeric:true}));
+    if(!ls.length){ e.innerHTML='Sin ingresos registrados'; return; }
+    const f=ls[0].fecha, mismo=ls.filter(l=>l.fecha===f), tot=mismo.reduce((a,l)=>a+l.cant,0);
+    e.innerHTML=(f===hoy?'<span class="hoy">● Hoy</span>':'Último ingreso: <b>'+fmtFecha(f)+'</b>')+' · '+tot+' potes · '+mismo.map(l=>l.id+(capacidadLote(l)===250?' (250)':'')).join(', '); });
 }
 async function registrarIngresoFila(saborId){
   const cantEl = document.getElementById('ingCant_'+saborId);
   const fechaEl = document.getElementById('ingFecha_'+saborId);
   const capEl = document.getElementById('ingCap_'+saborId);
+  const btn = document.getElementById('ingBtn_'+saborId);
   const cant = +cantEl.value;
-  const fecha = fechaEl.value || fmtISO(new Date());
+  const fecha = fechaEl.value || fechaArgentinaISO();
   const capacidad = capEl ? +capEl.value : 360;
   if(!cant || cant<=0){ alert('Cargá una cantidad válida.'); return; }
+  if(btn){ btn.disabled=true; btn.innerText='Registrando…'; }
   const id = nextLoteId();
-  await setDoc(doc(db,'lotes',id), {sabor:saborId, fecha, cant, egresado:0, capacidad});
+  try{
+    await setDoc(doc(db,'lotes',id), {sabor:saborId, fecha, cant, egresado:0, capacidad});
+    ING_OK[saborId]={lote:id,cant,cap:capacidad}; cantEl.value=''; ingEstado(saborId);
+  }catch(e){ console.error(e); alert('No se pudo registrar: '+(e.message||e)); ingEstado(saborId); }
 }
 
 /* ---- Egresos ---- */
@@ -4323,7 +4385,7 @@ Object.assign(window, {
   ingresar, cerrarSesion,
   go, atab, filt, done, ticket, closeT, crearPedido, renderCart, cancelarPedido, eliminarPedidoDespachado,
   editarLote, eliminarLote, guardarLoteEdicion, cancelarEdicionLote,
-  registrarIngresoFila, editarEgreso, deshacerEgreso, guardarEgresoEdicion, cancelarEdicionEgreso,
+  registrarIngresoFila, ingEstado, lfSet, lfOrden, lfLimpiar, editarEgreso, deshacerEgreso, guardarEgresoEdicion, cancelarEdicionEgreso,
   setStockMin, setDiasLimite, setCostoEnvio, setComisionRappi, renderDashboard, renderLotes, toggleMenu, closeMenu, renderHistorial,
   buscarCliente, actualizarPreciosChips, guardarSabor, eliminarSabor, ajustarPedidoQty,
   editarPedido, cancelarEdicionPedido, ajustarEditQty, actualizarTotalEdicion, guardarPedidoEdicion,
