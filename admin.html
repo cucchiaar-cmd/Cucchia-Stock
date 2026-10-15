@@ -2045,7 +2045,7 @@ function renderRappi(){
   const IT=rappiItems();
   el('rList').innerHTML=RW.length?RW.map((r,k)=>{
     const esCB=r.tipo==='combos', rp=IT.filter(x=>esCB?x.cb:!x.cb), all=rp.length>0&&rp.every(p=>r.productos.includes(p.id));
-    const chips=rp.map(p=>{const on=r.productos.includes(p.id); const otra=r.activo&&!on?RW.find((o,j)=>j!==k&&o.activo&&o.productos.includes(p.id)&&solapa(o,r)):null;
+    const chips=rp.map(p=>{const on=r.productos.includes(p.id); const otra=r.activo&&!on?RW.find((o,j)=>j!==k&&o.activo&&!!o.vip===!!r.vip&&o.productos.includes(p.id)&&solapa(o,r)):null;
       if(otra) return `<label class="chip lock" title="Ya está en «${otra.nombre}»"><input type="checkbox" disabled>${p.nombre}<span class="cm">en ${otra.nombre}</span></label>`;
       let m=''; if(on){ const x=precios(p.p,p.m), R=Math.round(x.R*(1-r.pct/100)), net=R*(1-com()), mm=(net-x.c)/net*100; m=`<span class="cm" style="color:${mm<P.pisoRappi?'var(--bad)':'var(--ok)'}">${pct(mm)}</span>`; }
       return `<label class="chip${on?' on':''}"><input type="checkbox" ${on?'checked':''} onchange="rTog(${k},'${p.id}',this.checked)">${p.nombre}${m}</label>`}).join('');
@@ -2058,6 +2058,9 @@ function renderRappi(){
       <label class="pf">Hasta <input type="date" class="pd" data-rs="r:${k}:hasta" value="${r.hasta||''}" onchange="RW[${k}].hasta=this.value||null;pDirtySet();setTimeout(renderRappi,0)"></label>
       <span class="sw${r.activo?' on':''}" data-rs="r:${k}:activo" onclick="rAct(${k})"><i></i></span><span class="caps pf">${r.activo?'Activa':'Apagada'}</span> <span class="age ${esCB?'prov':'ok'}">${esCB?'Combos':'Sabores'}</span>${(()=>{ const [t,x]=promoEstado(r); return r.activo||t==='bad'?` <span class="age ${t==='bad'?'old':t}">${x}</span>`:''; })()}<span style="flex:1"></span>
       <span class="pcount caps">${r.productos.length} ${esCB?(r.productos.length===1?'combo':'combos'):(r.productos.length===1?'sabor':'sabores')}</span><button class="btn btn-del caps btn-sm" onclick="RW.splice(${k},1);pDirtySet();setTimeout(renderRappi,0)">Eliminar</button><button class="pchev" title="Plegar / desplegar" onclick="pTogPromo('${r.id}',this)">▾</button></div>
+      ${(()=>{ if(!r.vip||!r.productos.length) return ''; const bases=RW.filter((o,j)=>j!==k&&o.activo&&!o.vip&&o.tipo===r.tipo&&solapa(o,r)&&o.productos.some(id=>r.productos.includes(id)));
+        if(!bases.length) return `<div class="subtle" style="font-size:.78rem;margin:.1rem 0 .5rem">Los usuarios PRO pagan ${r.pct}% menos. El resto de los usuarios no tiene promo en estas fechas.</div>`;
+        return bases.map(o=>{ const d=r.pct-o.pct; return `<div style="font-size:.78rem;margin:.1rem 0 .5rem;color:${d<0?'var(--bad)':'inherit'}">${d<0?`<b>Ojo:</b> los PRO tendrían menos descuento (${r.pct}%) que el resto (${o.pct}% de «${o.nombre}»).`:`En los sabores que comparte con «${o.nombre}» (${o.pct}% para todos), los PRO pagan <b>${r.pct}% en total</b> = ${o.pct}% + ${num(d,d%1?1:0)} puntos adicionales. No se suman: el PRO toma esta promo.`}</div>`; }).join(''); })()}
       <div class="chips" data-rs="r:${k}:productos"><label class="chip all${all?' on':''}"><input type="checkbox" ${all?'checked':''} onchange="rTodos(${k},this.checked)">${esCB?'Todos los combos':'Todos los sabores'}</label>${chips}</div><div class="pmsg hide" id="rmsg${k}"></div></div>`}).join('')
     :'<div class="diffbox"><div><b>No hay promociones cargadas.</b> Creá una con «+ Promo de sabores» o «+ Promo de combos» cuando la necesites.</div></div>';
   rsPaint(el('rList'));
@@ -2066,7 +2069,7 @@ function renderRappi(){
 window.pTogPromo=(id,b)=>{ const c=b.closest('.promo'), x=c.classList.toggle('pcol'); try{ localStorage.setItem('fin_promo_'+id,x?'1':'0'); }catch(_){} };
 window.rTodos=(k,v)=>{ const r=RW[k], esCB=r.tipo==='combos'; r.productos=v?rappiItems().filter(x=>esCB?x.cb:!x.cb).map(x=>x.id):[]; pDirtySet(); setTimeout(renderRappi,0); };
 window.rTog=(k,id,v)=>{ const r=RW[k]; r.productos=v?[...r.productos,id]:r.productos.filter(x=>x!==id); pDirtySet(); setTimeout(renderRappi,0); };
-window.rAct=k=>{ const r=RW[k]; if(!r.activo){ const ch=r.productos.filter(id=>RW.some((o,j)=>j!==k&&o.activo&&o.productos.includes(id)&&solapa(o,r))); if(ch.length){ const m=el('rmsg'+k); m.classList.remove('hide'); m.textContent='No se puede activar: '+ch.map(id=>PROD[id]?.nombre).join(', ')+' ya tiene otra promo activa en esas fechas.'; return; } } r.activo=!r.activo; pDirtySet(); setTimeout(renderRappi,0); };
+window.rAct=k=>{ const r=RW[k]; if(!r.activo){ const ch=r.productos.filter(id=>RW.some((o,j)=>j!==k&&o.activo&&!!o.vip===!!r.vip&&o.productos.includes(id)&&solapa(o,r))); if(ch.length){ const m=el('rmsg'+k); m.classList.remove('hide'); m.textContent='No se puede activar: '+ch.map(id=>PROD[id]?.nombre).join(', ')+` ya tiene${r.vip?' otra promo PRO':' otra promo para todos los usuarios'} activa en esas fechas.`; return; } } r.activo=!r.activo; pDirtySet(); setTimeout(renderRappi,0); };
 window.parReset=()=>{ renderPar(); };
 window.parSave=async()=>{
   if(!parDirty) return;
