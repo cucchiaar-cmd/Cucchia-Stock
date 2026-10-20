@@ -1985,7 +1985,7 @@ function rsPaint(root){ if(!root) return; root.querySelectorAll('[data-rsb]').fo
     // Elementos de ancho completo: el ícono va superpuesto en su extremo derecho, sin sumar líneas ni mover nada.
     const ps=par&&getComputedStyle(par), cw=par?par.clientWidth-parseFloat(ps.paddingLeft)-parseFloat(ps.paddingRight):0;
     const pRow=par&&/flex/.test(ps.display)&&!/column/.test(ps.flexDirection);
-    if(par&&!pRow&&(d==='block'||d==='flex'||d==='grid'||t.offsetWidth>=cw-4)){
+    if(par&&!pRow&&ps.display!=='inline'&&t.offsetWidth>=140&&(d==='block'||d==='flex'||d==='grid'||t.offsetWidth>=cw-4)){ // 20/10/2026: campos chicos (ej. g por pote dentro de un <span>) no son «ancho completo»: el ícono va al lado, no encima
       if(getComputedStyle(par).position==='static') par.style.position='relative';
       par.appendChild(b); const pr=par.getBoundingClientRect(), er=t.getBoundingClientRect();
       b.style.position='absolute'; b.style.margin='0'; b.style.zIndex='2';
