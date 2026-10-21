@@ -737,8 +737,8 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       <div>
         <div class="box">
           <h3>① Cliente</h3>
-          <div class="field"><label>Fecha del pedido</label><input id="pFecha" type="date">
-            <div class="meta" style="margin-top:3px">Dejala en hoy para un pedido nuevo. Cambiala solo para cargar algo atrasado de un día anterior.</div></div>
+          <div class="field"><label>Fecha del pedido</label><input id="pFecha" type="date" oninput="fechaPedidoManual(this)">
+            <div class="meta" id="pFechaMeta" style="margin-top:3px">Siempre arranca en hoy. Cambiala solo para cargar algo atrasado de un día anterior.</div></div>
           <div class="field"><label>Teléfono</label><input id="pTel" placeholder="11 1234-5678" oninput="buscarCliente()">
             <div class="found" id="pFound" style="display:none"></div></div>
           <div class="grid2">
@@ -1168,6 +1168,7 @@ function go(id,el){
   document.querySelectorAll('nav a').forEach(a=>a.classList.remove('active'));
   if(el) el.classList.add('active');
   const cta=document.getElementById('navCarga'); if(cta) cta.classList.toggle('on', id==='carga');
+  if(id==='carga'){ const fe=document.getElementById('pFecha'); if(fe && fe.dataset.manual!=='1') fechaPedidoHoy(); }
   window.scrollTo(0,0);
   closeMenu();
   if(id==='stock') renderStock();
@@ -2682,7 +2683,7 @@ async function crearPedido(){
   const total = subtotal+envio;
   const numero = siguienteNumeroPedido();
   const fechaEl = document.getElementById('pFecha');
-  const fecha = (fechaEl && fechaEl.value) ? fechaEl.value : fechaArgentinaISO();
+  const fecha = (fechaEl && fechaEl.dataset.manual==='1' && fechaEl.value) ? fechaEl.value : fechaArgentinaISO();
 
   if(tel){
     await setDoc(doc(db,'clientes', tel), { nombre, direccion, referencia, actualizado: serverTimestamp() }, {merge:true});
@@ -2703,7 +2704,7 @@ async function crearPedido(){
   document.getElementById('pNombre').value='';
   document.getElementById('pDireccion').value='';
   document.getElementById('pReferencia').value='';
-  if(fechaEl) fechaEl.value = fechaArgentinaISO();
+  fechaPedidoHoy();
   const pEnvioReset = document.getElementById('pEnvio'); if(pEnvioReset) pEnvioReset.value='sin';
   document.getElementById('pRappiID').value='';
   const swVipReset = document.getElementById('pRappiVip'); if(swVipReset) swVipReset.classList.remove('on');
@@ -2713,6 +2714,13 @@ async function crearPedido(){
   renderCart();
   go('tablero', document.getElementById('navTablero'));
 }
+// Fecha del pedido (21/10/2026): cada pedido nuevo arranca con la fecha del día (hora Argentina). Solo se respeta otra fecha si se
+// cambió a mano en esa misma carga, y se avisa en naranja. Para corregir un pedido viejo, se edita desde el Tablero.
+function fechaPedidoHoy(){ const fe=document.getElementById('pFecha'); if(!fe) return; fe.value=fechaArgentinaISO(); fe.dataset.manual=''; fechaPedidoAviso(); }
+function fechaPedidoManual(fe){ fe.dataset.manual = fe.value && fe.value!==fechaArgentinaISO() ? '1' : ''; fechaPedidoAviso(); }
+function fechaPedidoAviso(){ const fe=document.getElementById('pFecha'), m=document.getElementById('pFechaMeta'); if(!fe||!m) return; const otra=fe.dataset.manual==='1';
+  fe.style.borderColor=otra?'var(--warn)':''; m.style.color=otra?'var(--warn)':''; m.style.fontWeight=otra?'700':'';
+  m.innerText = otra ? '⚠ Pedido con fecha '+fmtFecha(fe.value)+' (no es hoy). Se guarda con esa fecha.' : 'Siempre arranca en hoy. Cambiala solo para cargar algo atrasado de un día anterior.'; }
 function cancelarCargaPedido(){
   if(Object.keys(pedidoCart).some(id=>pedidoCart[id]>0)){
     if(!confirm('¿Cancelar esta carga? No se va a guardar nada.')) return;
@@ -2722,7 +2730,7 @@ function cancelarCargaPedido(){
   document.getElementById('pNombre').value='';
   document.getElementById('pDireccion').value='';
   document.getElementById('pReferencia').value='';
-  const pFechaCancel = document.getElementById('pFecha'); if(pFechaCancel) pFechaCancel.value = fechaArgentinaISO();
+  fechaPedidoHoy();
   const pEnvioCancel = document.getElementById('pEnvio'); if(pEnvioCancel) pEnvioCancel.value='sin';
   document.getElementById('pCambio').value='';
   document.getElementById('pRappiID').value='';
@@ -4221,7 +4229,7 @@ async function seedSaboresIfNeeded(){
 function checkAllLoaded(){
   if(dataReady || !Object.values(loaded).every(Boolean)) return;
   dataReady = true;
-  const pFechaInit = document.getElementById('pFecha'); if(pFechaInit && !pFechaInit.value) pFechaInit.value = fechaArgentinaISO();
+  fechaPedidoHoy();
   renderStock();
   pintarIngresoPickers();
   renderTablero();
@@ -4392,7 +4400,7 @@ Object.assign(window, {
   ingresar, cerrarSesion,
   go, atab, filt, done, ticket, closeT, crearPedido, renderCart, cancelarPedido, eliminarPedidoDespachado,
   editarLote, eliminarLote, guardarLoteEdicion, cancelarEdicionLote,
-  registrarIngresoFila, ingEstado, lfSet, lfOrden, lfLimpiar, editarEgreso, deshacerEgreso, guardarEgresoEdicion, cancelarEdicionEgreso,
+  registrarIngresoFila, ingEstado, fechaPedidoManual, lfSet, lfOrden, lfLimpiar, editarEgreso, deshacerEgreso, guardarEgresoEdicion, cancelarEdicionEgreso,
   setStockMin, setDiasLimite, setCostoEnvio, setComisionRappi, renderDashboard, renderLotes, toggleMenu, closeMenu, renderHistorial,
   buscarCliente, actualizarPreciosChips, guardarSabor, eliminarSabor, ajustarPedidoQty,
   editarPedido, cancelarEdicionPedido, ajustarEditQty, actualizarTotalEdicion, guardarPedidoEdicion,
