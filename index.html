@@ -1354,6 +1354,7 @@ let COSTO_ENVIO = 1800;
 let COMISION_RAPPI = 33;
 let editingLoteId = null;
 let editingEgresoUid = null;
+let corrigiendoEgresoUid = null;
 let editingPedidoId = null;
 // editingCtx identifica DESDE DÓNDE se abrió la edición ('tablero', 'rep-dia', 'rep-historial'). Un mismo
 // pedido "listo" puede aparecer renderizado en más de una pantalla a la vez (Tablero + Caja del día), y sin
@@ -1703,7 +1704,9 @@ function renderEgresos(){
   }
   document.getElementById('egresosTable').innerHTML = EGRESOS.map(e=>{
     if(editingEgresoUid===e.uid) return filaEdicionEgreso(e);
-    const saboresTxt = e.sabores.map(x=> (sabor(x.id)||{nombre:x.id}).nombre+' x'+x.cant).join(', ');
+    if(corrigiendoEgresoUid===e.uid) return filaCorreccionEgreso(e);
+    const saboresTxt = e.sabores.map(x=> (sabor(x.id)||{nombre:x.id}).nombre+((x.capacidad||360)===250?' 250':'')+' x'+x.cant).join(', ')
+      + (e.corregido ? ` <span class="typetag" title="${String(e.corregido.nota||'').replace(/"/g,'&quot;')}">stock corregido</span>` : '');
     const lotesTxt = e.lotes.map(l=> l.lote+' (-'+l.cant+')').join(', ') + (e.faltante>0 ? ' · ⚠ faltaron '+e.faltante : '');
     const puedeEditar = e.ref && e.ref.startsWith('V') && e.sabores.length===1;
     const btnEditar = puedeEditar ? `<button class="btn btn-ghost btn-xs" onclick="editarEgreso('${e.uid}')">Editar</button>` : '';
@@ -1714,7 +1717,7 @@ function renderEgresos(){
       <div data-label="Cant.">${e.cantTotal}</div>
       <div data-label="Canal">${e.canal}</div>
       <div data-label="Lote(s) usados" style="font-size:9.5px;color:var(--muted)">${lotesTxt}</div>
-      <div data-label="Acciones" style="display:flex;gap:6px;flex-wrap:wrap">${btnEditar}<button class="btn btn-danger btn-xs" onclick="deshacerEgreso('${e.uid}')">Deshacer</button></div>
+      <div data-label="Acciones" style="display:flex;gap:6px;flex-wrap:wrap">${btnEditar}${puedeEditar?'':`<button class="btn btn-ghost btn-xs" onclick="corregirEgreso('${e.uid}')" title="Corregir qué potes salieron del stock (ej. salió un 360 en vez de un 250). El pedido y su precio no cambian.">Corregir potes</button>`}<button class="btn btn-danger btn-xs" onclick="deshacerEgreso('${e.uid}')">Deshacer</button></div>
     </div>`;
   }).join('');
 }
@@ -1737,6 +1740,51 @@ function filaEdicionEgreso(e){
     <div style="font-size:8.5px;color:var(--muted)">el lote se recalcula al guardar</div>
     <div style="display:flex;gap:6px"><button class="btn btn-ok btn-xs" id="btnGuardarEgreso_${e.uid}" onclick="guardarEgresoEdicion('${e.uid}')">Guardar</button><button class="btn btn-ghost btn-xs" onclick="cancelarEdicionEgreso()">Cancelar</button></div>
   </div>`;
+}
+// Corregir potes de un egreso (24/10/2026): cuando lo que salió físicamente no coincide con el pedido (ej. un combo con Sambayón 250
+// salió con un 360). Se corrige SOLO el stock: se devuelven los potes a sus lotes y se vuelve a descontar por FIFO con lo que salió
+// de verdad. El pedido (combo, precios, caja) no se toca. Queda marcado «stock corregido» con la nota.
+function corregirEgreso(uid){ corrigiendoEgresoUid = uid; editingEgresoUid = null; renderEgresos(); }
+function cancelarCorreccionEgreso(){ corrigiendoEgresoUid = null; renderEgresos(); }
+function filaCorreccionEgreso(e){
+  const sucio = `marcarSucio('btnCorr_${e.uid}','btn-ok')`;
+  const opts = sel => SABORES.map(s=>`<option value="${s.id}" ${s.id===sel?'selected':''}>${s.nombre}</option>`).join('');
+  const lineas = e.sabores.map((x,i)=>`<div style="display:flex;gap:6px;align-items:center;margin-bottom:5px;flex-wrap:nowrap">
+      <select id="corrSab_${e.uid}_${i}" style="width:auto;flex:1 1 150px;padding:5px 6px;font-size:10px" onchange="${sucio}">${opts(x.id)}</select>
+      <select id="corrCap_${e.uid}_${i}" style="width:auto;flex:0 0 90px;padding:5px 6px;font-size:10px" onchange="${sucio}"><option value="360" ${(x.capacidad||360)===360?'selected':''}>360ml</option><option value="250" ${(x.capacidad||360)===250?'selected':''}>250ml</option></select>
+      <input id="corrCant_${e.uid}_${i}" type="number" min="0" value="${x.cant}" style="width:56px;flex:0 0 56px;padding:5px 6px;font-size:10px;text-align:center" oninput="${sucio}">
+    </div>`).join('');
+  return `<div class="egrow" style="background:#fff;border-color:var(--navy);grid-template-columns:.7fr 3fr 1.2fr">
+    <div style="font-family:var(--bebas);font-size:14px;color:var(--navy)">${e.ref}<div class="meta" style="font-family:var(--mont)">${fmtFecha(e.fecha)} · ${e.canal}</div></div>
+    <div><div class="meta" style="margin-bottom:6px">Lo que salió de verdad del freezer. Cambiá capacidad, sabor o cantidad (0 = no salió). El pedido y su precio no cambian.</div>${lineas}
+      <input id="corrNota_${e.uid}" placeholder="Motivo (ej. salió Sambayón 360 en vez de 250)" style="width:100%;padding:5px 7px;font-size:10px;margin-top:3px" oninput="${sucio}"></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-self:start"><button class="btn btn-ok btn-xs" id="btnCorr_${e.uid}" onclick="guardarCorreccionEgreso('${e.uid}')">Guardar</button><button class="btn btn-ghost btn-xs" onclick="cancelarCorreccionEgreso()">Cancelar</button></div>
+  </div>`;
+}
+async function guardarCorreccionEgreso(uid){
+  const e = EGRESOS.find(x=>x.uid===uid); if(!e) return;
+  const conteo = {};
+  e.sabores.forEach((x,i)=>{ const id=document.getElementById('corrSab_'+uid+'_'+i).value, cap=+document.getElementById('corrCap_'+uid+'_'+i).value||360, cant=Math.max(0,+document.getElementById('corrCant_'+uid+'_'+i).value||0);
+    if(!cant) return; const k=id+'@'+cap; conteo[k]=conteo[k]||{id,capacidad:cap,cant:0}; conteo[k].cant+=cant; });
+  const nuevas = Object.values(conteo);
+  if(!nuevas.length){ alert('Tiene que quedar al menos un pote. Si no salió nada, usá «Deshacer».'); return; }
+  const nota = (document.getElementById('corrNota_'+uid).value||'').trim();
+  if(stockOpEnCurso){ alert('Esperá un segundo — todavía se está terminando de procesar la acción anterior.'); return; }
+  stockOpEnCurso = true;
+  try{
+    const lotesRevertidos = LOTES.map(l=>{ const u=e.lotes.filter(x=>x.lote===l.id).reduce((a,x)=>a+x.cant,0); return {...l, egresado: l.egresado - u}; }); // copias: no tocar LOTES en memoria
+    const usadosTotal = []; let faltante = 0;
+    nuevas.forEach(c=>{ const r=consumirStockLocal(c.id, c.cant, lotesRevertidos, c.capacidad);
+      r.usados.forEach(u=>{ const l=lotesRevertidos.find(x=>x.id===u.lote); if(l) l.egresado+=u.cant; }); usadosTotal.push(...r.usados); faltante+=r.faltante; });
+    const batch = writeBatch(db);
+    e.lotes.forEach(u=> batch.update(doc(db,'lotes',u.lote), { egresado: increment(-u.cant) }));
+    usadosTotal.forEach(u=> batch.update(doc(db,'lotes',u.lote), { egresado: increment(u.cant) }));
+    batch.update(doc(db,'egresos',uid), { sabores:nuevas, cantTotal:nuevas.reduce((a,c)=>a+c.cant,0), lotes:usadosTotal, faltante,
+      corregido:{ nota: nota||'Corrección de potes', fecha: fechaArgentinaISO(), antes: e.sabores } });
+    corrigiendoEgresoUid = null;
+    await batch.commit();
+    if(faltante>0) alert('⚠ No había stock suficiente: quedó un faltante de '+faltante+' potes en este egreso.');
+  } finally { stockOpEnCurso = false; }
 }
 function editarEgreso(uid){ editingEgresoUid = uid; renderEgresos(); }
 function cancelarEdicionEgreso(){ editingEgresoUid = null; renderEgresos(); }
@@ -2290,6 +2338,7 @@ async function guardarPedidoEdicion(id){
 
   if(p.estado==='listo'){
     const egresoAsociado = EGRESOS.find(e=>e.ref===p.numero);
+    if(egresoAsociado && egresoAsociado.corregido && !confirm('Este pedido tiene una corrección de stock hecha a mano en Stock › Egresos («'+(egresoAsociado.corregido.nota||'')+'»). Al guardar, el stock se recalcula desde el pedido y esa corrección se pierde. ¿Guardar igual?')){ stockOpEnCurso=false; return; }
     if(egresoAsociado){
       const lotesRevertidos = LOTES.map(l=>{
         const usadoAqui = egresoAsociado.lotes.find(u=>u.lote===l.id);
@@ -4399,6 +4448,7 @@ async function cerrarSesion(){
 Object.assign(window, {
   ingresar, cerrarSesion,
   go, atab, filt, done, ticket, closeT, crearPedido, renderCart, cancelarPedido, eliminarPedidoDespachado,
+  corregirEgreso, cancelarCorreccionEgreso, guardarCorreccionEgreso,
   editarLote, eliminarLote, guardarLoteEdicion, cancelarEdicionLote,
   registrarIngresoFila, ingEstado, fechaPedidoManual, lfSet, lfOrden, lfLimpiar, editarEgreso, deshacerEgreso, guardarEgresoEdicion, cancelarEdicionEgreso,
   setStockMin, setDiasLimite, setCostoEnvio, setComisionRappi, renderDashboard, renderLotes, toggleMenu, closeMenu, renderHistorial,
