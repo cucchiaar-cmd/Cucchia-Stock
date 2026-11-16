@@ -5036,6 +5036,9 @@ function iniciarListeners(){
       if(document.getElementById('reportes').classList.contains('show')) renderReportesView();
       if(document.getElementById('admin').classList.contains('show')) pintarAdminPromosRappi();
       if(document.getElementById('stock').classList.contains('show')) pintarAuditSaborSelect();
+      // 16/11/2026: Finanzas publica precios solo → la pantalla de carga y Configuración se repintan al instante (antes quedaba el precio viejo hasta recargar)
+      if(document.getElementById('carga').classList.contains('show')){ pintarPickers(); renderCart(); }
+      if(document.getElementById('admin').classList.contains('show')) pintarAdminSabores();
     }
     checkAllLoaded();
   });
