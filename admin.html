@@ -596,7 +596,7 @@ table.ccol.ing td.n input.lin{font-size:1.15rem;text-align:center;padding:.25rem
       <div class="kpis" id="wKpis"></div>
     </div>
   </section>
-  <section class="sec"><div class="wrap"><div style="position:sticky;top:5.25rem;z-index:6;display:flex;justify-content:flex-end;margin:-1rem 0 1rem;pointer-events:none"><button class="btn btn-sec caps" id="btnPrueba" style="pointer-events:auto;box-shadow:0 4px 14px rgba(26,26,46,.18);margin-right:.5rem" title="Guarda un archivo con los datos guardados de la web (precios, estados, combos, horarios, fotos) para armar la versión de prueba" onclick="webExportar()">Datos para la prueba</button><button class="btn btn-pri caps" id="btnPrev" style="pointer-events:auto;box-shadow:0 4px 14px rgba(26,26,46,.28)" onclick="webPrev()">Ver vista previa</button></div><div id="webLay" class="web-lay"><div class="par-grid" id="webGrid"></div>
+  <section class="sec"><div class="wrap"><div style="position:sticky;top:5.25rem;z-index:6;display:flex;justify-content:flex-end;margin:-1rem 0 1rem;pointer-events:none"><button class="btn btn-sec caps" id="btnPrueba" style="pointer-events:auto;box-shadow:0 4px 14px rgba(26,26,46,.18);margin-right:.5rem" title="Guarda un archivo con los datos guardados de la web (precios, estados, combos, horarios, fotos) para armar la versión de prueba" onclick="webExportar()">Datos para la prueba</button><button class="btn btn-sec caps" id="btnPub" style="pointer-events:auto;box-shadow:0 4px 14px rgba(26,26,46,.18);margin-right:.5rem" title="Publica lo guardado en www.cucchia.com.ar (también se publica solo al guardar y cada minuto si cambió algo)" onclick="webPublicar()">Publicar en la web</button><button class="btn btn-pri caps" id="btnPrev" style="pointer-events:auto;box-shadow:0 4px 14px rgba(26,26,46,.28)" onclick="webPrev()">Ver vista previa</button></div><div id="webLay" class="web-lay"><div class="par-grid" id="webGrid"></div>
     <aside id="webPrev" class="web-prev hide"><div class="pcard" style="display:flex;flex-direction:column;gap:.6rem">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap"><span class="caps" style="font-size:.7rem;color:var(--espresso)">Vista previa · en vivo</span><div class="size-sel caps" id="wDev"><button data-d="cel" onclick="webDev('cel')">Celular</button><button data-d="esc" onclick="webDev('esc')">Escritorio</button></div></div>
       <div class="frame" id="wFrameBox"><iframe id="wFrame" title="Vista previa de la web" allow="clipboard-write"></iframe></div>
@@ -770,7 +770,11 @@ function precios(p, m){
     const sL=Math.round(sumL*dL), sR=Math.round(sumR), sA=Math.round(sumA);
     const L=sL, A=pp.A??sA, R=pp.R??sR, net=R*(1-com());
     const pr0=promoVig(p.id), Rp=pr0?Math.round(R*(1-(+pr0.pct||0)/100)):R, netP=Rp*(1-com());
-    return {c,sL,sA,sR,L,A,R,sumL,sumA,sumR,mL:L?(L-c)/L*100:0,mA:A?(A-c)/A*100:0,mR:net?(net-c)/net*100:0,promo:pr0,Rp,mRp:netP?(netP-c)/netP*100:0};
+    // 16/11/2026 (Dany): % de Rappi propio de cada combo (ficha del combo, manda sobre la promo general de combos).
+    // «Previsto»: el % que se aplicaría (propio o el de la promo de combos que lo incluye), aunque la promo esté apagada.
+    const gen=Object.values(PROMO).find(r=>!r.vip&&r.tipo==='combos'&&(r.productos||[]).includes(p.id));
+    const rpPct=p.rappiDto!=null?+p.rappiDto:(gen?+gen.pct||0:null), Rpl=rpPct!=null?Math.round(R*(1-rpPct/100)):R, netPl=Rpl*(1-com());
+    return {c,sL,sA,sR,L,A,R,sumL,sumA,sumR,mL:L?(L-c)/L*100:0,mA:A?(A-c)/A*100:0,mR:net?(net-c)/net*100:0,promo:pr0,Rp,mRp:netP?(netP-c)/netP*100:0,rpPct,Rpl,mRpl:netPl?(netPl-c)/netPl*100:0};
   }
   const c=costo(p,m).costo, pp=(p.tipo==='pote'?p.medidas[m].precios:p.precios)||{};
   const sL=redo(c/(1-P.objLanding/100)), sR=redo(c/((1-P.objRappi/100)*(1-com()))), k=1-(p.amigosPct??P.amigosBase)/100;
@@ -784,10 +788,12 @@ const norm = s => (s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').
 function ventasId(p){ if(p.vid&&VSAB.some(s=>s.id===p.vid)) return p.vid; const n=norm(p.nombre); const v=VSAB.find(s=>norm(s.nombre)===n)||VSAB.find(s=>norm(s.nombre).includes(n)||n.includes(norm(s.nombre))); return v?.id; }
 function stock(p, m='360'){ const vid=ventasId(p); if(!vid) return null; return LOTES.filter(l=>l.sabor===vid&&(l.capacidad||360)==+m).reduce((a,l)=>a+((+l.cant||0)-(+l.egresado||0)),0); }
 const sinStock = p => p.estado==='activo' && (p.tipo==='CB' ? cbComps(p).some(c=>stock(c.q,c.m)===0) : stock(p)===0);
-function vsObj(canal,m){
+// 16/11/2026 (Dany): los combos tienen objetivo propio (más bajo) — el combo premia la compra por cantidad.
+const objL=p=>p?.tipo==='CB'?(P.objCbLanding??40):P.objLanding, objR=p=>p?.tipo==='CB'?(P.objCbRappi??24):P.objRappi;
+function vsObj(canal,m,p){
   if(canal==='Rappi'&&m<P.pisoRappi) return `<span class="ind bad">bajo piso ${P.pisoRappi}%</span>`;
   if(canal==='Amigos') return `<span class="ind" style="background:rgba(160,150,130,.18);color:#8C8479">sin objetivo propio</span>`;
-  const o=canal==='Landing'?P.objLanding:P.objRappi, d=m-o;
+  const o=canal==='Landing'?objL(p):objR(p), d=m-o;
   return `<span class="ind ${d>=0?'ok':'warn'}">${d>=0?'▲ +':'▼ '}${d.toFixed(1).replace('.',',')} pts vs ${o}%</span>`;
 }
 async function hist(tipo, que, antes, despues, impacto='—', dir=''){
@@ -1198,8 +1204,8 @@ async function seedIfNeeded(){
 }
 function listeners(){
   const ready={p:0,i:0,d:0};
-  const go=()=>{ if(ready.p&&ready.i&&ready.d){ el('boot').classList.add('hide'); renderAll(); } };
-  onSnapshot(doc(db,C.par,'general'), s=>{ if(!s.exists()) return; P=s.data(); ready.p=1; if(view==='par'&&!parDirty) renderPar(); if(view==='web'&&!webDirty) renderWeb(); go(); });
+  const go=()=>{ if(ready.p&&ready.i&&ready.d){ el('boot').classList.add('hide'); renderAll(); pubAuto(); } };
+  onSnapshot(doc(db,C.par,'general'), s=>{ if(!s.exists()) return; P=s.data(); P.objCbLanding??=40; P.objCbRappi??=24; ready.p=1; if(view==='par'&&!parDirty) renderPar(); if(view==='web'&&!webDirty) renderWeb(); go(); });
   onSnapshot(collection(db,C.ins), s=>{ INS={}; s.forEach(d=>INS[d.id]=d.data()); ready.i=1; go(); });
   onSnapshot(collection(db,C.prod), s=>{ PROD={}; s.forEach(d=>PROD[d.id]={id:d.id,...d.data()}); ready.d=1; if(view==='web'&&!webDirty&&el('boot').classList.contains('hide')) renderWeb(); go(); });
   onSnapshot(collection(db,C.prov), s=>{ PROV={}; s.forEach(d=>PROV[d.id]=d.data()); if(view==='ins') renderIns(); });
@@ -1245,17 +1251,18 @@ document.querySelectorAll('nav.main a').forEach(a=>a.addEventListener('click',()
 const prodArr = () => Object.values(PROD).filter(p=>p.estado!=='archivado');
 function renderProd(){
   const L=prodArr();
-  const act=L.filter(p=>p.estado==='activo'&&p.tipo==='pote'&&p.medidas[size]?.activa);
-  const ms=act.map(p=>precios(p,size));
+  // 16/11/2026 (Dany): todo lo que está a la venta se ve junto — cada medida activa (360 y 250) es su propia tarjeta; sin selector de pote.
+  const act=L.filter(p=>p.estado==='activo'&&p.tipo==='pote').flatMap(p=>['360','250'].filter(s=>p.medidas[s]?.activa).map(s=>({p,m:s})));
+  const ms=act.map(it=>precios(it.p,it.m));
   const avgR=ms.length?ms.reduce((a,x)=>a+x.mR,0)/ms.length:0, avgL=ms.length?ms.reduce((a,x)=>a+x.mL,0)/ms.length:0;
   let minI=-1; ms.forEach((x,i)=>{ if(minI<0||x.mR<ms[minI].mR) minI=i; });
   const dev=L.filter(p=>p.estado==='dev'), prox=L.find(p=>p.proximo&&p.estado==='dev');
   const sinP=Object.values(INS).filter(i=>i.estado==='sin'||i.estado==='prov');
   const viejos=Object.values(INS).filter(i=>!i.actualizado||(Date.now()-new Date(i.actualizado))/864e5>30);
-  el('kHoy').textContent=`Resumen · ${new Date().toLocaleDateString('es-AR')} · helados en pote ${size} ml a la venta`;
+  el('kHoy').textContent=`Resumen · ${new Date().toLocaleDateString('es-AR')} · helados en pote a la venta (360 y 250 ml)`;
   el('kpis').innerHTML=[
     ['Margen promedio Rappi',pct(avgR),'var(--cream-base)',`Landing ${pct(avgL)} · ${ms.length} a la venta`],
-    ['Menor margen Rappi',minI>=0?pct(ms[minI].mR):'—',minI>=0&&ms[minI].mR<P.pisoRappi?'#FF7A6B':'#E0A838',minI>=0?`${act[minI].nombre} · piso ${P.pisoRappi}%`:'—'],
+    ['Menor margen Rappi',minI>=0?pct(ms[minI].mR):'—',minI>=0&&ms[minI].mR<P.pisoRappi?'#FF7A6B':'#E0A838',minI>=0?`${act[minI].p.nombre}${act[minI].m==='250'?' 250':''} · piso ${P.pisoRappi}%`:'—'],
     ['Bajo el piso Rappi',String(ms.filter(x=>x.mR<P.pisoRappi).length),'#A9BC72','a la venta, sin promo'],
     ['En desarrollo',String(dev.length),'var(--caramel)',prox?`Próximo a producir: ${prox.nombre}`:'—',1],
     ['Precios > 30 días o sin fecha',String(viejos.length),viejos.length?'#FF7A6B':'#A9BC72',viejos.slice(0,3).map(i=>i.nombre).join(' · ')||'todo al día',viejos.length?1:0],
@@ -1266,17 +1273,17 @@ function renderProd(){
   el('pills').innerHTML=[['all','Todos'],['autor','Helado · Autor'],['clasico','Helado · Clásicos'],['PL','Paletas'],['AF','Alfajores'],['EX','Extras'],['CB','Combos'],['dev','En desarrollo']].map(([f,n])=>`<button class="pill${filtro===f?' on':''}" onclick="setFiltro('${f}')">${n} (${cnt(f)})</button>`).join('');
   const vis=L.filter(p=>filtro==='all'||(filtro==='dev'?p.estado==='dev':(venta(p)&&(p.tipo==='pote'?p.linea===filtro:p.tipo===filtro))))
     .sort((a,b)=>(a.estado==='activo'?0:1)-(b.estado==='activo'?0:1)||(a.tipo==='pote'?0:1)-(b.tipo==='pote'?0:1)||(a.linea<b.linea?-1:a.linea>b.linea?1:0)||(a.numero||99)-(b.numero||99));
-  const by=f=>vis.filter(f), grid=a=>`<div class="grid">${a.map(card).join('')}</div>`;
+  const by=f=>vis.filter(f), medsOf=p=>{ if(p.tipo!=='pote') return [null]; const a=['360','250'].filter(s=>p.medidas[s]?.activa); return a.length?a:['360']; }, grid=a=>`<div class="grid">${a.flatMap(p=>medsOf(p).map(s=>card(p,s))).join('')}</div>`;
   const szSel=`<div class="szwrap"><span class="caps" style="color:var(--espresso);font-size:.7rem">Helados en pote</span><div class="size-sel caps">${['360','250'].map(s=>`<button class="${size===s?'on':''}" onclick="setSize('${s}')">Pote ${s}</button>`).join('')}</div></div>`;
   const chip=(a,txt)=>{const ss=txt?0:a.filter(sinStock).length; return `<span class="pgrp-c caps"><span><b>${a.length}</b> ${txt||(a.length===1?'a la venta':'a la venta')}</span>${ss?`<span class="ss">● ${ss} sin stock</span>`:''}</span>`;};
   const grp=(tit,a,body,extra='',txt='')=>`<section class="pgrp"><div class="pgrp-h"><div class="pgrp-t"><h3 class="h-md">${tit}</h3>${chip(a,txt)}</div>${extra}</div>${body}</section>`;
   const va=by(p=>p.estado==='activo'), dv=by(p=>p.estado==='dev');
   const hel=va.filter(p=>p.tipo==='pote'), cla=hel.filter(p=>p.linea==='clasico'), aut=hel.filter(p=>p.linea!=='clasico');
   let html='';
-  if(hel.length) html+=grp('Helados',hel,(cla.length?`<div class="psub caps">Clásicos</div>${grid(cla)}`:'')+(aut.length?`<div class="psub caps">De Autor</div>${grid(aut)}`:''),szSel);
+  if(hel.length) html+=grp('Helados',hel,(cla.length?`<div class="psub caps">Clásicos</div>${grid(cla)}`:'')+(aut.length?`<div class="psub caps">De Autor</div>${grid(aut)}`:''));
   [['CB','Combos'],['PL','Paletas'],['AF','Alfajores'],['EX','Extras']].forEach(([t,n])=>{const a=va.filter(p=>p.tipo===t); if(a.length) html+=grp(n,a,grid(a));});
   const otros=by(p=>p.estado!=='activo'&&p.estado!=='dev'); if(otros.length) html+=grp('Fuera de carta',otros,grid(otros),'',otros.length===1?'producto':'productos');
-  if(dv.length){ const szDv=dv.some(p=>p.tipo==='pote')&&!hel.length?szSel:''; html+=grp('En desarrollo',dv,grid(dv),szDv,dv.length===1?'receta':'recetas'); }
+  if(dv.length){ const szDv=''; html+=grp('En desarrollo',dv,grid(dv),szDv,dv.length===1?'receta':'recetas'); }
   el('cards').innerHTML=html;
   const lab={autor:'helados de autor',clasico:'clásicos',PL:'paletas',AF:'alfajores',EX:'extras',CB:'combos'}[filtro];
   const devs=L.filter(p=>p.estado==='dev'&&(p.tipo===filtro||p.linea===filtro));
@@ -1284,19 +1291,19 @@ function renderProd(){
 }
 window.setFiltro=f=>{filtro=f;renderProd();};
 window.setSize=s=>{size=s;renderProd();};
-function card(p){
-  const pote=p.tipo==='pote', cb=p.tipo==='CB', m=pote?size:null, lbl=`${tipoLbl(p)} · ${codigo(p)} · ${pote?size+' ml':cb?cbComps(p).length+' potes':'unidad'}`;
+function card(p,mz){
+  const pote=p.tipo==='pote', cb=p.tipo==='CB', m=pote?(mz||'360'):null, lbl=`${tipoLbl(p)} · ${codigo(p)} · ${pote?m+' ml':cb?cbComps(p).length+' potes':'unidad'}`;
   const top=`<div class="card-top"><span class="tag stamp" style="background:${p.color}26;color:${['#545458','#4E342E','#6B4226'].includes(p.color)?p.color:'#4E342E'}">${lbl}</span>${p.estado==='dev'?(p.proximo?'<span class="caps" style="color:var(--caramel)">● Próximo a producir</span>':'<span class="caps" style="color:var(--ink-2)">En desarrollo</span>'):p.estado==='fuera'?'<span class="caps" style="color:var(--ink-2)">Fuera de carta</span>':sinStock(p)?'<span class="caps" style="color:var(--bad)">● Sin stock</span>':''}</div>`;
   if(pote&&!p.medidas[m]?.activa) return `<div class="card off">${top}<div><h3>${p.nombre}</h3><p class="quote">«${p.desc||''}»</p></div><div class="offmsg">No se ofrece en ${m} ml.</div><div class="card-foot"><span class="caps" style="color:var(--espresso)">Sin precio ${m} ml</span><a class="btn btn-sec caps" style="padding:.4rem .8rem" onclick="abrir('${p.id}','${m}')">Ver detalle</a></div></div>`;
   const x=precios(p,m||'360'), ch=pote?p.canales:p.canales;
-  const cL=x.mL<P.objLanding?'var(--warn)':'var(--ok)', cR=x.mR<P.pisoRappi?'var(--bad)':x.mR<P.objRappi?'var(--warn)':'var(--ok)';
+  const cL=x.mL<objL(p)?'var(--warn)':'var(--ok)', cR=x.mR<P.pisoRappi?'var(--bad)':x.mR<objR(p)?'var(--warn)':'var(--ok)';
   // Combos (05/10/2026): arriba de cada canal, el precio de lista (suma de los potes, lo que se publica en Rappi) y el descuento del combo
   const lst=(sum,v,et)=>cb&&sum>0&&v<sum?`<div class="lst"><span class="caps">${et||'Lista'}</span><s>${$(sum)}</s><b>−${num(Math.round((1-v/sum)*1000)/10,1).replace(/,0$/,'')}%</b></div>`:'';
   const row=(n,v,mm,c,w)=>`<span class="caps" style="color:var(--espresso)">${n}</span><span class="p">${$(v)}</span><span class="m" style="color:${c}">${pct(mm)}</span><div class="bar"><i style="width:${Math.max(0,Math.min(100,mm*w))}%;background:${c}"></i></div>`;
   return `<div class="card">${top}<div><h3>${p.nombre}</h3>${cb?`<p style="font-size:.8rem;margin-top:.2rem;color:var(--espresso)">${cbComps(p).map(c=>c.q.nombre+(c.m==='250'?' 250':'')).join(' + ')||'Sin potes cargados'}</p>`:''}<p class="quote">«${p.desc||''}»</p></div>
     <div class="cost"><span class="caps" style="color:var(--espresso)">Costo ${pote?'por pote':cb?'del combo':'por unidad'} c/IVA</span><span class="v">${$(x.c)}</span></div>
-    <div class="chan">${ch.L?lst(x.sumL,x.L)+row('Landing',x.L,x.mL,cL,1):''}${ch.R?(cb&&x.promo?lst(x.R,x.Rp,'Lista · promo «'+x.promo.nombre+'»')+row('Rappi · neto',x.Rp,x.mRp,x.mRp<P.pisoRappi?'var(--bad)':x.mRp<P.objRappi?'var(--warn)':'var(--ok)',1.5):lst(x.sumR,x.R)+row('Rappi · neto',x.R,x.mR,cR,1.5)):ch.A?lst(x.sumA,x.A)+row('Amigos',x.A,x.mA,'var(--ok)',1):''}</div>
-    <div class="card-foot"><span class="caps" style="color:var(--espresso);font-size:.62rem">Obj. L ${P.objLanding}% ${x.mL>=P.objLanding?'✓':'▼'}${ch.R?` · R ${P.objRappi}% ${x.mR>=P.objRappi?'✓':x.mR>=P.pisoRappi?'▼':'✕ piso'}`:' · sin Rappi'}</span><a class="btn btn-pri caps" style="padding:.4rem .8rem" onclick="abrir('${p.id}','${m||'360'}')">Ver detalle</a></div></div>`;
+    <div class="chan">${ch.L?lst(x.sumL,x.L)+row('Landing',x.L,x.mL,cL,1):''}${ch.R?(cb&&x.promo?lst(x.R,x.Rp,'Lista · promo «'+x.promo.nombre+'»')+row('Rappi · neto',x.Rp,x.mRp,x.mRp<P.pisoRappi?'var(--bad)':x.mRp<objR(p)?'var(--warn)':'var(--ok)',1.5):cb&&x.rpPct?lst(x.R,x.Rpl,'Lista · promo apagada')+row('Rappi · previsto',x.Rpl,x.mRpl,x.mRpl<P.pisoRappi?'var(--bad)':x.mRpl<objR(p)?'var(--warn)':'var(--ok)',1.5):lst(x.sumR,x.R)+row('Rappi · neto',x.R,x.mR,cR,1.5)):ch.A?lst(x.sumA,x.A)+row('Amigos',x.A,x.mA,'var(--ok)',1):''}</div>
+    <div class="card-foot"><span class="caps" style="color:var(--espresso);font-size:.62rem">Obj. L ${objL(p)}% ${x.mL>=objL(p)?'✓':'▼'}${ch.R?(()=>{ const mr=cb&&x.promo?x.mRp:cb&&x.rpPct?x.mRpl:x.mR; return ` · R ${objR(p)}% ${mr>=objR(p)?'✓':mr>=P.pisoRappi?'▼':'✕ piso'}`; })():' · sin Rappi'}</span><a class="btn btn-pri caps" style="padding:.4rem .8rem" onclick="abrir('${p.id}','${m||'360'}')">Ver detalle</a></div></div>`;
 }
 
 // ═════════ DETALLE (pote y unidad, misma estructura) ═════════
@@ -1971,12 +1978,19 @@ ${secTable(s,si,sub,false)}</div>`;}).join('')
       ${c.secs?`<p class="subtle" style="font-size:.72rem;margin-top:.5rem">Los g por pote ya incluyen la merma de producción. El costo por gramo de cada sección sale de sus insumos ÷ rinde (o la suma de ingredientes si no cargaste rinde).</p>`:''}
       ${p.modo!=='kg'&&!c.secs?`<p class="subtle" style="font-size:.72rem;margin-top:.5rem">Batch de producción ${P.batchStd.toLocaleString('es-AR')} g = ${num(P.batchStd/1000*c.potes,1)} potes de ${m} ml. El costo por pote no depende del batch.</p>`:''}</div>`;
   } else if(p.tipo==='CB'){
-    right+=`<div class="panel"><h4>Precio del combo</h4><div class="steps">
+    // 16/11/2026 (Dany): el descuento de cada combo se decide acá, en su ficha (Landing y Rappi). Manda sobre el general.
+    const dIn=(k,v,ph)=>`<input class="rin" style="width:3rem;text-align:center" maxlength="2" value="${v??''}" placeholder="${ph}" data-rs="w:${k}" onchange="wset('${k}',this.value.trim()===''?null:Math.max(0,Math.min(60,parseInt(this.value)||0)))"> %`;
+    const cM=(mm,obj)=>mm<P.pisoRappi&&obj==='R'?'var(--bad)':mm<(obj==='R'?objR(p):objL(p))?'var(--warn)':'var(--ok)';
+    const genR=Object.values(PROMO).find(r=>!r.vip&&r.tipo==='combos'&&r.id!=='cb-'+p.id&&(r.productos||[]).includes(p.id));
+    const prR=p.rappiDto!=null?PROMO['cb-'+p.id]:null;
+    right+=`<div class="panel"><h4>Precio del combo · descuentos</h4><div class="steps">
       <div class="row"><span class="subtle">Costo del combo (suma de potes)</span><span>${$(c.costo)}</span></div>
-      <div class="row"><span class="subtle">Rappi · se publica a la suma de lista</span><span>${$(x.sumR)}</span></div>
-      <div class="row"><span class="subtle">Landing · suma de lista ${$(Math.round(x.sumL))} − ${cbDtoDe(p)}%${p.webDto!=null?' (propio)':''}</span><span>${$(x.L)}</span></div>
-      <div class="row"><span class="subtle">Promo Rappi vigente</span><span>${x.promo?`«${x.promo.nombre}» −${x.promo.pct}% → ${$(x.Rp)} · ${pct(x.mRp)} neto`:'ninguna'}</span></div></div>
-      <p class="subtle" style="font-size:.72rem;margin-top:.5rem">Landing: suma de lista menos el descuento de combos (sección Landing: % general o propio del combo). Rappi va a la suma de lista; el descuento de Rappi se arma como promo en Parámetros → Promos Rappi (con vigencia y encendido/apagado), igual que en el panel de Rappi.</p></div>`;
+      <div class="row"><span class="subtle">Descuento Landing · vacío = general (${cbDto()}%)</span><span>${dIn('webDto',p.webDto,cbDto())}</span></div>
+      <div class="row"><span class="subtle">Landing · lista ${$(Math.round(x.sumL))} − ${cbDtoDe(p)}%${p.webDto!=null?' (propio)':' (general)'}</span><span>${$(x.L)} · <b style="color:${cM(x.mL,'L')}">${pct(x.mL)}</b></span></div>
+      <div class="row"><span class="subtle">Descuento Rappi · vacío = ${genR?`promo «${genR.nombre}» (${genR.pct}%)`:'sin descuento'}</span><span>${dIn('rappiDto',p.rappiDto,genR?genR.pct:0)}</span></div>
+      ${p.rappiDto!=null?`<div class="row"><span class="subtle">Promo propia en Rappi</span><span><label style="font-size:.8rem;color:var(--cream-muted)"><input type="checkbox" ${p.rappiDtoOn!==false?'checked':''} data-rs="w:rappiDtoOn" onchange="wset('rappiDtoOn',this.checked)"> Activa</label></span></div>`:''}
+      <div class="row"><span class="subtle">Rappi · lista ${$(x.R)}${x.rpPct!=null?` − ${x.rpPct}%`:''}${x.promo?' · vigente':x.rpPct?' · prevista (apagada)':''}</span><span>${$(x.rpPct!=null?x.Rpl:x.R)} · <b style="color:${cM(x.rpPct!=null?x.mRpl:x.mR,'R')}">${pct(x.rpPct!=null?x.mRpl:x.mR)} neto</b></span></div></div>
+      <p class="subtle" style="font-size:.72rem;margin-top:.5rem">Cada combo lleva su propio descuento: lo que cargues acá manda sobre el general. Landing: suma de lista − %. Rappi: se publica a la suma de lista y el % va como promo propia del combo («${p.nombre} −%»), que se crea sola al guardar y reemplaza a la promo general de combos para este combo. Margen Rappi: sobre lo que liquida Rappi (comisión ${P.comisionRappi??''}%). Los cambios llegan a Ventas con «Publicar en Ventas».</p></div>`;
   } else {
     right+=`<div class="panel"><h4>Mano de obra estimada</h4><div class="steps">
       <div class="row"><span class="subtle">Minutos por unidad <span class="age prov">estimado</span></span><span><input class="rin" style="width:3.5rem" value="${p.minutos}" data-rs="w:minutos" onchange="wset('minutos',+this.value||0)"> min</span></div>
@@ -1985,14 +1999,14 @@ ${secTable(s,si,sub,false)}</div>`;}).join('')
       <div class="panel"><h4>Del producto a la unidad</h4><div class="steps">${[['Materia prima (partes)',c.mp],['Packaging',c.pack],[`IVA ${P.iva}% sobre materia prima · el packaging ya lo incluye`,c.iva],['Mano de obra estimada (sin IVA)',c.mo]].map(([a,v])=>`<div class="row"><span class="subtle">${a}</span><span>${$(v)}</span></div>`).join('')}<div class="row big"><span class="caps" style="color:var(--cream-muted)">Costo por unidad</span><span>${$(c.costo)}</span></div></div></div>`;
   }
   const pp=pote?p.medidas[m].precios:p.precios, pth=pote?`medidas.${m}.precios`:'precios';
-  const box=(k,ch,v,sug,crit,mm)=>`<span class="ch"${k==='R'?' style="color:#ff7a5c"':''}>${ch}</span><div class="pbox"><input class="pv2" value="${$(v)}" data-rs="w:${pth}.${k}" onchange="wset('${pth}.${k}',parseInt(this.value.replace(/\\D/g,''))||null)"><div class="mg">${pct(mm)}${k==='R'?' neto':''}${k==='A'?(p.tipo==='CB'?(pp.A==null?' · suma Amigos':''):pp.A==null?` · Landing −${p.amigosPct??P.amigosBase}%`:` · ${(100-v/x.L*100).toFixed(1).replace('.',',')}% bajo tu Landing`):''}</div>${vsObj(ch,mm)}${pp[k]!=null&&(k==='A'||pp[k]!==sug)?` <a style="cursor:pointer;font-size:.66rem;color:var(--caramel);text-decoration:underline" onclick="wset('${pth}.${k}',null)">${k==='A'?'volver al automático':'usar sugerido'}</a>`:''}</div><div class="pbox sug"><div class="v">${$(sug)}</div><div class="mg">${crit}</div></div>`;
+  const box=(k,ch,v,sug,crit,mm)=>`<span class="ch"${k==='R'?' style="color:#ff7a5c"':''}>${ch}</span><div class="pbox"><input class="pv2" value="${$(v)}" data-rs="w:${pth}.${k}" onchange="wset('${pth}.${k}',parseInt(this.value.replace(/\\D/g,''))||null)"><div class="mg">${pct(mm)}${k==='R'?' neto':''}${k==='A'?(p.tipo==='CB'?(pp.A==null?' · suma Amigos':''):pp.A==null?` · Landing −${p.amigosPct??P.amigosBase}%`:` · ${(100-v/x.L*100).toFixed(1).replace('.',',')}% bajo tu Landing`):''}</div>${vsObj(ch,mm,p)}${pp[k]!=null&&(k==='A'||pp[k]!==sug)?` <a style="cursor:pointer;font-size:.66rem;color:var(--caramel);text-decoration:underline" onclick="wset('${pth}.${k}',null)">${k==='A'?'volver al automático':'usar sugerido'}</a>`:''}</div><div class="pbox sug"><div class="v">${$(sug)}</div><div class="mg">${crit}</div></div>`;
   const offM=pote&&!p.medidas[m].activa;
   right+=`<div class="panel"><h4>Precio por canal${pote?` · ${m} ml`:''}</h4>
     <div style="display:flex;gap:1rem;font-size:.8rem;color:var(--cream-muted);margin-bottom:.4rem;flex-wrap:wrap"><span class="caps" style="font-size:.66rem">Se vende en</span>${[['L','Landing'],['R','Rappi']].map(([k,n])=>`<label><input type="checkbox" ${p.canales[k]?'checked':''} data-rs="w:canales.${k}" onchange="wset('canales.${k}',this.checked)"> ${n}</label>`).join('')}</div>
     ${offM?'<div class="note"><span>✦</span><span>No se ofrece en 250 ml. Tildá «Se vende en 250 ml» para cargar precios.</span></div>':`<div class="price-grid">
     <span></span><span class="hd">Precio de venta · editable</span><span class="hd">Sugerido</span>
     ${p.tipo==='CB'
-      ?(p.canales.L?`<span class="ch">Landing</span><div class="pbox sug"><div class="v">${$(x.L)}</div><div class="mg">${pct(x.mL)} · lista −${cbDtoDe(p)}%${p.webDto!=null?' (propio)':''} · se cambia en Landing</div>${vsObj('Landing',x.mL)}</div><div class="pbox sug"><div class="v">${$(Math.round(x.sumL))}</div><div class="mg">suma de lista · en la web va tachada</div></div>`:'')+(p.canales.A?box('A','Amigos',x.A,x.sA,'suma Amigos',x.mA):'')+(p.canales.R?box('R','Rappi',x.R,x.sR,x.promo?`suma de lista · con promo −${x.promo.pct}%: ${$(x.Rp)}`:'suma de lista',x.mR):'')
+      ?(p.canales.L?`<span class="ch">Landing</span><div class="pbox sug"><div class="v">${$(x.L)}</div><div class="mg">${pct(x.mL)} · lista −${cbDtoDe(p)}%${p.webDto!=null?' (propio)':''} · se cambia arriba</div>${vsObj('Landing',x.mL,p)}</div><div class="pbox sug"><div class="v">${$(Math.round(x.sumL))}</div><div class="mg">suma de lista · en la web va tachada</div></div>`:'')+(p.canales.A?box('A','Amigos',x.A,x.sA,'suma Amigos',x.mA):'')+(p.canales.R?box('R','Rappi',x.R,x.sR,x.promo?`suma de lista · con promo −${x.promo.pct}%: ${$(x.Rp)}`:'suma de lista',x.mR):'')
       :(p.canales.L?box('L','Landing',x.L,x.sL,`objetivo ${P.objLanding}%`,x.mL):'')+(p.canales.R?box('R','Rappi',x.R,x.sR,`objetivo ${P.objRappi}%`,x.mR):'')}</div>`}
     <div class="note"><span>✦</span><span>Precios editables: el sugerido es solo referencia. Los cambios llegan a Ventas solo con «Publicar en Ventas».</span></div></div>`;
 
@@ -2049,11 +2063,29 @@ window.guardarProd=async()=>{
   if(JSON.stringify(a.canales)!==JSON.stringify(b.canales)) ev.push(['producto',b.nombre+' · canales',chs(a.canales),chs(b.canales)]);
   if(a.nombre!==b.nombre) ev.push(['producto','Nombre',a.nombre,b.nombre]);
   if(JSON.stringify(a.proceso||null)!==JSON.stringify(b.proceso||null)) ev.push(['receta',b.nombre+' · proceso de elaboración',`${(a.proceso?.fases||[]).length} fases · ${(a.proceso?.pcc||[]).length} puntos críticos`,`${(b.proceso?.fases||[]).length} fases · ${(b.proceso?.pcc||[]).length} puntos críticos`]);
+  if(a.tipo==='CB'){
+    if((a.webDto??null)!==(b.webDto??null)) ev.push(['precio',`${b.nombre} · descuento Landing`,a.webDto==null?`general (${cbDto()}%)`:a.webDto+'%',b.webDto==null?`general (${cbDto()}%)`:b.webDto+'%']);
+    if((a.rappiDto??null)!==(b.rappiDto??null)) ev.push(['precio',`${b.nombre} · descuento Rappi`,a.rappiDto==null?'promo general':a.rappiDto+'%',b.rappiDto==null?'promo general':b.rappiDto+'%']);
+    if(b.rappiDto!=null&&(a.rappiDtoOn!==false)!==(b.rappiDtoOn!==false)) ev.push(['param',`Promo Rappi «${b.nombre}»`,a.rappiDtoOn!==false?'activa':'apagada',b.rappiDtoOn!==false?'activa':'apagada']);
+  }
   const {id,...data}=b;
   if(fImp) await setDoc(doc(db,'adm_respaldos','producto-'+WID+'-'+Date.now()),{fecha:new Date().toISOString(),motivo:'antes de importar '+fImp,json:JSON.stringify(a)});
   await setDoc(doc(db,C.prod,WID),data);
+  // 16/11/2026 (Dany): descuentos propios del combo
+  if(b.tipo==='CB'){
+    // Landing: Ventas lee el % efectivo de cada combo en vivo
+    if((a.webDto??null)!==(b.webDto??null)) await setDoc(doc(db,C.par,'web'),{combosDto:{[WID]:b.webDto??cbDto()}},{merge:true});
+    // Rappi: promo propia «cb-<id>»; saca al combo de las otras promos de combos (manda la propia). Sin % propio, se borra.
+    const pid='cb-'+WID, prev=PROMO[pid];
+    if(b.rappiDto!=null){
+      const d={tipo:'combos',nombre:`${b.nombre} −${b.rappiDto}%`,pct:+b.rappiDto,vip:false,activo:b.rappiDtoOn!==false,desde:prev?.desde??null,hasta:prev?.hasta??null,productos:[WID]};
+      if(JSON.stringify(prev&&{...prev,id:undefined})!==JSON.stringify(d)) await setDoc(doc(db,C.promo,pid),d);
+      for(const r of Object.values(PROMO)) if(r.id!==pid&&!r.vip&&r.tipo==='combos'&&(r.productos||[]).includes(WID)){
+        const {id:rid,...rd}=r; await setDoc(doc(db,C.promo,rid),{...rd,productos:rd.productos.filter(k=>k!==WID)}); await hist('param',`Promo Rappi «${r.nombre}»`,'incluía '+b.nombre,'sin '+b.nombre+' (tiene promo propia)'); }
+    } else if(prev){ await deleteDoc(doc(db,C.promo,pid)); await hist('param',`Promo Rappi «${prev.nombre}»`,'existente','eliminada (sin % propio)'); }
+  }
   for(const e of ev) await hist(...e);
-  PROD[WID]=clone(b); mkOrig(); wDirty=false; renderDet(); toast('Guardado'+(ev.length?` · ${ev.length} cambio${ev.length>1?'s':''} en Historial`:''));
+  PROD[WID]=clone(b); mkOrig(); wDirty=false; renderDet(); pubAuto(1500); toast('Guardado'+(ev.length?` · ${ev.length} cambio${ev.length>1?'s':''} en Historial`:''));
 };
 const chs=c=>[c.L&&'Landing',c.R&&'Rappi'].filter(Boolean).join(' + ')||'ninguno';
 
@@ -2373,8 +2405,8 @@ const RST='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-wid
 const pDirtySet=()=>{ parDirty=true; sbPaint(); };
 function sbPaint(){ const b=el('btnPar'); b.dataset.state=parDirty?'dirty':'saved'; b.textContent=parDirty?'Guardar parámetros':'Guardado ✓'; el('sbPar').classList.toggle('dirty',parDirty); el('sbTit').textContent=parDirty?'Cambios sin guardar':'Todo guardado'; el('sbTit').style.color=parDirty?'#FF441F':'var(--navy)'; el('sbTxt').textContent=parDirty?'Los cambios no se aplican al costeo hasta guardar':'Parámetros vigentes'; }
 window.renderPar=()=>{
-  PW=clone(P); AMW={}; prodArr().forEach(p=>AMW[p.id]=(p.amigosPct==null||p.amigosPct===P.amigosBase)?null:p.amigosPct); RW=clone(Object.values(PROMO)); parDirty=false;
-  el('pKpis').innerHTML=[['Mano de obra · pote 360',$(mo360()),'var(--cream-base)',`250 ml: ${$(moMed('250'))}`],['Costo por minuto',$(minuto()),'var(--cream-base)','paletas, alfajores y extras'],['Comisión Rappi',P.comisionRappi+'%','var(--cream-base)','final, con impuestos'],['Piso Rappi',P.pisoRappi+'%','var(--cream-base)','margen neto mínimo'],['Objetivo Landing / Rappi',`${P.objLanding} / ${P.objRappi}`,'var(--cream-base)','% para el precio sugerido']].map(k=>`<div class="kpi"><span class="l caps">${k[0]}</span><span class="n" style="color:${k[2]}">${k[1]}</span><span class="d">${k[3]}</span></div>`).join('');
+  PW=clone(P); if(PW.objCbLanding==null) PW.objCbLanding=40; if(PW.objCbRappi==null) PW.objCbRappi=24; AMW={}; prodArr().forEach(p=>AMW[p.id]=(p.amigosPct==null||p.amigosPct===P.amigosBase)?null:p.amigosPct); RW=clone(Object.values(PROMO)); parDirty=false;
+  el('pKpis').innerHTML=[['Mano de obra · pote 360',$(mo360()),'var(--cream-base)',`250 ml: ${$(moMed('250'))}`],['Costo por minuto',$(minuto()),'var(--cream-base)','paletas, alfajores y extras'],['Comisión Rappi',P.comisionRappi+'%','var(--cream-base)','final, con impuestos'],['Piso Rappi',P.pisoRappi+'%','var(--cream-base)','margen neto mínimo'],['Objetivo Landing / Rappi',`${P.objLanding} / ${P.objRappi}`,'var(--cream-base)',`combos ${P.objCbLanding??40} / ${P.objCbRappi??24}`]].map(k=>`<div class="kpi"><span class="l caps">${k[0]}</span><span class="n" style="color:${k[2]}">${k[1]}</span><span class="d">${k[3]}</span></div>`).join('');
   const f=(k,l,s='')=>`<label class="f"><span class="caps">${l}</span><input data-rs="p:${k}" value="${PW[k]}" onchange="PW['${k}']=parseFloat(this.value.replace(/[^0-9.,]/g,'').replace(',','.'))||0;setTimeout(parLive,0)">${s?`<small>${s}</small>`:''}</label>`;
   el('parGrid').innerHTML=`
    <div class="pcard wide"><div class="kicker"><span class="dot" style="width:10px;height:10px;background:var(--espresso-rich)"></span><span class="caps">01 · Mano de obra</span></div><h3 class="h-md">Cómo se calcula</h3>
@@ -2383,7 +2415,8 @@ window.renderPar=()=>{
    <div class="pcard"><div class="kicker"><span class="dot" style="width:10px;height:10px;background:var(--navy)"></span><span class="caps">02 · Impuestos y compras</span></div><h3 class="h-md">IVA y presentación máxima</h3><div class="fgrid">${f('iva','Alícuota (%)','Sobre MP + packaging · la MO no lleva IVA')}${f('presMax','Presentación máxima (kg o L)','Tope del modo automático · sin opciones dentro del tope, usa la más chica')}</div></div>
    <div class="pcard"><div class="kicker"><span class="dot" style="width:10px;height:10px;background:#FF441F"></span><span class="caps">03 · Canales</span></div><h3 class="h-md">Comisión de plataforma</h3><div class="fgrid">${f('comisionRappi','Comisión Rappi (%)','Final, con impuestos')}</div></div>
    <div class="pcard wide"><div class="kicker"><span class="dot" style="width:10px;height:10px;background:var(--ok)"></span><span class="caps">04 · Política de precios</span></div><h3 class="h-md">Pisos, objetivos y redondeo</h3>
-    <div class="fgrid four">${f('pisoRappi','Piso margen Rappi (%)')}${f('objLanding','Objetivo Landing (%)')}${f('objRappi','Objetivo Rappi (%)')}${f('redondeo','Redondeo ($, hacia arriba)')}</div></div>
+    <div class="fgrid four">${f('pisoRappi','Piso margen Rappi (%)')}${f('objLanding','Objetivo Landing (%)')}${f('objRappi','Objetivo Rappi (%)')}${f('redondeo','Redondeo ($, hacia arriba)')}</div>
+    <div class="fgrid four" style="margin-top:.9rem">${f('objCbLanding','Objetivo combos Landing (%)','Más bajo que el de sabores: premia la compra por cantidad')}${f('objCbRappi','Objetivo combos Rappi (%)','Neto de comisión · el piso Rappi sigue valiendo')}</div></div>
    <div class="pcard wide" id="rpc"><div class="kicker"><span class="dot" style="width:10px;height:10px;background:#FF441F"></span><span class="caps">05 · Rappi</span></div><h3 class="h-md">Descuentos Rappi</h3>
     <div id="rList" style="display:flex;flex-direction:column;gap:.9rem"></div><div style="display:flex;gap:.5rem;flex-wrap:wrap"><button class="btn btn-sec caps" onclick="RW.push({id:'n'+Date.now(),tipo:'sabores',nombre:'Nueva promoción de sabores',pct:10,vip:false,activo:false,desde:null,hasta:null,productos:[]});pDirtySet();setTimeout(renderRappi,0)">+ Promo de sabores</button><button class="btn btn-sec caps" onclick="RW.push({id:'n'+Date.now(),tipo:'combos',nombre:'Nueva promoción de combos',pct:15,vip:false,activo:false,desde:null,hasta:null,productos:[]});pDirtySet();setTimeout(renderRappi,0)">+ Promo de combos</button></div></div>`;
   parLive(); renderRappi(); sbPaint(); parColap();
@@ -2484,7 +2517,8 @@ function ventasIdR(p){ const L=TEST?VSAB_R:VSAB; if(p.vid&&L.some(s=>s.id===p.vi
 function stockR(p,m='360'){ const vid=ventasIdR(p); if(!vid) return null; const st=(TEST?LOTES_R:LOTES).filter(l=>l.sabor===vid&&(l.capacidad||360)==+m).reduce((a,l)=>a+((+l.cant||0)-(+l.egresado||0)),0);
   const res=PEND_R.reduce((a,pd)=>a+(pd.sabores||[]).filter(x=>x.id===vid&&(x.capacidad||360)==+m).reduce((b,x)=>b+(+x.cant||0),0),0); return Math.max(0,st-res); } // disponible: lo reservado por pedidos pendientes ya no está para la web
 const sinStockW=(p,m='360')=>p.tipo==='CB'?cbComps(p).some(c=>{ const x=stockR(c.q,c.m); return x!=null&&x<(+c.cant||1); }):stockR(p,m)===0; // combo: sin stock si algún pote no alcanza para armar uno
-const webEst=(p,w,m='360')=>w.estado==='fuera'?'fuera':(w.pausa||sinStockW(p,m))?'prod':'vis';
+let PUB_MODO=false; // 16/11/2026: al publicar en la web real el «sin stock» NO va en la carta: lo pone la web con web_publico/stock (lo escribe Ventas en vivo)
+const webEst=(p,w,m='360')=>w.estado==='fuera'?'fuera':(w.pausa||(!PUB_MODO&&sinStockW(p,m)))?'prod':'vis';
 const webBadgeX=(p,w,m)=>{ const e=webEst(p,w,m); return e==='vis'?'<span class="ind ok">Visible</span>':e==='prod'?`<span class="ind warn">En producción${w.pausa?' · manual':' · sin stock'}</span>`:e==='fuera'?(p.tipo==='CB'?'<span class="ind bad" title="Un combo fuera de carta no se muestra en la web">Fuera de carta · no se ve</span>':'<span class="ind bad">Fuera de carta</span>'):'<span class="ind" style="background:rgba(160,150,130,.18);color:#8C8479">Oculto</span>'; };
 const webEnvDef=()=>({costo:+(WEBCFG.envioCosto??1300),monto:+(WEBCFG.envioGratisMonto??30000),todos:!!WEBCFG.envioGratisTodos}); // envío gratis solo por monto (30/10)
 // 07 · Horarios (30/10/2026): adm_params/web.horarios = {atencion:[7], entrega:[7]}, índice 0=dom … 6=sáb, cada día {on,d,h} en minutos (h 1440 = medianoche).
@@ -2517,13 +2551,17 @@ const whResumen=t=>{ const r=WH_DIAS.filter(d=>WH[t][d].on).length; return r?r+'
 function webPaint(){ const b=el('btnWeb'); b.dataset.state=webDirty?'dirty':'saved'; b.textContent=webDirty?'Guardar cambios':'Guardado ✓'; el('sbWeb').classList.toggle('dirty',webDirty); el('sbWTit').textContent=webDirty?'Cambios sin guardar':'Todo guardado'; el('sbWTit').style.color=webDirty?'#FF441F':'var(--navy)'; el('sbWTxt').textContent=webDirty?'Se ven en la vista previa · si están bien, guardalos':'Datos de la web vigentes'; }
 const wDirtySet=()=>{ webDirty=true; webPaint(); };
 const numIn=v=>parseFloat(String(v).replace(/[^0-9.,]/g,'').replace(',','.'));
+// Carga en W* lo GUARDADO de la web (lo usa renderWeb y la publicación automática). 16/11/2026
+function webEstadoGuardado(){
+  WG=cbDto(); WCB={}; webCombos().forEach(p=>WCB[p.id]=webSaved(p.id)); WP={}; webItems().forEach(it=>WP[it.k]=webWOf(it.p,it.m)); WE=webEnvDef();
+  WT={}; WF={}; webTxtProds().forEach(p=>WT[p.id]={frase:p.webFrase||'',desc:p.webDesc||'',sec:p.webSeccion||'',pres:+p.webPres||1});
+  WS=wsNorm(WEBCFG.secciones); WH=webHorDef(); WGN=webGnDef(); WD={}; webItems().forEach(({k,p,m})=>{ if(p.tipo!=='CB') WD[k]=dscOf(p,m); });
+}
 window.renderWeb=()=>{
   // Ventas lee el % de cada combo en vivo (adm_params/web.combosDto). Si lo guardado no coincide (o todavía no existe), se sincroniza
   // con los valores YA GUARDADOS (no con lo que esté en pantalla sin guardar). 30/10/2026
   try{ const cbS={}; webCombos().forEach(p=>cbS[p.id]=webSaved(p.id)??cbDto()); if(JSON.stringify(cbS)!==JSON.stringify(WEBCFG.combosDto||{})) setDoc(doc(db,C.par,'web'),{combosDto:cbS},{merge:true}).catch(e=>console.error('combosDto',e)); }catch(e){ console.error(e); }
-  WG=cbDto(); WCB={}; webCombos().forEach(p=>WCB[p.id]=webSaved(p.id)); WP={}; webItems().forEach(it=>WP[it.k]=webWOf(it.p,it.m)); WE=webEnvDef(); webDirty=false;
-  WT={}; WF={}; webTxtProds().forEach(p=>WT[p.id]={frase:p.webFrase||'',desc:p.webDesc||'',sec:p.webSeccion||'',pres:+p.webPres||1});
-  WS=wsNorm(WEBCFG.secciones); WH=webHorDef(); WGN=webGnDef(); WD={}; webItems().forEach(({k,p,m})=>{ if(p.tipo!=='CB') WD[k]=dscOf(p,m); });
+  webEstadoGuardado(); webDirty=false;
   const vEnv=VCFG.costoEnvio;
   setTimeout(pausaPaint,0);
   el('webGrid').innerHTML=`
@@ -2536,7 +2574,7 @@ window.renderWeb=()=>{
     <div id="wTxt"></div><input type="file" id="wFile" accept="image/*" class="hide" onchange="webFotoSel(this)">
     <p class="muted" style="font-size:.72rem;margin-top:.5rem">El nombre sale de la ficha del producto (es el mismo en Ventas). Acá van la frase y la descripción que ve el cliente. Vacío = queda el texto actual de la web (se ve en gris). Los combos no llevan frase. <b>Foto</b>: se achica sola (máx. 1000 px, WebP) y se guarda en la base; «Quitar» vuelve a la foto actual de la web. <b>+ Sumar producto</b>: elegís uno de Productos (activo y todavía sin Landing); si la web no tiene tarjeta para él, le arma una nueva con el diseño de su línea.</p></div>
    <div class="pcard wide"><div class="kicker"><span class="dot" style="width:10px;height:10px;background:var(--navy)"></span><span class="caps">03 · Combos</span></div><h3 class="h-md">Precio Landing = suma de lista − descuento</h3>
-    <div class="fgrid four"><label class="f"><span class="caps">Descuento general (%)</span><div style="display:flex;align-items:center"><input id="wGen" style="flex:1;min-width:0" value="${WG}" oninput="webGenIn(this.value)" onchange="webGen(this.value)"><button type="button" id="wAll" class="rst" title="Volver todos al descuento general" onclick="webCbAll()">${RST}</button></div><small>Lo usan todos los combos sin descuento propio</small></label></div>
+    <div class="fgrid four"><label class="f"><span class="caps">Descuento general (%)</span><div style="display:flex;align-items:center"><input id="wGen" style="flex:1;min-width:0" value="${WG}" oninput="webGenIn(this.value)" onchange="webGen(this.value)"><button type="button" id="wAll" class="rst" title="Volver todos al descuento general" onclick="webCbAll()">${RST}</button></div><small>Lo usan los combos sin descuento propio. El propio se carga en la ficha de cada combo</small></label></div>
     <table class="ptab ccol"><thead><tr class="caps"><th>Combo</th><th class="n" style="white-space:nowrap;width:6.5rem" title="Descuento del combo">Dto.</th><th class="n" style="white-space:nowrap;width:6.5rem" title="Suma de los precios de lista de sus potes">Pcio. lista</th><th class="n" style="white-space:nowrap;width:6.5rem" title="Precio Landing: lo que cobra la web">Web</th><th class="n" style="white-space:nowrap;width:6.5rem" title="Margen sobre el precio web">Margen</th></tr></thead><tbody id="wRows"></tbody></table>
     <p class="muted" style="font-size:.72rem;margin-top:.5rem">En la web: suma de lista tachada, el −% y el precio Landing. Amigos no se muestra en la web; Rappi se maneja con sus promos.</p></div>
    <div class="pcard wide"><div class="kicker"><span class="dot" style="width:10px;height:10px;background:var(--ok)"></span><span class="caps">04 · Descuentos</span></div><h3 class="h-md">Descuentos por producto</h3>
@@ -2745,7 +2783,7 @@ window.webLive=(sinEnviar)=>{
   const ef=id=>WCB[id]??WG, cs=webCombos();
   el('wAll').style.visibility=Object.values(WCB).some(v=>v!=null)?'visible':'hidden';
   const rows=cs.map(p=>{ const x=precios(p,'360'), d=ef(p.id), L=Math.round(x.sumL*(1-d/100)), mg=L?(L-x.c)/L*100:0; return {p,x,d,L,mg}; });
-  el('wRows').innerHTML=rows.map(({p,x,d,L,mg})=>`<tr><td>${p.nombre} <span class="muted" style="font-size:.72rem;white-space:nowrap">${codigo(p)}</span></td><td class="n"><input class="lin" data-wk="cb-${p.id}" style="width:2.6rem;text-align:center" maxlength="2" value="${d}" oninput="webCbIn('${p.id}',this.value)" onchange="webCb('${p.id}',this.value)"> %${WCB[p.id]!==webSaved(p.id)?`<button type="button" class="rst" title="Volver a lo guardado" onclick="webCbRes('${p.id}','guardado')">${RST}</button>`:`<button type="button" class="rst" title="Volver al descuento general" style="visibility:${WCB[p.id]==null?'hidden':'visible'}" onclick="webCbRes('${p.id}','general')">${RST}</button>`}</td><td class="n">${$(Math.round(x.sumL))}</td><td class="n">${$(L)}</td><td class="n">${pct(mg)}</td></tr>`).join('')||'<tr><td colspan="5" class="muted">Sin combos con canal Landing</td></tr>';
+  el('wRows').innerHTML=rows.map(({p,x,d,L,mg})=>`<tr><td>${p.nombre} <span class="muted" style="font-size:.72rem;white-space:nowrap">${codigo(p)}</span></td><td class="n" title="Se edita en la ficha del combo"><a style="cursor:pointer;text-decoration:underline dotted" onclick="abrir('${p.id}','360')">${d} %</a>${WCB[p.id]==null?' <span class="muted" style="font-size:.7rem">gral.</span>':''}</td><td class="n">${$(Math.round(x.sumL))}</td><td class="n">${$(L)}</td><td class="n">${pct(mg)}</td></tr>`).join('')||'<tr><td colspan="5" class="muted">Sin combos con canal Landing</td></tr>';
   // 03 · Envío
   el('wEnvT').classList.toggle('on',WE.todos); el('wEnvTl').textContent=WE.todos?'Activado':'Apagado';
   // Indicadores
@@ -2767,7 +2805,8 @@ function webPayload(){ const ef=id=>WCB[id]??WG;
     if(m==='360'){ const tx=WT[p.id]||{}; if(tx.frase) it.frase=tx.frase; if(tx.desc) it.desc=tx.desc; }
     const cd=(WP[p.id]||webWOf(p)).card; if(cd) it.card=cd;
     if(p.tipo==='CB'){ it.comp=cbComps(p).map(c=>c.q.nombre); it.potes=cbComps(p).reduce((a,c)=>a+(+c.cant||1),0);
-      it.compDet=cbComps(p).map(c=>({n:c.q.nombre,g:Math.round(+(c.q.medidas?.[c.m]?.peso||0)),cant:+c.cant||1})); } // potes del combo con gramaje, para el mensaje de WhatsApp (armado)
+      it.compDet=cbComps(p).map(c=>({n:c.q.nombre,g:Math.round(+(c.q.medidas?.[c.m]?.peso||0)),cant:+c.cant||1,v:ventasIdR(c.q)||'',c:+(c.m||360)})); } // potes del combo con gramaje, para el mensaje de WhatsApp (armado)
+    if(p.tipo==='pote') it.vid=ventasIdR(p)||''; // id del sabor en Ventas: la web cruza el stock en vivo
     it.grupo={0:'clasico',1:'autor',3:'otro',4:'combo'}[webGrp(p)]; it.num=p.numero||0;
     if(it.grupo==='otro'){ it.seccion=secDe(p); it.pres=+(WT[p.id]?.pres)||1; }
     if(m==='360'){ const f=webFotoDe(p.id); if(f) it.foto=f; }
@@ -2782,6 +2821,38 @@ window.webExportar=async()=>{ if(webDirty){ toast('Primero guardá los cambios d
   catch(e){ if(e&&e.name==='AbortError') return; console.warn(e); }
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([txt],{type:'application/json'})); a.download=nom; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),4000);
   toast('Descargado '+nom+' · movelo a WEB CUCCHIA/_publicar'); };
+// ───────── Publicar en la web real (16/11/2026, Dany: opción B) ─────────
+// Finanzas escribe lo GUARDADO en web_publico/carta (json) + una foto por documento (web_publico/foto_<id>).
+// La web (www.cucchia.com.ar) lee esa colección al abrir. Reglas de Firestore: web_publico lectura pública, escritura solo Dany.
+// Se publica sola: al guardar un producto, al guardar Landing, y cada minuto si cambió algo (stock de Ventas incluido) mientras Finanzas esté abierta.
+// En ?test NO se publica (la prueba sigue con «Datos para la prueba»).
+const WPUB='web_publico'; let PUB_LAST=null, PUB_FOTOS=null, PUB_BUSY=false, PUB_T=null;
+const pubHash=t=>{ let h=0; for(let i=0;i<t.length;i++) h=(h*31+t.charCodeAt(i))|0; return (h>>>0).toString(36)+'.'+t.length; };
+window.webPublicar=async(auto)=>{
+  if(TEST){ if(!auto) toast('En el entorno de prueba no se publica en la web real'); return; }
+  if(webDirty){ if(!auto) toast('Primero guardá los cambios de Landing'); return; }
+  if(PUB_BUSY||!P||!auth.currentUser) return;
+  if(!VSAB.length||!LOTES.length){ if(!auto) toast('Esperando el stock de Ventas… probá en unos segundos'); return; } // sin stock cargado publicaría todo como disponible
+  PUB_BUSY=true;
+  const b=el('btnPub'); if(b&&!auto){ b.disabled=true; b.innerHTML='<span class="spin sm"></span>Publicando…'; }
+  try{
+    webEstadoGuardado(); let d; PUB_MODO=true; try{ d=webPayload(); } finally{ PUB_MODO=false; } const fotos={};
+    d.productos.forEach(it=>{ if(it.foto&&it.foto.startsWith('data:')){ fotos[it.id]=it.foto; it.foto='doc:foto_'+it.id; } });
+    const txt=JSON.stringify(d), fh={}; Object.entries(fotos).forEach(([id,u])=>fh[id]=pubHash(u));
+    if(PUB_LAST==null){ const c=(await getDoc(doc(db,WPUB,'carta'))).data(); PUB_LAST=c?.json||''; PUB_FOTOS=c?.fotos||{}; }
+    const fotosIg=JSON.stringify(fh)===JSON.stringify(PUB_FOTOS);
+    if(txt===PUB_LAST&&fotosIg){ if(!auto) toast('La web ya está al día'); return; }
+    for(const [id,u] of Object.entries(fotos)) if(PUB_FOTOS[id]!==fh[id]) await setDoc(doc(db,WPUB,'foto_'+id),{img:u});
+    for(const id of Object.keys(PUB_FOTOS)) if(!fotos[id]) await deleteDoc(doc(db,WPUB,'foto_'+id));
+    await setDoc(doc(db,WPUB,'carta'),{json:txt,fotos:fh,generado:new Date().toISOString(),por:auth.currentUser.email||''});
+    PUB_LAST=txt; PUB_FOTOS=fh; pubPaint(new Date());
+    if(!auto) toast('Web actualizada · www.cucchia.com.ar'); else console.log('web publicada', new Date().toLocaleTimeString());
+  }catch(e){ console.error('publicar web',e); if(!auto) toast('No se pudo publicar: '+(e.code||e.message)); }
+  finally{ PUB_BUSY=false; if(b){ b.disabled=false; b.textContent='Publicar en la web'; } }
+};
+function pubPaint(t){ const x=el('btnPub'); if(x&&t) x.title='Última publicación: '+t.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})+' · también se publica solo al guardar y cada minuto si cambió algo'; }
+const pubAuto=(ms=4000)=>{ if(TEST) return; clearTimeout(PUB_T); PUB_T=setTimeout(()=>webPublicar(true),ms); };
+if(!TEST) setInterval(()=>webPublicar(true),60000);
 // ───────── Pausas de la web (05/11/2026, Dany) ─────────
 // adm_params/web.pausa = { ahora: null | {modo:'hoy'|'manual', desde:ms, hasta:ms|null}, msg, prog:[{id,tipo:'pausa'|'cerrado',desde:'AAAA-MM-DD',hasta,msg,avisar}] }
 // «Pausar por hoy» vuelve sola el próximo día de atención (según 07 · Horarios guardado). «Hasta que la active»: manual.
@@ -2912,8 +2983,8 @@ window.webSave=async()=>{
     // Combos
     const g0=cbDto();
     if(WG!==g0||P.combosDto==null){ await setDoc(doc(db,C.par,'general'),{combosDto:WG},{merge:true}); if(WG!==g0) await hist('param','Descuento combos Landing (general)',g0+'%',WG+'%'); }
-    for(const p of webCombos()){ const nv=WCB[p.id]??null, ov=webSaved(p.id);
-      if(nv!==ov){ await setDoc(doc(db,C.prod,p.id),{webDto:nv},{merge:true}); await hist('precio',`${p.nombre} · descuento Landing`,ov==null?`general (${g0}%)`:ov+'%',nv==null?`general (${WG}%)`:nv+'%'); } }
+    // 16/11/2026: el % propio de cada combo se edita solo en su ficha; acá no se escribe (evita pisarlo con un valor viejo)
+    webCombos().forEach(p=>WCB[p.id]=webSaved(p.id));
     // Para Ventas (30/10/2026): el % efectivo de cada combo en vivo (antes llegaba solo con «Publicar en Ventas» y Ventas cobraba sin descuento)
     const cbMap={}; webCombos().forEach(p=>cbMap[p.id]=WCB[p.id]??WG);
     if(JSON.stringify(cbMap)!==JSON.stringify(WEBCFG.combosDto||{})) await setDoc(doc(db,C.par,'web'),{combosDto:cbMap},{merge:true});
@@ -2947,21 +3018,24 @@ window.webSave=async()=>{
       if(gn0.wa!==WGN.wa) await hist('param','WhatsApp de la web',waFmt(gn0.wa),waFmt(WGN.wa));
       if(gn0.ig!==WGN.ig) await hist('param','Instagram de la web','@'+gn0.ig,'@'+WGN.ig);
       if(gn0.ant!==WGN.ant) await hist('param','Anticipación eventos (web)',gn0.ant+' días',WGN.ant+' días'); }
-    webDirty=false; toast('Cambios de Landing guardados');
+    webDirty=false; toast('Cambios de Landing guardados'); pubAuto(1500);
   }catch(e){ console.error(e); toast('No se pudo guardar: '+(e.code||e.message)); }
   b.disabled=false; setTimeout(renderWeb,300);
 };
 window.parSave=async()=>{
   if(!parDirty) return;
   el('btnPar').disabled=true; el('btnPar').innerHTML='<span class="spin sm inv"></span>Guardando…';
-  const lbl={sueldo:'Sueldo mensual',potesJornada:'Potes por jornada',jornadasSemana:'Jornadas por semana',semanasMes:'Semanas por mes',horasJornada:'Horas por jornada',iva:'IVA',comisionRappi:'Comisión Rappi',pisoRappi:'Piso Rappi',objLanding:'Objetivo Landing',objRappi:'Objetivo Rappi',redondeo:'Redondeo',batchStd:'Batch estándar',batchMin:'Batch mínimo',batchMax:'Batch máximo',moCompradoMin:'Armado con helado comprado (min/pote)',amigosBase:'Descuento Amigos base',combosDto:'Descuento combos Landing',presMax:'Presentación máxima (kg/L)'};
+  try{
+  const lbl={sueldo:'Sueldo mensual',potesJornada:'Potes por jornada',jornadasSemana:'Jornadas por semana',semanasMes:'Semanas por mes',horasJornada:'Horas por jornada',iva:'IVA',comisionRappi:'Comisión Rappi',pisoRappi:'Piso Rappi',objLanding:'Objetivo Landing',objRappi:'Objetivo Rappi',objCbLanding:'Objetivo combos Landing',objCbRappi:'Objetivo combos Rappi',redondeo:'Redondeo',batchStd:'Batch estándar',batchMin:'Batch mínimo',batchMax:'Batch máximo',moCompradoMin:'Armado con helado comprado (min/pote)',amigosBase:'Descuento Amigos base',combosDto:'Descuento combos Landing',presMax:'Presentación máxima (kg/L)'};
   for(const k of Object.keys(PW)) if(k!=='combosDto'&&PW[k]!==P[k]) await hist('param',lbl[k]||k,String(P[k]),String(PW[k]));
   const pg={...PW}; delete pg.combosDto; if(P.combosDto!=null) pg.combosDto=P.combosDto; await setDoc(doc(db,C.par,'general'),pg);
   const amTxt=(v,b)=>v==null?`base (${b}%)`:v+'%';
   // (30/10/2026) Descuento Amigos eliminado de Finanzas
+  const olds=Object.values(PROMO); // 16/11/2026: faltaba desde el 30/10 (se borró con Amigos) → el guardado se cortaba acá y las promos de Rappi no se grababan
   for(const o of olds) if(!RW.find(r=>r.id===o.id)){ await deleteDoc(doc(db,C.promo,o.id)); await hist('param',`Promo Rappi «${o.nombre}»`,'existente','eliminada'); }
   for(const r of RW){ const o=PROMO[r.id]; const {id,...d}=r; if(JSON.stringify(o&&{...o,id:undefined})!==JSON.stringify({...r,id:undefined})){ await setDoc(doc(db,C.promo,id),d); await hist('param',`Promo Rappi «${r.nombre}»`,o?`${o.pct}% · ${o.activo?'activa':'apagada'}`:'—',`${r.pct}% · ${r.vip?'PRO':'todos'} · ${r.activo?'activa':'apagada'} · ${r.productos.length} producto${r.productos.length===1?'':'s'}`); } }
-  parDirty=false; el('btnPar').disabled=false; toast('Parámetros guardados'); setTimeout(renderPar,300);
+    parDirty=false; el('btnPar').disabled=false; toast('Parámetros guardados'); setTimeout(renderPar,300);
+  }catch(e){ console.error('parSave',e); el('btnPar').disabled=false; sbPaint(); toast('No se pudo guardar: '+(e.code||e.message)); } // 16/11/2026: antes un error dejaba el botón trabado sin aviso
 };
 
 // ═════════ HISTORIAL ═════════
