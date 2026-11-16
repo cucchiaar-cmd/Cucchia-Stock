@@ -2008,7 +2008,7 @@ ${secTable(s,si,sub,false)}</div>`;}).join('')
     ${p.tipo==='CB'
       ?(p.canales.L?`<span class="ch">Landing</span><div class="pbox sug"><div class="v">${$(x.L)}</div><div class="mg">${pct(x.mL)} · lista −${cbDtoDe(p)}%${p.webDto!=null?' (propio)':''} · se cambia arriba</div>${vsObj('Landing',x.mL,p)}</div><div class="pbox sug"><div class="v">${$(Math.round(x.sumL))}</div><div class="mg">suma de lista · en la web va tachada</div></div>`:'')+(p.canales.A?box('A','Amigos',x.A,x.sA,'suma Amigos',x.mA):'')+(p.canales.R?box('R','Rappi',x.R,x.sR,x.promo?`suma de lista · con promo −${x.promo.pct}%: ${$(x.Rp)}`:'suma de lista',x.mR):'')
       :(p.canales.L?box('L','Landing',x.L,x.sL,`objetivo ${P.objLanding}%`,x.mL):'')+(p.canales.R?box('R','Rappi',x.R,x.sR,`objetivo ${P.objRappi}%`,x.mR):'')}</div>`}
-    <div class="note"><span>✦</span><span>Precios editables: el sugerido es solo referencia. Los cambios llegan a Ventas solo con «Publicar en Ventas».</span></div></div>`;
+    <div class="note"><span>✦</span><span>Precios editables: el sugerido es solo referencia. Al guardar, llegan solos a Ventas y a la web.</span></div></div>`;
 
   el('detalle').innerHTML=`<section class="sec navy"><div class="halo" style="left:-12rem;bottom:0;width:24rem;height:24rem;background:rgba(200,150,90,.10)"></div><div class="wrap" style="position:relative">
     <div class="sec-head"><div>
@@ -2852,7 +2852,7 @@ window.webPublicar=async(auto)=>{
   finally{ PUB_BUSY=false; if(b){ b.disabled=false; b.textContent='Publicar en la web'; } }
 };
 function pubPaint(t){ const x=el('btnPub'); if(x&&t) x.title='Última publicación: '+t.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})+' · también se publica solo al guardar y cada minuto si cambió algo'; }
-const pubAuto=(ms=4000)=>{ if(TEST) return; clearTimeout(PUB_T); PUB_T=setTimeout(()=>webPublicar(true),ms); };
+const pubAuto=(ms=4000)=>{ if(TEST) return; clearTimeout(PUB_T); PUB_T=setTimeout(()=>webPublicar(true),ms); window.ventasAutoPr?.(ms+1500); };
 if(!TEST) setInterval(()=>webPublicar(true),60000);
 // ───────── Pausas de la web (05/11/2026, Dany) ─────────
 // adm_params/web.pausa = { ahora: null | {modo:'hoy'|'manual', desde:ms, hasta:ms|null}, msg, prog:[{id,tipo:'pausa'|'cerrado',desde:'AAAA-MM-DD',hasta,msg,avisar}] }
@@ -3035,7 +3035,7 @@ window.parSave=async()=>{
   const olds=Object.values(PROMO); // 16/11/2026: faltaba desde el 30/10 (se borró con Amigos) → el guardado se cortaba acá y las promos de Rappi no se grababan
   for(const o of olds) if(!RW.find(r=>r.id===o.id)){ await deleteDoc(doc(db,C.promo,o.id)); await hist('param',`Promo Rappi «${o.nombre}»`,'existente','eliminada'); }
   for(const r of RW){ const o=PROMO[r.id]; const {id,...d}=r; if(JSON.stringify(o&&{...o,id:undefined})!==JSON.stringify({...r,id:undefined})){ await setDoc(doc(db,C.promo,id),d); await hist('param',`Promo Rappi «${r.nombre}»`,o?`${o.pct}% · ${o.activo?'activa':'apagada'}`:'—',`${r.pct}% · ${r.vip?'PRO':'todos'} · ${r.activo?'activa':'apagada'} · ${r.productos.length} producto${r.productos.length===1?'':'s'}`); } }
-    parDirty=false; el('btnPar').disabled=false; toast('Parámetros guardados'); setTimeout(renderPar,300);
+    parDirty=false; el('btnPar').disabled=false; toast('Parámetros guardados'); setTimeout(renderPar,300); pubAuto(1500);
   }catch(e){ console.error('parSave',e); el('btnPar').disabled=false; sbPaint(); toast('No se pudo guardar: '+(e.code||e.message)); } // 16/11/2026: antes un error dejaba el botón trabado sin aviso
 };
 
@@ -3152,6 +3152,41 @@ window.pubGo=async()=>{
     PUBSEL=null; mClose(); toast(TEST?'Publicado en el entorno de prueba':'Publicado en Ventas');
   }catch(e){ console.error(e); b.disabled=false; b.textContent='Reintentar'; toast('No se pudo publicar: '+(e.message||e)); }
 };
+// ── Publicar en Ventas AUTOMÁTICO (16/11/2026, Dany: «es un riesgo sensible… que el precio no se escape, y menos de cara al cliente»).
+// Mismo plan que la ventana «Publicar en Ventas», sin preguntar: precios/nombres/estado de sabores ya vinculados, descuentos y comisión Rappi, combos.
+// Queda para la ventana manual (con aviso): sabores NUEVOS en Ventas (hay que elegir si se vinculan a uno existente) y «retirar de la venta» sabores que no están en Finanzas.
+// Se dispara al guardar un producto, Parámetros o Landing, al abrir Finanzas y cada minuto. En ?test no corre (la prueba se publica a mano).
+let VAUTO_BUSY=false, VAUTO_T=null, VAUTO_AVISO='', VAUTO_ULT='';
+window.ventasAuto=async()=>{
+  if(TEST||VAUTO_BUSY||!P||!auth.currentUser||!VSAB.length) return;
+  if(el('mdl')?.classList.contains('on')&&el('pubOk')) return; // la ventana manual está abierta: no pisar lo que Dany está revisando
+  VAUTO_BUSY=true;
+  try{
+    const {out,pr,com,ret,cbs}=pubPlan(), sel=out.filter(r=>r.ch.length&&!r.nuevo), nuevos=out.filter(r=>r.ch.length&&r.nuevo);
+    const doP=!!pr.n, doC=!!com.n, doCB=!!cbs.n;
+    const pend=[nuevos.length?`${nuevos.length} sabor${nuevos.length===1?'':'es'} nuevo${nuevos.length===1?'':'s'}`:'',ret.length?`${ret.length} para retirar`:'',cbs.faltan.length?`${cbs.faltan.length} combo${cbs.faltan.length===1?'':'s'} sin sus potes`:''].filter(Boolean).join(' · ');
+    if(pend&&pend!==VAUTO_AVISO){ toast('Publicar en Ventas: revisá a mano → '+pend); } VAUTO_AVISO=pend;
+    if(!sel.length&&!doP&&!doC&&!doCB) return;
+    // Freno anti-bucle: si lo que hay que publicar es idéntico a lo que ya se publicó en esta sesión, el diff no se está cerrando → no repetir (queda la ventana manual)
+    const firma=JSON.stringify([sel.map(r=>[r.id,r.d]),pr.altas,pr.cambios,pr.bajas.map(v=>v.id),com.fin,cbs.altas,cbs.cambios,cbs.bajas.map(v=>v.id)]);
+    if(firma===VAUTO_ULT){ console.warn('ventas auto: el diff no cierra, revisar «Publicar en Ventas»'); return; }
+    const bt=writeBatch(db);
+    sel.forEach(r=>{ bt.set(doc(db,VC('sabores'),r.id),r.d,{merge:true}); if(r.p.vid!==r.id) bt.set(doc(db,C.prod,r.p.id),{vid:r.id},{merge:true}); });
+    if(doP){ pr.altas.forEach(w=>bt.set(doc(db,VC('promosRappi'),w.id),{...w.d,ts:serverTimestamp()})); pr.cambios.forEach(w=>bt.set(doc(db,VC('promosRappi'),w.id),w.d,{merge:true})); pr.bajas.forEach(v=>bt.delete(doc(db,VC('promosRappi'),v.id))); }
+    if(doC) bt.set(doc(db,VC('config'),'stock'),{comisionRappi:com.fin},{merge:true});
+    if(doCB){ [...cbs.altas,...cbs.cambios].forEach(w=>bt.set(doc(db,VC('combos'),w.id),{...w.d,ts:serverTimestamp()})); cbs.bajas.forEach(v=>bt.delete(doc(db,VC('combos'),v.id))); }
+    await withTimeout(bt.commit(),30000);
+    const det=sel.map(r=>`${r.p.nombre}: `+r.ch.map(k=>`${PUB_LBL[k]} ${pubFmt(k,r.v[k])}→${pubFmt(k,r.d[k])}`).join(', '));
+    if(doP) det.push(`Descuentos Rappi: ${pr.altas.length} alta(s), ${pr.cambios.length} cambio(s), ${pr.bajas.length} baja(s)`);
+    if(doC) det.push(`Comisión Rappi ${com.ven==null?'—':num(com.ven)+'%'}→${num(com.fin)}%`);
+    if(doCB) det.push(`Combos: ${cbs.altas.length} alta(s), ${cbs.cambios.length} cambio(s), ${cbs.bajas.length} baja(s)`);
+    await hist('producto','Publicación automática en Ventas','—',`${det.length} cambio${det.length===1?'':'s'}`,det.join(' · '));
+    VAUTO_ULT=firma; toast('Ventas actualizado automáticamente');
+  }catch(e){ console.error('ventas auto',e); toast('No se pudo actualizar Ventas: '+(e.message||e)+' · usá «Publicar en Ventas»'); }
+  finally{ VAUTO_BUSY=false; }
+};
+window.ventasAutoPr=(ms=3000)=>{ if(TEST) return; clearTimeout(VAUTO_T); VAUTO_T=setTimeout(()=>ventasAuto(),ms); };
+if(!TEST) setInterval(()=>ventasAuto(),60000);
 window.pubCopiar=async()=>{
   if(!TEST) return; const m=el('pubCp'); if(!confirm('Se reemplaza toda la copia de prueba con los datos reales actuales de Ventas. ¿Seguimos?')) return;
   try{
