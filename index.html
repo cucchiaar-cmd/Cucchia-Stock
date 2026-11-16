@@ -4930,7 +4930,7 @@ async function seedSaboresIfNeeded(){
   await batch.commit();
 }
 // ── Stock en vivo para la web (16/11/2026, Dany: «es un riesgo operativo»). Ventas regula el stock → Ventas lo publica.
-// web_publico/stock = { disp: {"<idSabor>_<360|250>": potes disponibles (stock − pendientes)}, ts }. Lectura pública (reglas de Firestore).
+// web_publico/stock = { disp: {"<idSabor>_<360|250>": 1 hay · 0 no hay}, ts } — solo hay/no hay: la cantidad es privada (Dany 16/11). Lectura pública (reglas de Firestore).
 // La web lo cruza con la carta de Finanzas (vid de cada producto y de los potes de cada combo). En ?test no publica.
 let STOCKWEB_LAST = null, STOCKWEB_T = null;
 function publicarStockWeb(){
@@ -4939,7 +4939,7 @@ function publicarStockWeb(){
   STOCKWEB_T = setTimeout(async ()=>{
     try{
       const disp = {};
-      SABORES.forEach(s=>[360,250].forEach(c=>{ const n = Math.max(0, Math.floor(disponibleSabor(s.id,c)||0)); disp[s.id+'_'+c] = n; }));
+      SABORES.forEach(s=>[360,250].forEach(c=>{ const n = Math.max(0, Math.floor(disponibleSabor(s.id,c)||0)); disp[s.id+'_'+c] = n>0 ? 1 : 0; }));
       const txt = JSON.stringify(disp); if(txt===STOCKWEB_LAST) return;
       await setDoc(fsDoc(db,'web_publico','stock'), {disp, ts:new Date().toISOString()});
       STOCKWEB_LAST = txt;

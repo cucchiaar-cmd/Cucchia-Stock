@@ -2517,6 +2517,7 @@ function ventasIdR(p){ const L=TEST?VSAB_R:VSAB; if(p.vid&&L.some(s=>s.id===p.vi
 function stockR(p,m='360'){ const vid=ventasIdR(p); if(!vid) return null; const st=(TEST?LOTES_R:LOTES).filter(l=>l.sabor===vid&&(l.capacidad||360)==+m).reduce((a,l)=>a+((+l.cant||0)-(+l.egresado||0)),0);
   const res=PEND_R.reduce((a,pd)=>a+(pd.sabores||[]).filter(x=>x.id===vid&&(x.capacidad||360)==+m).reduce((b,x)=>b+(+x.cant||0),0),0); return Math.max(0,st-res); } // disponible: lo reservado por pedidos pendientes ya no está para la web
 const sinStockW=(p,m='360')=>p.tipo==='CB'?cbComps(p).some(c=>{ const x=stockR(c.q,c.m); return x!=null&&x<(+c.cant||1); }):stockR(p,m)===0; // combo: sin stock si algún pote no alcanza para armar uno
+// 16/11/2026 (Dany: «que nadie vea nada que yo no quiero que vea»): lo público = solo lo que la página muestra. Descuentos programados: se publican recién desde el día anterior al inicio.
 let PUB_MODO=false; // 16/11/2026: al publicar en la web real el «sin stock» NO va en la carta: lo pone la web con web_publico/stock (lo escribe Ventas en vivo)
 const webEst=(p,w,m='360')=>w.estado==='fuera'?'fuera':(w.pausa||(!PUB_MODO&&sinStockW(p,m)))?'prod':'vis';
 const webBadgeX=(p,w,m)=>{ const e=webEst(p,w,m); return e==='vis'?'<span class="ind ok">Visible</span>':e==='prod'?`<span class="ind warn">En producción${w.pausa?' · manual':' · sin stock'}</span>`:e==='fuera'?(p.tipo==='CB'?'<span class="ind bad" title="Un combo fuera de carta no se muestra en la web">Fuera de carta · no se ve</span>':'<span class="ind bad">Fuera de carta</span>'):'<span class="ind" style="background:rgba(160,150,130,.18);color:#8C8479">Oculto</span>'; };
@@ -2811,7 +2812,7 @@ function webPayload(){ const ef=id=>WCB[id]??WG;
     if(it.grupo==='otro'){ it.seccion=secDe(p); it.pres=+(WT[p.id]?.pres)||1; }
     if(m==='360'){ const f=webFotoDe(p.id); if(f) it.foto=f; }
     if(p.tipo==='CB'){ const d=ef(p.id); it.lista=Math.round(pr.sumL); it.dto=d; it.precio=Math.round(pr.sumL*(1-d/100)); } else it.precio=Math.round(pr.L); // lista; el descuento lo aplica la web según la fecha
-    if(p.tipo!=='CB'){ const ds=WD[k]; if(dscOk(ds)) it.dsc={pct:+ds.pct,desde:ds.desde||'',hasta:ds.hasta}; const g=p.tipo==='pote'?+(p.medidas?.[m]?.peso||0):0; if(g) it.peso=Math.round(g); }
+    if(p.tipo!=='CB'){ const ds=WD[k]; if(dscOk(ds)&&(!PUB_MODO||dscEstado(ds)==='vig'||(ds.desde&&ds.desde<=pzIsoMas(hoyAR(),1)))) it.dsc={pct:+ds.pct,desde:ds.desde||'',hasta:ds.hasta}; const g=p.tipo==='pote'?+(p.medidas?.[m]?.peso||0):0; if(g) it.peso=Math.round(g); }
     return it; });
   return {completo:true,secciones:WS.map(x=>({id:x.id,fija:!!x.fija,titulo:x.titulo,frase:x.frase,activa:x.activa!==false,menu:x.id!=='combos',estilo:x.id==='autor'?'oscuro':'claro'})),productos,envio:{costo:WE.costo,monto:WE.monto,todos:WE.todos},horarios:{atencion:whOut('atencion'),entrega:whOut('entrega')},generales:{wa:WGN.wa,ig:WGN.ig,anticip:WGN.ant},pausa:WEBCFG.pausa||null}; }
 // Versión de prueba (31/10/2026): exporta lo GUARDADO (mismo armado que la vista previa) a un archivo que build.py incrusta en la web de prueba.
@@ -2839,12 +2840,12 @@ window.webPublicar=async(auto)=>{
     webEstadoGuardado(); let d; PUB_MODO=true; try{ d=webPayload(); } finally{ PUB_MODO=false; } const fotos={};
     d.productos.forEach(it=>{ if(it.foto&&it.foto.startsWith('data:')){ fotos[it.id]=it.foto; it.foto='doc:foto_'+it.id; } });
     const txt=JSON.stringify(d), fh={}; Object.entries(fotos).forEach(([id,u])=>fh[id]=pubHash(u));
-    if(PUB_LAST==null){ const c=(await getDoc(doc(db,WPUB,'carta'))).data(); PUB_LAST=c?.json||''; PUB_FOTOS=c?.fotos||{}; }
+    if(PUB_LAST==null){ const c=(await getDoc(doc(db,WPUB,'carta'))).data(); PUB_LAST=c?.por?'':(c?.json||''); PUB_FOTOS=c?.fotos||{}; } // carta vieja con el mail («por») → se reescribe sin él
     const fotosIg=JSON.stringify(fh)===JSON.stringify(PUB_FOTOS);
     if(txt===PUB_LAST&&fotosIg){ if(!auto) toast('La web ya está al día'); return; }
     for(const [id,u] of Object.entries(fotos)) if(PUB_FOTOS[id]!==fh[id]) await setDoc(doc(db,WPUB,'foto_'+id),{img:u});
     for(const id of Object.keys(PUB_FOTOS)) if(!fotos[id]) await deleteDoc(doc(db,WPUB,'foto_'+id));
-    await setDoc(doc(db,WPUB,'carta'),{json:txt,fotos:fh,generado:new Date().toISOString(),por:auth.currentUser.email||''});
+    await setDoc(doc(db,WPUB,'carta'),{json:txt,fotos:fh,generado:new Date().toISOString()}); // sin datos de la cuenta: es público
     PUB_LAST=txt; PUB_FOTOS=fh; pubPaint(new Date());
     if(!auto) toast('Web actualizada · www.cucchia.com.ar'); else console.log('web publicada', new Date().toLocaleTimeString());
   }catch(e){ console.error('publicar web',e); if(!auto) toast('No se pudo publicar: '+(e.code||e.message)); }
