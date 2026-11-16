@@ -508,7 +508,7 @@ table.ccol.ing td.n input.lin{font-size:1.15rem;text-align:center;padding:.25rem
     </nav>
     <div class="hdr-r">
       <span class="tst caps" id="tstPill"></span>
-      <button class="btn btn-gold caps btn-sm" onclick="pubOpen()">Publicar en Ventas</button>
+      <button class="btn btn-gold caps btn-sm" id="btnPubV" onclick="pubOpen()">Publicar en Ventas<span class="dot" id="pubDot" style="background:var(--bad);margin-left:.45rem;display:none;vertical-align:middle"></span></button>
       <button class="btn btn-sec caps btn-sm" onclick="cerrarSesion()">Salir</button>
     </div>
   </div>
@@ -3058,6 +3058,7 @@ window.verHist=q=>{ if(wDirty&&!confirm('Hay cambios sin guardar. ¿Descartarlos
 // Solo escribe los campos que maneja Administración; el stock, los pedidos y lo demás de Ventas no se tocan.
 const PUB_LBL={nombre:'Nombre',linea:'Línea',activo:'A la venta',precioLanding:'Landing 360',precioRappi:'Rappi 360',ofrece250:'Ofrece 250',precio250Landing:'Landing 250',precio250Rappi:'Rappi 250'};
 const pubFmt=(k,v)=>v==null?'—':typeof v==='boolean'?(v?'sí':'no'):/^precio/.test(k)?$(v):String(v);
+const cbCmpX=d=>JSON.stringify(['codigo','nombre','orden','activo','comp','canales','precioLanding','precioRappi','listaLanding','listaRappi'].map(k=>k==='comp'?cbCompN(d.comp):k==='canales'?jCanon(d.canales):(d[k]??null)));
 function pubPlan(){
   const out=[], usados=new Set();
   prodArr().filter(p=>p.tipo==='pote'&&p.estado!=='dev').sort((a,b)=>a.nombre.localeCompare(b.nombre)).forEach(p=>{
@@ -3093,7 +3094,7 @@ function pubPlan(){
     return {id:p.id,p,falta,d:{codigo:codigo(p),nombre:p.nombre,orden:p.numero||99,activo:p.estado==='activo',comp:Object.values(agr),
       canales:{Landing:!!ch.L,Rappi:!!ch.R},precioLanding:x.L,precioRappi:x.R,listaLanding:Math.round(x.sumL),listaRappi:Math.round(x.sumR)}}; // (30/10) sin Amigos
   });
-  const cbCmp=d=>JSON.stringify(['codigo','nombre','orden','activo','comp','canales','precioLanding','precioRappi','listaLanding','listaRappi'].map(k=>k==='comp'?cbCompN(d.comp):k==='canales'?jCanon(d.canales):(d[k]??null)));
+  const cbCmp=cbCmpX;
   cbWant.forEach(w=>{ if(w.falta){ cbs.faltan.push(w); return; } const v=VCOMB.find(x=>x.id===w.id); if(!v) cbs.altas.push(w); else if(cbCmp(v)!==cbCmp(w.d)) cbs.cambios.push({...w,v}); });
   VCOMB.forEach(v=>{ if(!cbWant.some(w=>w.id===v.id)) cbs.bajas.push(v); });
   cbs.n=cbs.altas.length+cbs.cambios.length+cbs.bajas.length;
@@ -3149,12 +3150,12 @@ window.pubGo=async()=>{
     const extra=[doP?`Descuentos Rappi: ${pr.altas.length} alta${pr.altas.length===1?'':'s'}, ${pr.cambios.length} cambio${pr.cambios.length===1?'':'s'}, ${pr.bajas.length} baja${pr.bajas.length===1?'':'s'}`:'',doC?`Comisión Rappi ${com.ven==null?'—':num(com.ven)+'%'}→${num(com.fin)}%`:'',doR?`Retirados de la venta: ${ret.map(x=>x.nombre).join(', ')}`:'',doCB?`Combos: ${cbs.altas.length} alta${cbs.altas.length===1?'':'s'}, ${cbs.cambios.length} cambio${cbs.cambios.length===1?'':'s'}, ${cbs.bajas.length} baja${cbs.bajas.length===1?'':'s'}`:''].filter(Boolean);
     const det=sel.map(r=>`${r.p.nombre}${r.nuevo?' (nuevo)':''}: `+r.ch.map(k=>`${PUB_LBL[k]} ${r.nuevo?'':pubFmt(k,r.v[k])+'→'}${pubFmt(k,r.d[k])}`).join(', ')).join(' · ');
     await hist('producto',`Publicación en Ventas${TEST?' · entorno de prueba':''}`,'—',[sel.length?`${sel.length} producto${sel.length===1?'':'s'}`:'',...extra.map(x=>x.split(':')[0].split(' ').slice(0,2).join(' '))].filter(Boolean).join(' + '),[det,...extra].filter(Boolean).join(' · '));
-    PUBSEL=null; mClose(); toast(TEST?'Publicado en el entorno de prueba':'Publicado en Ventas');
+    PUBSEL=null; mClose(); toast(TEST?'Publicado en el entorno de prueba':'Publicado en Ventas'); window.ventasAutoPr?.(2500); // recalcula el punto rojo
   }catch(e){ console.error(e); b.disabled=false; b.textContent='Reintentar'; toast('No se pudo publicar: '+(e.message||e)); }
 };
 // ── Publicar en Ventas AUTOMÁTICO (16/11/2026, Dany: «es un riesgo sensible… que el precio no se escape, y menos de cara al cliente»).
-// Mismo plan que la ventana «Publicar en Ventas», sin preguntar: precios/nombres/estado de sabores ya vinculados, descuentos y comisión Rappi, combos.
-// Queda para la ventana manual (con aviso): sabores NUEVOS en Ventas (hay que elegir si se vinculan a uno existente) y «retirar de la venta» sabores que no están en Finanzas.
+// Sin preguntar SOLO: precios de sabores y combos que ya existen en Ventas, descuentos Rappi y comisión Rappi.
+// Todo lo estratégico queda para la ventana manual (con aviso): altas/bajas de sabores y combos, nombres, estado (fuera de carta), línea, 250, composición, canales.
 // Se dispara al guardar un producto, Parámetros o Landing, al abrir Finanzas y cada minuto. En ?test no corre (la prueba se publica a mano).
 let VAUTO_BUSY=false, VAUTO_T=null, VAUTO_AVISO='', VAUTO_ULT='';
 window.ventasAuto=async()=>{
@@ -3162,24 +3163,29 @@ window.ventasAuto=async()=>{
   if(el('mdl')?.classList.contains('on')&&el('pubOk')) return; // la ventana manual está abierta: no pisar lo que Dany está revisando
   VAUTO_BUSY=true;
   try{
-    const {out,pr,com,ret,cbs}=pubPlan(), sel=out.filter(r=>r.ch.length&&!r.nuevo), nuevos=out.filter(r=>r.ch.length&&r.nuevo);
-    const doP=!!pr.n, doC=!!com.n, doCB=!!cbs.n;
-    const pend=[nuevos.length?`${nuevos.length} sabor${nuevos.length===1?'':'es'} nuevo${nuevos.length===1?'':'s'}`:'',ret.length?`${ret.length} para retirar`:'',cbs.faltan.length?`${cbs.faltan.length} combo${cbs.faltan.length===1?'':'s'} sin sus potes`:''].filter(Boolean).join(' · ');
-    if(pend&&pend!==VAUTO_AVISO){ toast('Publicar en Ventas: revisá a mano → '+pend); } VAUTO_AVISO=pend;
-    if(!sel.length&&!doP&&!doC&&!doCB) return;
-    // Freno anti-bucle: si lo que hay que publicar es idéntico a lo que ya se publicó en esta sesión, el diff no se está cerrando → no repetir (queda la ventana manual)
-    const firma=JSON.stringify([sel.map(r=>[r.id,r.d]),pr.altas,pr.cambios,pr.bajas.map(v=>v.id),com.fin,cbs.altas,cbs.cambios,cbs.bajas.map(v=>v.id)]);
+    // 16/11/2026 (Dany): automático SOLO valores del día a día: precios, promos Rappi y comisión. Nada estratégico (altas, bajas, nombres, estado, línea, 250, composición, canales) → ventana manual.
+    const {out,pr,com,ret,cbs}=pubPlan(), PK=['precioLanding','precioRappi','precio250Landing','precio250Rappi'], CK=['precioLanding','precioRappi','listaLanding','listaRappi'];
+    const sel=out.filter(r=>!r.nuevo&&r.ch.some(k=>PK.includes(k))).map(r=>({...r,pk:r.ch.filter(k=>PK.includes(k))}));
+    const manS=out.filter(r=>r.ch.length&&(r.nuevo||r.ch.some(k=>!PK.includes(k))));
+    const solosPrecio=w=>{ const a={...w.v}, b={...w.d}; CK.forEach(k=>{ delete a[k]; delete b[k]; }); return cbCmpX(a)===cbCmpX(b); };
+    const cbP=cbs.cambios.filter(solosPrecio), manC=cbs.altas.length+cbs.bajas.length+cbs.cambios.filter(w=>!solosPrecio(w)).length+cbs.faltan.length;
+    const doP=!!pr.n, doC=!!com.n;
+    const pend=[manS.length?`${manS.length} sabor${manS.length===1?'':'es'} (alta, nombre, estado o 250)`:'',ret.length?`${ret.length} para retirar`:'',manC?`${manC} combo${manC===1?'':'s'} (alta, baja o composición)`:''].filter(Boolean).join(' · ');
+    if(pend&&pend!==VAUTO_AVISO){ toast('Publicar en Ventas · decisiones para revisar a mano: '+pend); } VAUTO_AVISO=pend;
+    { const dt=el('pubDot'), bb=el('btnPubV'); if(dt) dt.style.display=pend?'inline-block':'none'; if(bb) bb.title=pend?'Pendiente de revisar: '+pend:'Ventas al día'; } // punto rojo mientras haya decisiones pendientes
+    if(!sel.length&&!doP&&!doC&&!cbP.length) return;
+    const firma=JSON.stringify([sel.map(r=>[r.id,r.pk.map(k=>r.d[k])]),pr.altas,pr.cambios,pr.bajas.map(v=>v.id),com.fin,cbP.map(w=>[w.id,CK.map(k=>w.d[k])])]);
     if(firma===VAUTO_ULT){ console.warn('ventas auto: el diff no cierra, revisar «Publicar en Ventas»'); return; }
     const bt=writeBatch(db);
-    sel.forEach(r=>{ bt.set(doc(db,VC('sabores'),r.id),r.d,{merge:true}); if(r.p.vid!==r.id) bt.set(doc(db,C.prod,r.p.id),{vid:r.id},{merge:true}); });
+    sel.forEach(r=>{ const o={}; r.pk.forEach(k=>o[k]=r.d[k]); bt.set(doc(db,VC('sabores'),r.id),o,{merge:true}); });
     if(doP){ pr.altas.forEach(w=>bt.set(doc(db,VC('promosRappi'),w.id),{...w.d,ts:serverTimestamp()})); pr.cambios.forEach(w=>bt.set(doc(db,VC('promosRappi'),w.id),w.d,{merge:true})); pr.bajas.forEach(v=>bt.delete(doc(db,VC('promosRappi'),v.id))); }
     if(doC) bt.set(doc(db,VC('config'),'stock'),{comisionRappi:com.fin},{merge:true});
-    if(doCB){ [...cbs.altas,...cbs.cambios].forEach(w=>bt.set(doc(db,VC('combos'),w.id),{...w.d,ts:serverTimestamp()})); cbs.bajas.forEach(v=>bt.delete(doc(db,VC('combos'),v.id))); }
+    cbP.forEach(w=>{ const o={}; CK.forEach(k=>o[k]=w.d[k]); bt.set(doc(db,VC('combos'),w.id),{...o,ts:serverTimestamp()},{merge:true}); });
     await withTimeout(bt.commit(),30000);
-    const det=sel.map(r=>`${r.p.nombre}: `+r.ch.map(k=>`${PUB_LBL[k]} ${pubFmt(k,r.v[k])}→${pubFmt(k,r.d[k])}`).join(', '));
+    const det=sel.map(r=>`${r.p.nombre}: `+r.pk.map(k=>`${PUB_LBL[k]} ${pubFmt(k,r.v[k])}→${pubFmt(k,r.d[k])}`).join(', '));
     if(doP) det.push(`Descuentos Rappi: ${pr.altas.length} alta(s), ${pr.cambios.length} cambio(s), ${pr.bajas.length} baja(s)`);
     if(doC) det.push(`Comisión Rappi ${com.ven==null?'—':num(com.ven)+'%'}→${num(com.fin)}%`);
-    if(doCB) det.push(`Combos: ${cbs.altas.length} alta(s), ${cbs.cambios.length} cambio(s), ${cbs.bajas.length} baja(s)`);
+    cbP.forEach(w=>det.push(`Combo ${w.d.nombre}: Landing ${$(w.v.precioLanding)}→${$(w.d.precioLanding)} · Rappi ${$(w.v.precioRappi)}→${$(w.d.precioRappi)}`));
     await hist('producto','Publicación automática en Ventas','—',`${det.length} cambio${det.length===1?'':'s'}`,det.join(' · '));
     VAUTO_ULT=firma; toast('Ventas actualizado automáticamente');
   }catch(e){ console.error('ventas auto',e); toast('No se pudo actualizar Ventas: '+(e.message||e)+' · usá «Publicar en Ventas»'); }
