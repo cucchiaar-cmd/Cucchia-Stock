@@ -1247,6 +1247,9 @@ const refWeb       = fsDoc(db,'adm_params','web');
 // Cotizaciones de Finanzas (31/10/2026): se leen siempre las reales. Al crear el pedido se marcan «Vendida» (solo fuera de ?test).
 const colCotFin    = fsCollection(db,'adm_cotizaciones');
 function fmtISO(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+// (17/11/2026, Dany) horas siempre en 24 h. Los pedidos viejos guardaron «06:52 p. m.»: se muestran como «18:52».
+function hora24(h){ h=String(h||'').trim(); const m=h.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*([ap])\.?\s*m\.?$/i); if(!m) return h; let H=+m[1]%12; if(/p/i.test(m[3])) H+=12; return String(H).padStart(2,'0')+':'+m[2]; }
+const horaAR=()=>new Intl.DateTimeFormat('es-AR',{timeZone:'America/Argentina/Buenos_Aires',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date());
 function fechaArgentinaISO(d){ return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Argentina/Buenos_Aires',year:'numeric',month:'2-digit',day:'2-digit'}).format(d||new Date()); }
 
 /* ===================== NAV / TABS ===================== */
@@ -2061,7 +2064,7 @@ function tarjetaPedido(p, esListo, ctx){
       <div class="strip" style="background:${strip}"></div>
       <div class="ohead"><span class="onum">${p.numero}</span><span class="chan"><span class="dot ${chDot}"></span>${chTxt}</span></div>
       <div class="cli">${cliNombre}</div>
-      <div class="meta">${[(p.cliente&&p.cliente.direccion) || (p.entrega==='Retira'?'Retira en local':''), p.hora?'pedido '+p.hora:''].filter(Boolean).join(' · ')}</div>
+      <div class="meta">${[(p.cliente&&p.cliente.direccion) || (p.entrega==='Retira'?'Retira en local':''), p.hora?'pedido '+hora24(p.hora):''].filter(Boolean).join(' · ')}</div>
       ${lineaDespacho(p)}
       ${p.rappiPedidoId ? `<div class="meta" style="color:var(--rappi);font-weight:700">Rappi #${p.rappiPedidoId}</div>` : ''}
       ${lineaWeb(p)}
@@ -2075,7 +2078,7 @@ function tarjetaPedido(p, esListo, ctx){
       ${entregaVencida(p)?`<div class="meta" style="color:var(--bad);font-weight:700;margin:2px 0 6px">⚠ Entrega vencida (${fmtFecha(fechaEntregaISO(p))}${p.horaEntrega?' '+p.horaEntrega:''}) · revisá o cancelá</div>`:''}
     <div class="strip" style="background:${strip}"></div>
     <div class="ohead"><span class="onum">${p.numero}</span>
-      <div style="display:flex;gap:9px;align-items:center"><span class="when">${p.hora||''}</span><span class="chan"><span class="dot ${chDot}"></span>${chTxt}</span></div></div>
+      <div style="display:flex;gap:9px;align-items:center"><span class="when">${hora24(p.hora)}</span><span class="chan"><span class="dot ${chDot}"></span>${chTxt}</span></div></div>
     <div class="cli">${cliNombre}</div>
     <div class="meta">${[(p.cliente&&p.cliente.telefono)||'', p.entrega||'Delivery', (p.cliente&&p.cliente.direccion) ? p.cliente.direccion+(p.cliente.referencia?(' · '+p.cliente.referencia):'') : ''].filter(Boolean).join(' · ')}</div>
     ${rappiLinea}
@@ -2273,7 +2276,7 @@ async function restaurarPedido(bid){
 async function vaciarBorrado(bid){ if(!confirm('¿Borrar definitivamente este pedido de la papelera? Ya no se va a poder recuperar.')) return; await deleteDoc(doc(db,'pedidos_borrados', bid)); }
 function renderBorrados(){ const n = document.getElementById('repBorradosN'); if(n) n.textContent = BORRADOS.length ? '('+BORRADOS.length+')' : ''; const el = document.getElementById('histBorrados'); if(!el) return;
   if(!BORRADOS.length){ el.innerHTML = '<div class="meta">No hay pedidos borrados.</div>'; return; }
-  el.innerHTML = BORRADOS.map(b=>{ const d = b.borradoEl ? new Date(b.borradoEl).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+  el.innerHTML = BORRADOS.map(b=>{ const d = b.borradoEl ? new Date(b.borradoEl).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}) : '';
     return `<div class="listrow"><span><b style="color:var(--navy)">${b.numero}</b> · ${b.cliente||'Cliente'} · ${fmt$(b.total||0)} <span class="meta" style="display:inline">· ${b.motivo==='eliminado'?'eliminado (estaba despachado)':'cancelado'} el ${d}</span></span>
       <span style="display:flex;gap:6px"><button class="btn btn-xs btn-ok" onclick="restaurarPedido('${b.bid}')">Recuperar</button><button class="btn btn-xs btn-danger" onclick="vaciarBorrado('${b.bid}')">Borrar</button></span></div>`; }).join(''); }
 async function cancelarPedido(id){
@@ -2622,7 +2625,7 @@ function ticket(id){
     <div class="ts">El frío justo. La seda. El crujir.</div>
     <div class="tc">COMANDA · PEDIDO ${p.numero}</div>
     <div class="tdiv"></div>
-    <div class="trow"><b>Fecha</b><span>${fmtFecha(p.fecha)}${p.hora?(' · '+p.hora):''}</span></div>
+    <div class="trow"><b>Fecha</b><span>${fmtFecha(p.fecha)}${p.hora?(' · '+hora24(p.hora)):''}</span></div>
     <div class="trow"><b>Canal</b><span>${canalTxt}</span></div>
     <div class="trow"><b>Cliente</b><span>${(p.cliente&&p.cliente.nombre)||'—'}</span></div>
     ${p.rappiPedidoId ? `<div class="trow"><b>N° Rappi</b><span>${p.rappiPedidoId}</span></div>` : ''}
@@ -2666,7 +2669,7 @@ function descargarTicketPDF(){
   const { jsPDF } = window.jspdf;
   const canalTxt = p.canalContacto==='wa'?'WhatsApp':p.canalContacto==='manual'?'Manual':p.canalContacto==='tel'?'Teléfono':'Rappi';
   const dirTxt = (p.cliente&&p.cliente.direccion) ? p.cliente.direccion+(p.cliente.referencia?(' · '+p.cliente.referencia):'') : '';
-  const filas = [['Fecha', fmtFecha(p.fecha)+(p.hora?(' · '+p.hora):'')], ['Canal', canalTxt], ['Cliente', (p.cliente&&p.cliente.nombre)||'—']];
+  const filas = [['Fecha', fmtFecha(p.fecha)+(p.hora?(' · '+hora24(p.hora)):'')], ['Canal', canalTxt], ['Cliente', (p.cliente&&p.cliente.nombre)||'—']];
   if(p.rappiPedidoId) filas.push(['N° Rappi', p.rappiPedidoId]);
   if(dirTxt) filas.push(['Dirección', dirTxt]);
   const potesFilas = [];
@@ -3404,7 +3407,7 @@ async function crearPedido(){
     subtotal, subtotalBruto, descuentoPct, descuentoValor, envio, total,
     estado: 'pendiente',
     fecha,
-    hora: new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),
+    hora: horaAR(),
     ts: serverTimestamp()
   });
   // Cotizaciones traídas de Finanzas → «Vendida» con el N° de pedido (no en ?test: no se tocan datos reales desde la prueba)
@@ -3987,7 +3990,7 @@ async function crearGiftCard(){
     subtotal:total, subtotalBruto:total, descuentoPct:0, descuentoValor:0, envio:0, total,
     estado:'pendiente',
     fecha: fechaCompra,
-    hora: new Date().toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}),
+    hora: horaAR(),
     giftCardPendienteCanje: true,
     ts: serverTimestamp()
   });
@@ -4547,7 +4550,7 @@ function pedidoDiaHTML(p){
   return `<div class="listrow" style="cursor:pointer" onclick="toggleExpandPedido('${p.id}')">
     <div class="nm">${p.numero} · ${cliNombre}</div>
     <div style="display:flex;align-items:center;gap:14px">
-      <span class="meta">${p.hora||''} · ${fmt$(p.total)}</span>
+      <span class="meta">${hora24(p.hora)} · ${fmt$(p.total)}</span>
       <span style="font-size:11px;color:var(--muted);font-weight:700">▾ Ver</span>
     </div>
   </div>`;
@@ -4619,7 +4622,7 @@ function renderHistorial(){
   const resultadosEl = document.getElementById('histResultados');
   if(q){
     const listos = PEDIDOS.filter(p=>p.estado==='listo' && p.fechaListo);
-    const resultados = listos.filter(p=>comprobanteMatch(p,q)).sort((a,b)=> (b.fechaListo+(b.hora||'')).localeCompare(a.fechaListo+(a.hora||'')));
+    const resultados = listos.filter(p=>comprobanteMatch(p,q)).sort((a,b)=> (b.fechaListo+hora24(b.hora)).localeCompare(a.fechaListo+hora24(a.hora)));
     if(listaEl) listaEl.style.display = 'none';
     if(resultadosEl){
       resultadosEl.style.display = '';
@@ -5172,7 +5175,7 @@ Object.assign(window, {
 // APP_BUILD: cambiarlo en CADA modificación de este archivo (lo usa la detección cuando la página vino de la caché).
 // Cada 3 min, al volver a la ventana y a los 5 s de abrir se pregunta a GitHub por el archivo publicado (HEAD sin caché: no gasta
 // lecturas de Firebase). Si cambió: sin cambios pendientes → recarga sola; con cambios → aviso fijo.
-const APP_BUILD='2026-11-17a';
+const APP_BUILD='2026-11-17b';
 (function(){
   if(!/^https?:$/.test(location.protocol)) return;
   let base = null, aviso = null;
