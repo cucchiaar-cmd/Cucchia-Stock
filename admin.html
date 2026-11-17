@@ -650,7 +650,7 @@ const SEED_LISTA={prov:"PRV-001",fecha:"2026-09-29",nombre:"Alyser 09206"};
 </script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
-import { getFirestore, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, onSnapshot, writeBatch, serverTimestamp, query, orderBy, limit, where } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, doc, getDoc, getDocs, setDoc, addDoc, deleteDoc, onSnapshot, writeBatch, serverTimestamp, query, orderBy, limit, where } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail, setPersistence, browserLocalPersistence, browserSessionPersistence } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
 
 const fbApp = initializeApp({
@@ -661,7 +661,8 @@ const fbApp = initializeApp({
   messagingSenderId: "783782763117",
   appId: "1:783782763117:web:4023696e12c9f4f9d07d64"
 });
-const db = getFirestore(fbApp);
+// 17/11/2026 (cuota Firebase): caché local en el navegador → recargar dentro de ~30 min no vuelve a cobrar todas las lecturas
+let db; try{ db=initializeFirestore(fbApp,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})}); }catch(e){ console.warn('sin caché local',e); db=getFirestore(fbApp); }
 const auth = getAuth(fbApp);
 
 // Colecciones propias de Administración (modo prueba: nunca escribe en las de Ventas)
@@ -1209,8 +1210,10 @@ function listeners(){
   onSnapshot(collection(db,C.ins), s=>{ INS={}; s.forEach(d=>INS[d.id]=d.data()); ready.i=1; go(); });
   onSnapshot(collection(db,C.prod), s=>{ PROD={}; s.forEach(d=>PROD[d.id]={id:d.id,...d.data()}); ready.d=1; if(view==='web'&&!webDirty&&el('boot').classList.contains('hide')) renderWeb(); go(); });
   onSnapshot(collection(db,C.prov), s=>{ PROV={}; s.forEach(d=>PROV[d.id]=d.data()); if(view==='ins') renderIns(); });
-  onSnapshot(query(collection(db,C.hist),orderBy('ts','desc'),limit(300)), s=>{ HIST=s.docs.map(d=>d.data()); if(view==='hist') renderHist(); });
-  onSnapshot(collection(db,C.cat), s=>{ CAT={}; s.forEach(d=>CAT[d.id]=d.data()); if(!el('boot').classList.contains('hide')) return;
+  // 17/11/2026: el Historial (300 lecturas) se carga recién al entrar a Historial → histOn()
+  // 17/11/2026: el catálogo de proveedores (~1.260 docs) se lee de UN documento resumen (adm_params/catalogo, campo json): 1 lectura en vez de 1.260.
+  //   Los docs de adm_catalogo siguen siendo la fuente; el resumen se reescribe al aplicar una lista. Si falta, se arma una vez desde la colección.
+  onSnapshot(doc(db,C.par,'catalogo'), async s=>{ if(s.exists()&&s.data().json){ CAT=JSON.parse(s.data().json); } else { const t={}; (await getDocs(collection(db,C.cat))).forEach(d=>t[d.id]=d.data()); CAT=t; catResumen(t).catch(e=>console.warn('resumen catálogo',e)); } if(!el('boot').classList.contains('hide')) return;
     if(view==='ins') renderIns(); else if(view==='prod'){ if(W) renderDet(); else renderProd(); } if(catOpen) catRender(); });
   onSnapshot(collection(db,C.cot), s=>{ COTS={}; s.forEach(d=>COTS[d.id]=d.data()); if(view==='cot'){ if(!CW) renderCot(); else cotKpis(); } });
   onSnapshot(collection(db,C.prep), s=>{ PREPS={}; s.forEach(d=>PREPS[d.id]=d.data()); if(view==='cot'&&!cDirty) renderCot(); });
@@ -1241,7 +1244,7 @@ document.querySelectorAll('nav.main a').forEach(a=>a.addEventListener('click',()
   if(view==='web'&&webDirty&&a.dataset.v!=='web'&&!confirm('Hay cambios sin guardar en Landing. ¿Descartarlos?')) return;
   if(a.dataset.v!=='web') webDirty=false;
   W=null; wDirty=false; if(a.dataset.v!=='cot'){ CW=null; cDirty=false; }
-  view=a.dataset.v; document.querySelectorAll('nav.main a').forEach(x=>x.classList.toggle('on',x===a));
+  view=a.dataset.v; if(view==='hist') histOn(); document.querySelectorAll('nav.main a').forEach(x=>x.classList.toggle('on',x===a));
   ['prod','cot','ins','par','web','hist'].forEach(v=>el('v-'+v).classList.toggle('hide',v!==view));
   el('lista').classList.remove('hide'); el('detalle').classList.add('hide');
   renderAll(); window.scrollTo(0,0);
@@ -2356,11 +2359,16 @@ function catRevisar(items,fecha,prov,archivo){
   ${items.filter(x=>!x.g).length?`<p class="subtle" style="font-size:.75rem;margin-top:.6rem">${items.filter(x=>!x.g).length} productos sin peso reconocible quedan en el catálogo pero no entran en la comparación por gramo.</p>`:''}
   <div class="mdl-foot"><button class="btn btn-sec caps" onclick="catVer()">Volver</button><button class="btn btn-save caps" data-state="dirty" id="nlOk" onclick="catAplicar()">Aplicar lista</button></div>`,900);
 };
+// 17/11/2026: lecturas bajo demanda
+async function catResumen(cat){ await setDoc(doc(db,C.par,'catalogo'),{json:JSON.stringify(cat),n:Object.keys(cat).length,ts:new Date().toISOString()}); }
+let HIST_ON=false;
+function histOn(){ if(HIST_ON) return; HIST_ON=true; onSnapshot(query(collection(db,C.hist),orderBy('ts','desc'),limit(300)), s=>{ HIST=s.docs.map(d=>d.data()); if(view==='hist') renderHist(); }); }
 window.catAplicar=async()=>{ const N=NUEVA; if(!N) return; const fecha=el('nlF').value||N.fecha, b0=el('nlOk'); b0.disabled=true; b0.innerHTML='<span class="spin sm inv"></span>Aplicando…';
   try{
     const docs=N.items.map(x=>({...(CAT[x.sku]||{}),...x,prov:N.prov,lista:fecha,baja:false})).concat(N.bajas.map(x=>({...x,baja:true})));
     for(let k=0;k<docs.length;k+=400){ const b=writeBatch(db); docs.slice(k,k+400).forEach(x=>b.set(doc(db,C.cat,x.sku),x)); await withTimeout(b.commit(),60000); }
     const NC={...CAT}; docs.forEach(x=>NC[x.sku]=x);
+    await catResumen(NC); // resumen del catálogo (lo que lee Finanzas al abrir)
     const b=writeBatch(db), C0=CAT; CAT=NC;
     for(const c of N.insCh){ const I=INS[c], e=elegido(I); if(e) b.set(doc(db,C.ins,c),{...I,precio:pg(e),ref:e.desc,proveedor:e.prov,actualizado:fecha,estado:'ok'}); }
     CAT=C0; await withTimeout(b.commit(),30000);

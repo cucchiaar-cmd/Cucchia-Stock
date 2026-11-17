@@ -1204,7 +1204,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
 /* ===================== FIREBASE (Firestore) ===================== */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
 import {
-  getFirestore, collection as fsCollection, doc as fsDoc, getDoc, getDocs, setDoc, addDoc, updateDoc,
+  getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection as fsCollection, doc as fsDoc, getDoc, getDocs, setDoc, addDoc, updateDoc,
   deleteDoc, onSnapshot, writeBatch, query, orderBy, serverTimestamp, increment
 } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
@@ -1218,7 +1218,8 @@ const firebaseConfig = {
   appId: "1:783782763117:web:4023696e12c9f4f9d07d64"
 };
 const fbApp        = initializeApp(firebaseConfig);
-const db           = getFirestore(fbApp);
+// 17/11/2026 (cuota Firebase): caché local en el navegador → recargar dentro de ~30 min no vuelve a cobrar todas las lecturas
+let db; try{ db=initializeFirestore(fbApp,{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})}); }catch(e){ console.warn('sin caché local',e); db=getFirestore(fbApp); }
 const auth         = getAuth(fbApp); // login email+contraseña (29/09/2026): el sistema no arranca listeners hasta que hay sesión
 // Entorno de prueba (30/09/2026): abriendo el archivo con ?test al final de la dirección, TODAS las colecciones
 // pasan a test_* (copia de los datos reales que se genera desde Administración). Sin ?test, todo funciona como siempre.
