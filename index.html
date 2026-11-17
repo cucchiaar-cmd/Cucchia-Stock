@@ -5167,6 +5167,44 @@ Object.assign(window, {
   cancelarGiftCardPedido, eliminarGiftCardConfirmada, irAEditarGiftCard, actualizarReferenciaAmigosGC, actualizarMensajeWhatsAppGC, copiarMensajeWhatsAppGC, mensajeWhatsAppGC, compartirMensajeWhatsAppGC, descargarImagenMenuGC, subirImagenMenuGC,
   onCanalVentaChange, toggleBox, marcarPausado, cerrarAlertaStock, previsualizarCuponGiftCard, cerrarPreviewCuponGiftCard, descargarCuponDesdePreview
 });
+
+// ───────── Versión nueva → se actualiza sola (17/11/2026, Dany: «si se sube una actualización, que se tome sola») ─────────
+// APP_BUILD: cambiarlo en CADA modificación de este archivo (lo usa la detección cuando la página vino de la caché).
+// Cada 3 min, al volver a la ventana y a los 5 s de abrir se pregunta a GitHub por el archivo publicado (HEAD sin caché: no gasta
+// lecturas de Firebase). Si cambió: sin cambios pendientes → recarga sola; con cambios → aviso fijo.
+const APP_BUILD='2026-11-17a';
+(function(){
+  if(!/^https?:$/.test(location.protocol)) return;
+  let base = null, aviso = null;
+  const firma = async () => { const r = await fetch(location.pathname, { method:'HEAD', cache:'no-store' }); return r.ok ? (r.headers.get('etag') || r.headers.get('last-modified') || '') : ''; };
+  function obsoleta(){
+    window.__VER_OBSOLETA = true;
+    if(!(Object.values(pedidoCart||{}).some(n=>n>0) || !!document.querySelector('.modal.show') || /^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement||{}).tagName||''))){ location.reload(); return; }
+    if(!aviso){ aviso = document.createElement('div');
+      aviso.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:var(--navy);color:var(--cream-base);padding:10px 16px;text-align:center;font:600 13px Montserrat,sans-serif;letter-spacing:.02em;box-shadow:0 2px 8px rgba(0,0,0,.25)';
+      aviso.textContent = 'Hay una versión nueva del sistema. Guardá tus cambios: se actualiza sola apenas no quede nada pendiente.';
+      document.body.appendChild(aviso); }
+  }
+  async function chequear(){
+    try{
+      if(window.__VER_OBSOLETA){ obsoleta(); return; }
+      const f = await firma(); if(!f) return;
+      if(base === null){ base = f;
+        const nav = performance.getEntriesByType('navigation')[0];
+        if(nav && nav.transferSize === 0){ // la página vino de la caché del navegador: comparar con la publicada
+          const t = await (await fetch(location.pathname, { cache:'no-store' })).text();
+          const m = t.match(new RegExp('APP_' + 'BUILD=\'([0-9a-z-]+)\''));
+          if(m && m[1] !== APP_BUILD) obsoleta(); }
+        return; }
+      if(f !== base) obsoleta();
+    }catch(e){}
+  }
+  setInterval(chequear, 180000); setInterval(()=>{ if(window.__VER_OBSOLETA) chequear(); }, 20000);
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) chequear(); });
+  window.addEventListener('focus', chequear);
+  setTimeout(chequear, 1500);
+})();
+
 Object.defineProperties(window, {
   PEDIDOS: { get: () => PEDIDOS, configurable:true },
   LOTES: { get: () => LOTES, configurable:true },

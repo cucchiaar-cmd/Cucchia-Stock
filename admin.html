@@ -2838,6 +2838,7 @@ window.webExportar=async()=>{ if(webDirty){ toast('Primero guardá los cambios d
 const WPUB='web_publico'; let PUB_LAST=null, PUB_FOTOS=null, PUB_BUSY=false, PUB_T=null;
 const pubHash=t=>{ let h=0; for(let i=0;i<t.length;i++) h=(h*31+t.charCodeAt(i))|0; return (h>>>0).toString(36)+'.'+t.length; };
 window.webPublicar=async(auto)=>{
+  if(window.__VER_OBSOLETA){ if(!auto) toast('Hay una versión nueva: recargá antes de publicar'); return; } // (17/11) una versión vieja no publica
   if(TEST){ if(!auto) toast('En el entorno de prueba no se publica en la web real'); return; }
   if(webDirty){ if(!auto) toast('Primero guardá los cambios de Landing'); return; }
   if(PUB_BUSY||!P||!auth.currentUser) return;
@@ -3167,6 +3168,7 @@ window.pubGo=async()=>{
 // Se dispara al guardar un producto, Parámetros o Landing, al abrir Finanzas y cada minuto. En ?test no corre (la prueba se publica a mano).
 let VAUTO_BUSY=false, VAUTO_T=null, VAUTO_AVISO='', VAUTO_ULT='';
 window.ventasAuto=async()=>{
+  if(window.__VER_OBSOLETA) return; // (17/11) una versión vieja no publica en Ventas
   if(TEST||VAUTO_BUSY||!P||!auth.currentUser||!VSAB.length) return;
   if(el('mdl')?.classList.contains('on')&&el('pubOk')) return; // la ventana manual está abierta: no pisar lo que Dany está revisando
   VAUTO_BUSY=true;
@@ -3234,6 +3236,43 @@ Object.defineProperty(window,'PW',{get:()=>PW});
 Object.defineProperty(window,'AMW',{get:()=>AMW});
 Object.defineProperty(window,'RW',{get:()=>RW});
 window.addEventListener('beforeunload',e=>{ if(wDirty||parDirty){ e.preventDefault(); e.returnValue=''; } });
+
+// ───────── Versión nueva → se actualiza sola (17/11/2026, Dany: «si se sube una actualización, que se tome sola») ─────────
+// APP_BUILD: cambiarlo en CADA modificación de este archivo (lo usa la detección cuando la página vino de la caché).
+// Cada 3 min, al volver a la ventana y a los 5 s de abrir se pregunta a GitHub por el archivo publicado (HEAD sin caché: no gasta
+// lecturas de Firebase). Si cambió: sin cambios pendientes → recarga sola; con cambios → aviso fijo y Finanzas deja de publicar (web y Ventas) hasta recargar.
+const APP_BUILD='2026-11-17a';
+(function(){
+  if(!/^https?:$/.test(location.protocol)) return;
+  let base = null, aviso = null;
+  const firma = async () => { const r = await fetch(location.pathname, { method:'HEAD', cache:'no-store' }); return r.ok ? (r.headers.get('etag') || r.headers.get('last-modified') || '') : ''; };
+  function obsoleta(){
+    window.__VER_OBSOLETA = true;
+    if(!(wDirty||parDirty||cDirty||pwDirty||webDirty)){ location.reload(); return; }
+    if(!aviso){ aviso = document.createElement('div');
+      aviso.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:var(--navy);color:var(--cream-base);padding:10px 16px;text-align:center;font:600 13px Montserrat,sans-serif;letter-spacing:.02em;box-shadow:0 2px 8px rgba(0,0,0,.25)';
+      aviso.textContent = 'Hay una versión nueva del sistema. Guardá tus cambios: se actualiza sola apenas no quede nada pendiente. Mientras tanto no se publica nada en la web ni en Ventas.';
+      document.body.appendChild(aviso); }
+  }
+  async function chequear(){
+    try{
+      if(window.__VER_OBSOLETA){ obsoleta(); return; }
+      const f = await firma(); if(!f) return;
+      if(base === null){ base = f;
+        const nav = performance.getEntriesByType('navigation')[0];
+        if(nav && nav.transferSize === 0){ // la página vino de la caché del navegador: comparar con la publicada
+          const t = await (await fetch(location.pathname, { cache:'no-store' })).text();
+          const m = t.match(new RegExp('APP_' + 'BUILD=\'([0-9a-z-]+)\''));
+          if(m && m[1] !== APP_BUILD) obsoleta(); }
+        return; }
+      if(f !== base) obsoleta();
+    }catch(e){}
+  }
+  setInterval(chequear, 180000); setInterval(()=>{ if(window.__VER_OBSOLETA) chequear(); }, 20000);
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) chequear(); });
+  window.addEventListener('focus', chequear);
+  setTimeout(chequear, 1500);
+})();
 
 </script>
 </body>
