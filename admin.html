@@ -2852,9 +2852,9 @@ window.webPublicar=async(auto)=>{
     if(PUB_LAST==null){ const c=(await getDoc(doc(db,WPUB,'carta'))).data(); PUB_LAST=c?.por?'':(c?.json||''); PUB_FOTOS=c?.fotos||{}; } // carta vieja con el mail («por») → se reescribe sin él
     const fotosIg=JSON.stringify(fh)===JSON.stringify(PUB_FOTOS);
     if(txt===PUB_LAST&&fotosIg){ if(!auto) toast('La web ya está al día'); return; }
-    for(const [id,u] of Object.entries(fotos)) if(PUB_FOTOS[id]!==fh[id]) await setDoc(doc(db,WPUB,'foto_'+id),{img:u});
+    for(const [id,u] of Object.entries(fotos)) if(PUB_FOTOS[id]!==fh[id]) await setDoc(doc(db,WPUB,'foto_'+id),{img:u,ver:2});
     for(const id of Object.keys(PUB_FOTOS)) if(!fotos[id]) await deleteDoc(doc(db,WPUB,'foto_'+id));
-    await setDoc(doc(db,WPUB,'carta'),{json:txt,fotos:fh,generado:new Date().toISOString()}); // sin datos de la cuenta: es público
+    await setDoc(doc(db,WPUB,'carta'),{json:txt,fotos:fh,generado:new Date().toISOString(),ver:2}); // (17/11) ver:2 → las reglas de Firebase rechazan publicaciones de versiones viejas (sin ver) // sin datos de la cuenta: es público
     PUB_LAST=txt; PUB_FOTOS=fh; pubPaint(new Date());
     if(!auto) toast('Web actualizada · www.cucchia.com.ar'); else console.log('web publicada', new Date().toLocaleTimeString());
   }catch(e){ console.error('publicar web',e); if(!auto) toast('No se pudo publicar: '+(e.code||e.message)); }
@@ -3241,7 +3241,7 @@ window.addEventListener('beforeunload',e=>{ if(wDirty||parDirty){ e.preventDefau
 // APP_BUILD: cambiarlo en CADA modificación de este archivo (lo usa la detección cuando la página vino de la caché).
 // Cada 3 min, al volver a la ventana y a los 5 s de abrir se pregunta a GitHub por el archivo publicado (HEAD sin caché: no gasta
 // lecturas de Firebase). Si cambió: sin cambios pendientes → recarga sola; con cambios → aviso fijo y Finanzas deja de publicar (web y Ventas) hasta recargar.
-const APP_BUILD='2026-11-17a';
+const APP_BUILD='2026-11-17b';
 (function(){
   if(!/^https?:$/.test(location.protocol)) return;
   let base = null, aviso = null;
