@@ -596,7 +596,7 @@ table.ccol.ing td.n input.lin{font-size:1.15rem;text-align:center;padding:.25rem
       <div class="kpis" id="wKpis"></div>
     </div>
   </section>
-  <section class="sec"><div class="wrap"><div style="position:sticky;top:5.25rem;z-index:6;display:flex;justify-content:flex-end;margin:-1rem 0 1rem;pointer-events:none"><button class="btn btn-sec caps" id="btnPrueba" style="pointer-events:auto;box-shadow:0 4px 14px rgba(26,26,46,.18);margin-right:.5rem" title="Guarda un archivo con los datos guardados de la web (precios, estados, combos, horarios, fotos) para armar la versión de prueba" onclick="webExportar()">Datos para la prueba</button><button class="btn btn-sec caps" id="btnPub" style="pointer-events:auto;box-shadow:0 4px 14px rgba(26,26,46,.18);margin-right:.5rem" title="Publica lo guardado en www.cucchia.com.ar (también se publica solo al guardar y cada minuto si cambió algo)" onclick="webPublicar()">Publicar en la web</button><button class="btn btn-pri caps" id="btnPrev" style="pointer-events:auto;box-shadow:0 4px 14px rgba(26,26,46,.28)" onclick="webPrev()">Ver vista previa</button></div><div id="webLay" class="web-lay"><div class="par-grid" id="webGrid"></div>
+  <section class="sec"><div class="wrap"><div style="position:sticky;top:5.25rem;z-index:6;display:flex;justify-content:flex-end;margin:-1rem 0 1rem;pointer-events:none"><button class="btn btn-sec caps" id="btnPub" style="pointer-events:auto;box-shadow:0 4px 14px rgba(26,26,46,.18);margin-right:.5rem" title="Publica lo guardado en cucchia.ar (también se publica solo al guardar y cada minuto si cambió algo)" onclick="webPublicar()">Publicar en la web</button><button class="btn btn-pri caps" id="btnPrev" style="pointer-events:auto;box-shadow:0 4px 14px rgba(26,26,46,.28)" onclick="webPrev()">Ver vista previa</button></div><div id="webLay" class="web-lay"><div class="par-grid" id="webGrid"></div>
     <aside id="webPrev" class="web-prev hide"><div class="pcard" style="display:flex;flex-direction:column;gap:.6rem">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap"><span class="caps" style="font-size:.7rem;color:var(--espresso)">Vista previa · en vivo</span><div class="size-sel caps" id="wDev"><button data-d="cel" onclick="webDev('cel')">Celular</button><button data-d="esc" onclick="webDev('esc')">Escritorio</button></div></div>
       <div class="frame" id="wFrameBox"><iframe id="wFrame" title="Vista previa de la web" allow="clipboard-write"></iframe></div>
@@ -2563,7 +2563,7 @@ const numIn=v=>parseFloat(String(v).replace(/[^0-9.,]/g,'').replace(',','.'));
 // Carga en W* lo GUARDADO de la web (lo usa renderWeb y la publicación automática). 16/11/2026
 function webEstadoGuardado(){
   WG=cbDto(); WCB={}; webCombos().forEach(p=>WCB[p.id]=webSaved(p.id)); WP={}; webItems().forEach(it=>WP[it.k]=webWOf(it.p,it.m)); WE=webEnvDef();
-  WT={}; WF={}; webTxtProds().forEach(p=>WT[p.id]={frase:p.webFrase||'',desc:p.webDesc||'',sec:p.webSeccion||'',pres:+p.webPres||1});
+  WT={}; WF={}; WFO={}; webTxtProds().forEach(p=>WT[p.id]={frase:p.webFrase||'',desc:p.webDesc||'',sec:p.webSeccion||'',pres:+p.webPres||1});
   WS=wsNorm(WEBCFG.secciones); WH=webHorDef(); WGN=webGnDef(); WD={}; webItems().forEach(({k,p,m})=>{ if(p.tipo!=='CB') WD[k]=dscOf(p,m); });
 }
 window.renderWeb=()=>{
@@ -2579,7 +2579,7 @@ window.renderWeb=()=>{
     <table class="ccol ptab wcarta"><thead><tr class="caps"><th>Producto</th><th colspan="3" style="text-align:center">Estado</th></tr></thead><tbody id="wCarta"></tbody></table>
     <p class="muted" style="font-size:.72rem;margin-top:.5rem"><b>Estado</b>: carta (Activo / Fuera de carta) · interruptor para forzar «En producción» · cómo se ve en la web. <b>Visible</b>: se vende. <b>En producción</b>: tarjeta grisada con «En producción · vuelve en breve»; se activa sola cuando Ventas registra stock 0 y vuelve sola cuando entra stock (o la forzás acá). <b>Fuera de carta</b>: en De Autor, tarjeta grisada con «¿Querés que vuelva? Avisanos»; en Clásicos se ve «En producción · vuelve en breve»; un <b>combo</b> fuera de carta sale de la web (si no queda ningún combo visible, la sección Combos no aparece). Un combo con un pote sin stock (o sin cantidad suficiente para armar uno) pasa solo a «En producción» y vuelve cuando entra stock (en la línea 360 es el mismo estado del producto: también lo saca de Ventas al publicar; en la línea 250 es solo de la web). Acá están los productos que se venden en Landing: para sacar uno de la web, destildá Landing en su ficha. El stock es el real de Ventas. <b>Nombres:</b> la web muestra siempre el nombre de Finanzas (tarjeta, carrito y mensaje de WhatsApp); para cambiarlo, se cambia en la ficha del producto.</p></div>
    <div class="pcard wide"><div class="kicker"><span class="dot" style="width:10px;height:10px;background:var(--espresso-rich)"></span><span class="caps">02 · Contenido</span></div><h3 class="h-md">Textos de las tarjetas</h3>
-    <div style="display:flex;justify-content:flex-end"><button class="btn btn-gold caps btn-sm" onclick="webNuevo()">+ Sumar producto</button></div>
+    <div style="display:flex;justify-content:flex-end;gap:.5rem;flex-wrap:wrap"><button class="btn btn-gold caps btn-sm" onclick="webNuevo()">+ Sumar producto</button></div>
     <div id="wTxt"></div><input type="file" id="wFile" accept="image/*" class="hide" onchange="webFotoSel(this)">
     <p class="muted" style="font-size:.72rem;margin-top:.5rem">El nombre sale de la ficha del producto (es el mismo en Ventas). Acá van la frase y la descripción que ve el cliente. Vacío = queda el texto actual de la web (se ve en gris). Los combos no llevan frase. <b>Foto</b>: se achica sola (máx. 1000 px, WebP) y se guarda en la base; «Quitar» vuelve a la foto actual de la web. <b>+ Sumar producto</b>: elegís uno de Productos (activo y todavía sin Landing); si la web no tiene tarjeta para él, le arma una nueva con el diseño de su línea.</p></div>
    <div class="pcard wide"><div class="kicker"><span class="dot" style="width:10px;height:10px;background:var(--navy)"></span><span class="caps">03 · Combos</span></div><h3 class="h-md">Precio Landing = suma de lista − descuento</h3>
@@ -2612,12 +2612,11 @@ window.renderWeb=()=>{
     <p class="muted" style="font-size:.72rem;margin-top:.5rem"><b>WhatsApp</b>: el número al que llegan los pedidos del carrito, las consultas de eventos, «¿Querés que vuelva? Avisanos», el botón «Pedir WhatsApp» y el footer. Cambialo con cuidado: si está mal, los pedidos no te llegan (probalo desde la web publicada). <b>Instagram</b>: el enlace y el texto del footer.</p></div>`;
   // 02 · Contenido: se dibuja una sola vez (mientras se escribe no se redibuja)
   const gl=['Clásicos','De Autor','','Otras secciones','Combos']; let g0=-1;
-  el('wTxt').innerHTML=webTxtProds().map(p=>{ const g=webGrp(p), t=WT[p.id], cb=p.tipo==='CB';
+  el('wTxt').innerHTML=webTxtProds().map(p=>{ const g=webGrp(p), t=WT[p.id], cb=p.tipo==='CB', pote=p.tipo==='pote'&&(g===0||g===1); // (17/11) potes: foto de la tarjeta + foto del hero
     const head=g!==g0?(g0=g,`<div class="caps muted" style="font-size:.66rem;padding-top:.9rem">${gl[g]}</div>`):'';
     return head+`<div style="display:grid;grid-template-columns:minmax(9rem,12rem) minmax(0,1fr);gap:.4rem 1rem;padding:.7rem 0;border-bottom:1px solid var(--cream-muted)">
       <div style="padding-top:.35rem;display:flex;flex-direction:column;gap:.45rem" data-txt="${p.id}"><div>${p.nombre} <span class="muted" style="font-size:.72rem;white-space:nowrap">${codigo(p)}</span>${p.estado==='dev'?'<div><span class="ind" style="background:rgba(160,150,130,.18);color:#8C8479">En desarrollo · no está en la web</span></div>':''}</div>
-        <div data-foto="${p.id}" style="width:100%;aspect-ratio:4/3;border-radius:var(--r-in);border:1px solid var(--cream-muted);background:var(--cream-base) center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:.7rem" class="muted"></div>
-        <div style="display:flex;gap:.35rem;flex-wrap:wrap"><button class="btn btn-sec caps btn-sm" onclick="webFotoPick('${p.id}')">Cambiar foto</button><button class="btn btn-sec caps btn-sm" data-fe="${p.id}" onclick="cropAbrir('${p.id}',webFotoDe('${p.id}'))">Encuadrar</button><button class="btn btn-sec caps btn-sm" data-fq="${p.id}" onclick="webFotoQuitar('${p.id}')">Quitar</button></div></div>
+        ${webFotoCaja(p.id,pote?'Tarjeta':'')}${pote?webFotoCaja(p.id+'__hero','Hero'):''}</div>
       <div class="fgrid" style="grid-template-columns:1fr;gap:.5rem">
         ${cb?'':`<label class="f"><span class="caps">Frase</span><input data-ph="cita-${p.id}" value="${webEsc(t.frase)}" oninput="webTxt('${p.id}','frase',this.value)"></label>`}
         <label class="f"><span class="caps">Descripción</span><textarea data-ph="desc-${p.id}" rows="2" oninput="webTxt('${p.id}','desc',this.value)">${webEsc(t.desc)}</textarea></label>
@@ -2625,28 +2624,44 @@ window.renderWeb=()=>{
           <label class="f"><span class="caps">Presentación</span><span style="display:flex;gap:.4rem"><select style="flex:1" onchange="webPresTipo('${p.id}',this.value)"><option value="u"${t.pres>1?'':' selected'}>Por unidad</option><option value="c"${t.pres>1?' selected':''}>Por cantidad</option></select><input id="wPN-${p.id}" style="width:4.5rem;${t.pres>1?'':'display:none'}" value="${t.pres>1?t.pres:2}" oninput="webPres('${p.id}',Math.max(2,Math.round(+this.value)||2))" title="Unidades por paquete"></span></label></div>`:''}
       </div></div>`; }).join('')||'<p class="muted">No hay productos con Landing tildado</p>';
   webPh(); webFotosPaint(); webSecPaint(); webHorPaint(); webDscPaint();
-  webLive(); webPaint(); prevPaint(); webColap();
+  webLive(); webPaint(); prevPaint(); webColap(); setTimeout(webMigrarAuto,2500); // (17/11) migración única de textos y fotos de la web
 };
 // Textos actuales de la web como referencia (gris) en los campos vacíos — los informa la vista previa
 function webPh(){ document.querySelectorAll('#wTxt [data-ph]').forEach(e=>{ const [tipo,...r]=e.dataset.ph.split('-'), id=r.join('-'), card=PREV_CARDS.find(c=>c.key===PREV_MATCH[id]); const v=card?(tipo==='cita'?card.cita:card.desc):''; e.placeholder=v?v.replace(/^«|»$/g,''):(prevOn?'':'Abrí la vista previa para ver el texto actual'); }); }
 // ── Fotos (30/10/2026): WebP achicado guardado en adm_webFotos/<producto> (sin Firebase Storage). WF = cambios sin guardar ('' = quitar)
-let WF={}, WEBFOTOS={}, fotoId=null;
+let WF={}, WEBFOTOS={}, fotoId=null, WFO={}, ORIGS={}; // WFO: originales sin guardar ('' = quitar) · ORIGS: originales ya leídos
 const webTxtProds=()=>webProds(); // Contenido = lo mismo que la Carta: lo que está en la web (sin «En desarrollo»)
 const webFotoDe=id=>WF[id]!==undefined?WF[id]:(WEBFOTOS[id]?.img||'');
-function webFotosPaint(){ document.querySelectorAll('#wTxt [data-foto]').forEach(e=>{ const id=e.dataset.foto, f=webFotoDe(id), card=PREV_CARDS.find(c=>c.key===PREV_MATCH[id]), src=f||(card&&card.img)||'';
+// (17/11/2026, Dany: UNA foto por sabor con dos encuadres) <id> = encuadre de la tarjeta · <id>__hero = encuadre del hero (vertical 4:5),
+// los dos sacados de la misma foto original (adm_webFotosOrig/<id>, se lee solo al encuadrar). Sin encuadre del hero, la web usa la tarjeta.
+const webFotoCaja=(fid,lab,h=esHero(fid))=>`${lab?`<span class="caps muted" style="font-size:.6rem;margin-bottom:-.25rem">${lab}</span>`:''}<div data-foto="${fid}" style="width:100%;aspect-ratio:4/3;border-radius:var(--r-in);border:1px solid var(--cream-muted);background:var(--cream-base) center/cover no-repeat;display:flex;align-items:center;justify-content:center;font-size:.7rem;text-align:center" class="muted"></div>
+        <div style="display:flex;gap:.35rem;flex-wrap:wrap">${h?'':`<button class="btn btn-sec caps btn-sm" onclick="webFotoPick('${fid}')">Cambiar foto</button>`}<button class="btn btn-sec caps btn-sm" data-fe="${fid}" onclick="webEncuadrar('${fid}')">Encuadrar</button>${h?'':`<button class="btn btn-sec caps btn-sm" data-fq="${fid}" onclick="webFotoQuitar('${fid}')">Quitar</button>`}</div>`;
+const fotoBase=fid=>String(fid).replace(/__hero$/,''), esHero=fid=>/__hero$/.test(fid);
+function webFotosPaint(){ document.querySelectorAll('#wTxt [data-foto]').forEach(e=>{ const id=e.dataset.foto, b=fotoBase(id), hero=esHero(id), f=webFotoDe(id), card=PREV_CARDS.find(c=>c.key===PREV_MATCH[b]);
+  const src=f||(hero?(webFotoDe(b)||(card&&(card.heroImg||card.img))):(card&&card.img))||'';
+  e.style.opacity=hero&&!f&&src?'.55':''; e.title=hero&&!f?'Sin foto propia del hero: la web usa la de la tarjeta (o la escrita en la página)':'';
   e.style.backgroundImage=src?`url("${src}")`:''; e.textContent=src?'':(prevOn?'Sin foto':'Abrí la vista previa para ver la foto actual');
   const q=document.querySelector(`[data-fq="${id}"]`); if(q) q.style.display=f?'':'none';
-  const e2=document.querySelector(`[data-fe="${id}"]`); if(e2) e2.style.display=f?'':'none';
-  e.style.aspectRatio=webGrp(PROD[id])===1?'16/10':'4/3'; }); }
+  const e2=document.querySelector(`[data-fe="${id}"]`); if(e2) e2.style.display=(f||(hero&&webFotoDe(b)))?'':'none';
+  e.style.aspectRatio=hero?'4/5':webGrp(PROD[b])===1?'16/10':'4/3'; }); }
 window.webFotoPick=id=>{ fotoId=id; const i=el('wFile'); i.value=''; i.click(); };
-window.webFotoSel=inp=>{ const f=inp.files&&inp.files[0]; if(!f||!fotoId) return; cropAbrir(fotoId,URL.createObjectURL(f),true); };
+const esPoteF=id=>PROD[id]?.tipo==='pote'&&[0,1].includes(webGrp(PROD[id]));
+window.webFotoSel=inp=>{ const f=inp.files&&inp.files[0]; if(!f||!fotoId) return; const id=fotoId, u=URL.createObjectURL(f), im=new Image();
+  im.onload=()=>{ try{ const W=Math.min(1600,im.naturalWidth), H=Math.round(im.naturalHeight*W/im.naturalWidth), cv=document.createElement('canvas'); cv.width=W; cv.height=H; cv.getContext('2d').drawImage(im,0,0,W,H);
+      let q=.82, o=cv.toDataURL('image/webp',q); while(o.length>900000&&q>.5){ q-=.08; o=cv.toDataURL('image/webp',q); } if(o.startsWith('data:image/webp')) WFO[id]=o; }catch(e){ console.warn('original',e); }
+    cropAbrir(id,u,true,esPoteF(id)?id+'__hero':null); }; // potes: tarjeta y enseguida el hero, con la misma foto
+  im.onerror=()=>toast('No se pudo leer la imagen'); im.src=u; };
+// Encuadrar: siempre desde la foto original (si existe); si no, desde la foto actual
+window.webEncuadrar=async fid=>{ const b=fotoBase(fid); let src=WFO[b]!==undefined?WFO[b]:ORIGS[b];
+  if(src===undefined){ try{ const d=await getDoc(doc(db,'adm_webFotosOrig',b)); src=ORIGS[b]=d.exists()?(d.data().img||''):''; }catch(e){ console.warn('original',e); src=''; } }
+  if(!src) src=webFotoDe(fid)||(esHero(fid)?webFotoDe(b):''); if(!src){ toast('Primero cargá una foto'); return; } cropAbrir(fid,src); };
 // Encuadre manual (30/10/2026): el recuadro tiene la proporción de la tarjeta (De Autor 16:10 · Clásicos y combos 4:3);
 // la franja clara del medio es lo que se ve en el celular (la web recorta un cuadrado al centro).
 let CROP=null;
-const cropRatio=id=>webGrp(PROD[id])===1?16/10:4/3;
-function cropAbrir(id,src,blob){
+const cropRatio=id=>esHero(id)?4/5:webGrp(PROD[fotoBase(id)])===1?16/10:4/3; // (17/11) hero: vertical 4:5 (como en la web)
+function cropAbrir(id,src,blob,sig){
   const r=cropRatio(id);
-  mOpen(`<div class="mdl-head"><div><div class="kicker" style="margin-bottom:.25rem"><span class="dot" style="width:10px;height:10px;background:var(--caramel)"></span><span class="caps">Landing · Contenido</span></div><h3 class="h-md">Encuadrar · ${PROD[id]?.nombre||''}</h3></div><button class="x" onclick="cropCerrar()">×</button></div>
+  mOpen(`<div class="mdl-head"><div><div class="kicker" style="margin-bottom:.25rem"><span class="dot" style="width:10px;height:10px;background:var(--caramel)"></span><span class="caps">Landing · Contenido</span></div><h3 class="h-md">Encuadrar · ${PROD[fotoBase(id)]?.nombre||''}${esHero(id)?' · hero':''}</h3></div><button class="x" onclick="cropCerrar()">×</button></div>
     <div id="crF" style="position:relative;width:100%;aspect-ratio:${r};overflow:hidden;border-radius:var(--r-in);background:var(--cream-base);cursor:grab;touch-action:none;user-select:none">
       <img id="crI" src="${src}" draggable="false" style="position:absolute;left:0;top:0;max-width:none;pointer-events:none">
       <div id="crSq" style="position:absolute;top:0;bottom:0;border-left:1px dashed rgba(255,255,255,.95);border-right:1px dashed rgba(255,255,255,.95);box-shadow:0 0 0 9999px rgba(26,26,46,.28);pointer-events:none"></div>
@@ -2655,10 +2670,10 @@ function cropAbrir(id,src,blob){
     <div style="display:flex;align-items:center;gap:.75rem;margin-top:1rem"><span class="caps" style="font-size:.7rem">Zoom</span><input id="crZ" type="range" min="1" max="4" step="0.01" value="1" style="flex:1" oninput="cropZoom(this.value)"><button class="btn btn-sec caps btn-sm" onclick="cropCentrar()">Centrar</button></div>
     <p class="muted" style="font-size:.72rem;margin-top:.5rem">Arrastrá la foto para encuadrarla y usá el zoom. Todo el recuadro es la tarjeta en computadora; la franja clara del medio es lo que se ve en el celular.</p>
     <div class="mdl-foot"><button class="btn btn-sec caps" onclick="cropCerrar()">Cancelar</button><button class="btn btn-save caps" data-state="dirty" onclick="cropUsar()">Usar este encuadre</button></div>`,760);
-  CROP={id,r,src,blob,s:1,min:1,x:0,y:0};
+  CROP={id,r,src,blob,sig,s:1,min:1,x:0,y:0};
   const img=el('crI'), F=el('crF'), ini=()=>{ const fw=F.clientWidth, fh=F.clientHeight; CROP.fw=fw; CROP.fh=fh; CROP.nw=img.naturalWidth; CROP.nh=img.naturalHeight;
       CROP.min=Math.max(fw/CROP.nw,fh/CROP.nh); CROP.s=CROP.min; CROP.x=(fw-CROP.nw*CROP.s)/2; CROP.y=(fh-CROP.nh*CROP.s)/2;
-      const sq=el('crSq'); sq.style.left=Math.max(0,(fw-fh)/2)+'px'; sq.style.width=Math.min(fw,fh)+'px'; cropPint(); };
+      const sq=el('crSq'), bw=Math.min(fw,fh*5/4); sq.style.left=Math.max(0,(fw-bw)/2)+'px'; sq.style.width=bw+'px'; if(esHero(id)) sq.style.display='none'; cropPint(); }; // (17/11) en el celular la tarjeta es 5:4
   if(img.complete&&img.naturalWidth) ini(); else img.onload=ini;
   let drag=null;
   F.onpointerdown=e=>{ drag={x:e.clientX,y:e.clientY,ox:CROP.x,oy:CROP.y}; F.setPointerCapture(e.pointerId); F.style.cursor='grabbing'; };
@@ -2673,15 +2688,43 @@ window.cropZoom=v=>{ const c=CROP; if(!c) return; const ns=c.min*(+v), cx=(c.fw/
 window.cropCentrar=()=>{ const c=CROP; if(!c) return; c.x=(c.fw-c.nw*c.s)/2; c.y=(c.fh-c.nh*c.s)/2; cropPint(); };
 window.cropCerrar=()=>{ if(CROP?.blob) URL.revokeObjectURL(CROP.src); CROP=null; mClose(); };
 window.cropUsar=()=>{ const c=CROP; if(!c) return;
-  try{ const OW=1000, OH=Math.round(OW/c.r), cv=document.createElement('canvas'); cv.width=OW; cv.height=OH;
+  try{ const OW=Math.max(200,Math.min(1000,Math.round(c.fw/c.s))), OH=Math.round(OW/c.r), cv=document.createElement('canvas'); cv.width=OW; cv.height=OH; // (17/11) sin agrandar fotos chicas
     cv.getContext('2d').drawImage(el('crI'),-c.x/c.s,-c.y/c.s,c.fw/c.s,c.fh/c.s,0,0,OW,OH);
-    let q=.85, url=cv.toDataURL('image/webp',q); while(url.length>450000&&q>.45){ q-=.08; url=cv.toDataURL('image/webp',q); }
+    let q=.8, url=cv.toDataURL('image/webp',q); while(url.length>200000&&q>.5){ q-=.06; url=cv.toDataURL('image/webp',q); } // (17/11) calidad 80 como la web, tope ~150 KB
     if(!url.startsWith('data:image/webp')) url=cv.toDataURL('image/jpeg',.85);
-    WF[c.id]=url; wDirtySet(); webFotosPaint(); webSend(); toast(`Foto encuadrada (${Math.round(url.length*0.75/1024)} KB) · se ve en la vista previa`);
+    WF[c.id]=url; wDirtySet(); webFotosPaint(); webSend(); toast(c.sig?'Tarjeta lista · ahora encuadrá el hero (misma foto)':`Foto encuadrada (${Math.round(url.length*0.75/1024)} KB) · se ve en la vista previa`);
   }catch(e){ console.error(e); toast('No se pudo procesar la imagen'); }
+  if(c.sig){ CROP=null; mClose(); setTimeout(()=>cropAbrir(c.sig,c.src,c.blob,null),80); return; } // (17/11) segundo encuadre con la misma foto
   cropCerrar(); };
 window.cropAbrir=cropAbrir;
-window.webFotoQuitar=id=>{ WF[id]=''; wDirtySet(); webFotosPaint(); webSend(); };
+window.webFotoQuitar=id=>{ WF[id]=''; if(esPoteF(id)){ WF[id+'__hero']=''; } WFO[id]=''; wDirtySet(); webFotosPaint(); webSend(); };
+// (17/11/2026, Dany: «que Finanzas traiga todo ya pegado») Migración ÚNICA y automática: la primera vez que se abre Landing en
+// Finanzas online, una vista previa oculta de la web publicada entrega los textos y fotos escritos en la página (foto original +
+// encuadre de tarjeta y de hero). Completa SOLO lo vacío (no pisa lo cargado), guarda solo y marca adm_params/web.migracionWeb.
+// Si algo falla o Dany está editando, no hace nada y lo intenta la próxima vez que abra Landing.
+let MIG_ON=false;
+function webMigrarAuto(){ if(MIG_ON||TEST||location.protocol==='file:'||WEBCFG.migracionWeb===true||webDirty||!auth.currentUser||window.__VER_OBSOLETA||view!=='web') return;
+  MIG_ON=true; webMigrar().catch(e=>console.warn('migración web',e)).finally(()=>{ MIG_ON=false; }); }
+async function webMigrar(){
+  const fr=document.createElement('iframe'); fr.style.cssText='position:fixed;left:-4000px;top:0;width:390px;height:900px;border:0;visibility:hidden'; fr.setAttribute('aria-hidden','true'); fr.tabIndex=-1;
+  const espera=(tipo,ms)=>new Promise((ok,ko)=>{ const h=e=>{ if(e.source!==fr.contentWindow||e.data?.tipo!==tipo) return; clearTimeout(t); removeEventListener('message',h); ok(e.data); };
+    const t=setTimeout(()=>{ removeEventListener('message',h); ko(new Error('sin respuesta: '+tipo)); },ms); addEventListener('message',h); });
+  try{
+    const lista=espera('cucchia-web-lista',45000); fr.src=WEB_PREV_ONLINE; document.body.appendChild(fr); await lista;
+    const inf=espera('cucchia-web-info',20000); fr.contentWindow.postMessage({tipo:'cucchia-web',data:webPayload()},'*'); const match=(await inf).match||{};
+    const prods=webTxtProds().filter(p=>match[p.id]);
+    const ex=espera('cucchia-web-export',120000); fr.contentWindow.postMessage({tipo:'cucchia-web-exportar',pedido:prods.map(p=>({k:match[p.id],r:cropRatio(p.id),hero:esPoteF(p.id)}))},'*');
+    const res=await ex; if(res.error) throw new Error(res.error);
+    if(webDirty||view!=='web'||!el('btnWeb')) return; // Dany empezó a editar o salió de Landing: se reintenta la próxima vez
+    let nt=0, nf=0; const its=res.items||{};
+    prods.forEach(p=>{ const x=its[match[p.id]]; if(!x) return; const t=WT[p.id]||(WT[p.id]={frase:'',desc:'',sec:p.webSeccion||'',pres:+p.webPres||1});
+      if(p.tipo!=='CB'&&!t.frase&&x.cita){ t.frase=x.cita.replace(/^[«"“]|[»"”]$/g,'').trim(); nt++; }
+      if(!t.desc&&x.desc){ t.desc=x.desc; nt++; }
+      if(x.card&&!webFotoDe(p.id)){ WF[p.id]=x.card; nf++; if(x.hero&&!webFotoDe(p.id+'__hero')) WF[p.id+'__hero']=x.hero; if(x.orig) WFO[p.id]=x.orig; } }); // un sabor con foto propia (ej. Chocolate) no se toca
+    if(nt||nf){ webDirty=true; await window.webSave(); if(webDirty) throw new Error('no se pudo guardar'); }
+    await setDoc(doc(db,C.par,'web'),{migracionWeb:true,migracionFecha:new Date().toISOString()},{merge:true});
+    if(nt||nf){ await hist('param','Contenido de la web pasado a Finanzas','escrito en la página',`${nt} textos · ${nf} fotos`); toast(`Listo: los textos y fotos de la web ya están en Finanzas (${nt} textos · ${nf} fotos)`); }
+  } finally { fr.remove(); } }
 // + Nuevo producto desde Landing: el mismo alta de Productos, y vuelve acá para cargarle foto y textos
 window.webNuevo=()=>{
   if(webDirty){ toast('Guardá o descartá los cambios antes de sumar un producto'); return; }
@@ -2805,7 +2848,9 @@ window.webLive=(sinEnviar)=>{
   el('wKpis').innerHTML=[['Visibles en la web',String(n('vis')),'var(--cream-base)',`${n('prod')} en producción · ${n('fuera')} fuera de carta`],['Sin stock (Ventas)',String(auto),auto?'var(--warn)':'var(--cream-base)',auto?'se muestran «En producción»':'todo lo visible tiene stock'],['Envío',WE.todos?'Gratis':$(WE.costo),'var(--cream-base)',WE.todos?'gratis para todos (campaña)':WE.monto?'gratis desde '+$(WE.monto):'nunca gratis'],['Descuento combos',WG+'%','var(--cream-base)',`${Object.values(WCB).filter(v=>v!=null).length} con % propio`],['Menor margen Landing',mn?pct(mn.mg):'—',mn&&mn.mg<P.objLanding-20?'var(--warn)':'var(--cream-base)',mn?mn.p.nombre+(mn.m==='250'?' 250':''):'']].map(k=>`<div class="kpi"><span class="l caps">${k[0]}</span><span class="n" style="color:${k[2]}">${k[1]}</span><span class="d">${k[3]}</span></div>`).join('');
 };
 // ── Vista previa (30/10/2026): la landing local en un panel, con los datos en pantalla (sin guardar). Se prende/apaga y se recuerda.
-const PREV_URL=()=>location.protocol==='file:'?'../WEB CUCCHIA/cucchia_landing_stitch_backend.html?preview=1':null; // al publicar la web: su dirección
+// (17/11) online: la web publicada con ?preview (no lee Firebase: muestra lo que hay en pantalla). AL LANZAR: cambiar a https://cucchia.ar/?preview=1
+const WEB_PREV_ONLINE='https://prueba.cucchia.pages.dev/?preview=1';
+const PREV_URL=()=>location.protocol==='file:'?'../WEB CUCCHIA/cucchia_landing_stitch_backend.html?preview=1':WEB_PREV_ONLINE;
 let prevOn=false, prevDev='cel', prevListo=false, prevT=null, PREV_SIN=new Set(), PREV_CARDS=[], PREV_MATCH={};
 try{ prevOn=localStorage.getItem('fin_web_prev')==='1'; prevDev=localStorage.getItem('fin_web_dev')||'cel'; }catch(_){}
 function webPayload(){ const ef=id=>WCB[id]??WG;
@@ -2818,7 +2863,7 @@ function webPayload(){ const ef=id=>WCB[id]??WG;
     if(p.tipo==='pote') it.vid=ventasIdR(p)||''; // id del sabor en Ventas: la web cruza el stock en vivo
     it.grupo={0:'clasico',1:'autor',3:'otro',4:'combo'}[webGrp(p)]; it.num=p.numero||0;
     if(it.grupo==='otro'){ it.seccion=secDe(p); it.pres=+(WT[p.id]?.pres)||1; }
-    if(m==='360'){ const f=webFotoDe(p.id); if(f) it.foto=f; }
+    if(m==='360'){ const f=webFotoDe(p.id); if(f) it.foto=f; if(p.tipo==='pote'){ const fh=webFotoDe(p.id+'__hero'); if(fh) it.fotoHero=fh; } }
     if(p.tipo==='CB'){ const d=ef(p.id); it.lista=Math.round(pr.sumL); it.dto=d; it.precio=Math.round(pr.sumL*(1-d/100)); } else it.precio=Math.round(pr.L); // lista; el descuento lo aplica la web según la fecha
     if(p.tipo!=='CB'){ const ds=WD[k]; if(dscOk(ds)&&(!PUB_MODO||dscEstado(ds)==='vig'||(ds.desde&&ds.desde<=pzIsoMas(hoyAR(),1)))) it.dsc={pct:+ds.pct,desde:ds.desde||'',hasta:ds.hasta}; const g=p.tipo==='pote'?+(p.medidas?.[m]?.peso||0):0; if(g) it.peso=Math.round(g); }
     return it; });
@@ -2832,7 +2877,7 @@ window.webExportar=async()=>{ if(webDirty){ toast('Primero guardá los cambios d
   toast('Descargado '+nom+' · movelo a WEB CUCCHIA/_publicar'); };
 // ───────── Publicar en la web real (16/11/2026, Dany: opción B) ─────────
 // Finanzas escribe lo GUARDADO en web_publico/carta (json) + una foto por documento (web_publico/foto_<id>).
-// La web (www.cucchia.com.ar) lee esa colección al abrir. Reglas de Firestore: web_publico lectura pública, escritura solo Dany.
+// La web (cucchia.ar) lee esa colección al abrir. Reglas de Firestore: web_publico lectura pública, escritura solo Dany.
 // Se publica sola: al guardar un producto, al guardar Landing, y cada minuto si cambió algo (stock de Ventas incluido) mientras Finanzas esté abierta.
 // En ?test NO se publica (la prueba sigue con «Datos para la prueba»).
 const WPUB='web_publico'; let PUB_LAST=null, PUB_FOTOS=null, PUB_BUSY=false, PUB_T=null;
@@ -2847,7 +2892,7 @@ window.webPublicar=async(auto)=>{
   const b=el('btnPub'); if(b&&!auto){ b.disabled=true; b.innerHTML='<span class="spin sm"></span>Publicando…'; }
   try{
     webEstadoGuardado(); let d; PUB_MODO=true; try{ d=webPayload(); } finally{ PUB_MODO=false; } const fotos={};
-    d.productos.forEach(it=>{ if(it.foto&&it.foto.startsWith('data:')){ fotos[it.id]=it.foto; it.foto='doc:foto_'+it.id; } });
+    d.productos.forEach(it=>[['foto',it.id],['fotoHero',it.id+'__hero']].forEach(([f,k])=>{ if(it[f]&&it[f].startsWith('data:')){ fotos[k]=it[f]; it[f]='doc:foto_'+k; } }));
     const txt=JSON.stringify(d), fh={}; Object.entries(fotos).forEach(([id,u])=>fh[id]=pubHash(u));
     if(PUB_LAST==null){ const c=(await getDoc(doc(db,WPUB,'carta'))).data(); PUB_LAST=c?.por?'':(c?.json||''); PUB_FOTOS=c?.fotos||{}; } // carta vieja con el mail («por») → se reescribe sin él
     const fotosIg=JSON.stringify(fh)===JSON.stringify(PUB_FOTOS);
@@ -2856,7 +2901,7 @@ window.webPublicar=async(auto)=>{
     for(const id of Object.keys(PUB_FOTOS)) if(!fotos[id]) await deleteDoc(doc(db,WPUB,'foto_'+id));
     await setDoc(doc(db,WPUB,'carta'),{json:txt,fotos:fh,generado:new Date().toISOString(),ver:2}); // (17/11) ver:2 → las reglas de Firebase rechazan publicaciones de versiones viejas (sin ver) // sin datos de la cuenta: es público
     PUB_LAST=txt; PUB_FOTOS=fh; pubPaint(new Date());
-    if(!auto) toast('Web actualizada · www.cucchia.com.ar'); else console.log('web publicada', new Date().toLocaleTimeString());
+    if(!auto) toast('Web actualizada · cucchia.ar'); else console.log('web publicada', new Date().toLocaleTimeString());
   }catch(e){ console.error('publicar web',e); if(!auto) toast('No se pudo publicar: '+(e.code||e.message)); }
   finally{ PUB_BUSY=false; if(b){ b.disabled=false; b.textContent='Publicar en la web'; } }
 };
@@ -2953,7 +2998,7 @@ function prevPaint(){ const lay=el('webLay'), a=el('webPrev'), b=el('btnPrev'); 
   requestAnimationFrame(()=>{ prevSize(); webSend(); }); }
 window.webPrev=()=>{ prevOn=!prevOn; try{ localStorage.setItem('fin_web_prev',prevOn?'1':'0'); }catch(_){} prevPaint(); };
 window.webDev=d=>{ prevDev=d; try{ localStorage.setItem('fin_web_dev',d); }catch(_){} el('webLay').classList.toggle('esc',d==='esc'); el('webLay').parentElement.classList.toggle('ancha-esc',prevOn&&d==='esc'); requestAnimationFrame(prevSize); };
-window.addEventListener('message',e=>{ const d=e.data; if(!d||!d.tipo) return;
+window.addEventListener('message',e=>{ const d=e.data; if(!d||!d.tipo) return; const fr=el('wFrame'); if(!fr||e.source!==fr.contentWindow) return; // (17/11) solo la vista previa
   if(d.tipo==='cucchia-web-lista'){ prevListo=true; webSend(); }
   if(d.tipo==='cucchia-web-info'){ const nv=new Set(d.sinTarjeta||[]), nm=JSON.stringify(d.match||{}), nc=JSON.stringify(d.tarjetas||[]);
     if([...nv].join('|')!==[...PREV_SIN].join('|')||nm!==JSON.stringify(PREV_MATCH)||nc!==JSON.stringify(PREV_CARDS)){ PREV_SIN=nv; PREV_MATCH=d.match||{}; PREV_CARDS=d.tarjetas||[]; if(view==='web'){ webLive(true); webPh(); webFotosPaint(); } }
@@ -2986,10 +3031,11 @@ window.webSave=async()=>{
       if((tx.frase||'')!==(p.webFrase||'')){ d.webFrase=tx.frase||null; await hist('producto',p.nombre+' · web frase',p.webFrase||'—',tx.frase||'—'); }
       if((tx.desc||'')!==(p.webDesc||'')){ d.webDesc=tx.desc||null; await hist('producto',p.nombre+' · web descripción',p.webDesc?'(anterior)':'—',tx.desc?'(nueva)':'—'); }
       if(Object.keys(d).length) await setDoc(doc(db,C.prod,p.id),d,{merge:true}); }
-    for(const [id,img] of Object.entries(WF)){ const nom=PROD[id]?.nombre||id;
+    for(const [id,img] of Object.entries(WF)){ const nom=(PROD[fotoBase(id)]?.nombre||id)+(esHero(id)?' · hero':'');
       if(img){ await setDoc(doc(db,'adm_webFotos',id),{img,fecha:new Date().toISOString()}); await hist('producto',nom+' · web foto',WEBFOTOS[id]?'anterior':'la de la web','nueva'); }
       else if(WEBFOTOS[id]){ await deleteDoc(doc(db,'adm_webFotos',id)); await hist('producto',nom+' · web foto','propia','la de la web'); } }
-    WF={};
+    for(const [id,img] of Object.entries(WFO)){ if(img){ await setDoc(doc(db,'adm_webFotosOrig',id),{img,fecha:new Date().toISOString()}); ORIGS[id]=img; } else { await deleteDoc(doc(db,'adm_webFotosOrig',id)).catch(()=>{}); ORIGS[id]=''; } }
+    WF={}; WFO={};
     // Combos
     const g0=cbDto();
     if(WG!==g0||P.combosDto==null){ await setDoc(doc(db,C.par,'general'),{combosDto:WG},{merge:true}); if(WG!==g0) await hist('param','Descuento combos Landing (general)',g0+'%',WG+'%'); }
@@ -3241,7 +3287,7 @@ window.addEventListener('beforeunload',e=>{ if(wDirty||parDirty){ e.preventDefau
 // APP_BUILD: cambiarlo en CADA modificación de este archivo (lo usa la detección cuando la página vino de la caché).
 // Cada 3 min, al volver a la ventana y a los 5 s de abrir se pregunta a GitHub por el archivo publicado (HEAD sin caché: no gasta
 // lecturas de Firebase). Si cambió: sin cambios pendientes → recarga sola; con cambios → aviso fijo y Finanzas deja de publicar (web y Ventas) hasta recargar.
-const APP_BUILD='2026-11-17b';
+const APP_BUILD='2026-11-17e';
 (function(){
   if(!/^https?:$/.test(location.protocol)) return;
   let base = null, aviso = null;
