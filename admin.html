@@ -2646,8 +2646,11 @@ function webFotosPaint(){ document.querySelectorAll('#wTxt [data-foto]').forEach
   e.style.aspectRatio=hero?'4/5':webGrp(PROD[b])===1?'16/10':'4/3'; }); }
 window.webFotoPick=id=>{ fotoId=id; const i=el('wFile'); i.value=''; i.click(); };
 const esPoteF=id=>PROD[id]?.tipo==='pote'&&[0,1].includes(webGrp(PROD[id]));
+// (17/11, Dany) medidas mínimas: potes 1000×1250 (sirve para tarjeta y hero 4:5); combos y otros 1000×750. Más grande se reduce sola a 1600 de ancho.
+const fotoMin=id=>esPoteF(id)?[1000,1250]:[1000,750], fotoMinTxt=id=>{ const [w,h]=fotoMin(id); return `${w} × ${h} px${esPoteF(id)?' (vertical: sirve para la tarjeta y el hero)':''}`; };
 window.webFotoSel=inp=>{ const f=inp.files&&inp.files[0]; if(!f||!fotoId) return; const id=fotoId, u=URL.createObjectURL(f), im=new Image();
-  im.onload=()=>{ try{ const W=Math.min(1600,im.naturalWidth), H=Math.round(im.naturalHeight*W/im.naturalWidth), cv=document.createElement('canvas'); cv.width=W; cv.height=H; cv.getContext('2d').drawImage(im,0,0,W,H);
+  im.onload=()=>{ const [mw,mh]=fotoMin(id); if(im.naturalWidth<mw||im.naturalHeight<mh) toast(`Foto chica (${im.naturalWidth} × ${im.naturalHeight} px): el mínimo es ${fotoMinTxt(id)}. Se va a ver borrosa`);
+    try{ const W=Math.min(1600,im.naturalWidth), H=Math.round(im.naturalHeight*W/im.naturalWidth), cv=document.createElement('canvas'); cv.width=W; cv.height=H; cv.getContext('2d').drawImage(im,0,0,W,H);
       let q=.82, o=cv.toDataURL('image/webp',q); while(o.length>900000&&q>.5){ q-=.08; o=cv.toDataURL('image/webp',q); } if(o.startsWith('data:image/webp')) WFO[id]=o; }catch(e){ console.warn('original',e); }
     cropAbrir(id,u,true,esPoteF(id)?id+'__hero':null); }; // potes: tarjeta y enseguida el hero, con la misma foto
   im.onerror=()=>toast('No se pudo leer la imagen'); im.src=u; };
@@ -2669,6 +2672,7 @@ function cropAbrir(id,src,blob,sig){
     </div>
     <div style="display:flex;align-items:center;gap:.75rem;margin-top:1rem"><span class="caps" style="font-size:.7rem">Zoom</span><input id="crZ" type="range" min="1" max="4" step="0.01" value="1" style="flex:1" oninput="cropZoom(this.value)"><button class="btn btn-sec caps btn-sm" onclick="cropCentrar()">Centrar</button></div>
     <p class="muted" style="font-size:.72rem;margin-top:.5rem">Arrastrá la foto para encuadrarla y usá el zoom. Todo el recuadro es la tarjeta en computadora; la franja clara del medio es lo que se ve en el celular.</p>
+    <p class="muted" style="font-size:.72rem;margin-top:.35rem">Foto ideal: 1600 px o más de ancho (si es más grande se achica sola, no pesa de más). Mínimo: ${fotoMinTxt(fotoBase(id))}. Recorte actual: <span id="crRes"></span></p>
     <div class="mdl-foot"><button class="btn btn-sec caps" onclick="cropCerrar()">Cancelar</button><button class="btn btn-save caps" data-state="dirty" onclick="cropUsar()">Usar este encuadre</button></div>`,760);
   CROP={id,r,src,blob,sig,s:1,min:1,x:0,y:0};
   const img=el('crI'), F=el('crF'), ini=()=>{ const fw=F.clientWidth, fh=F.clientHeight; CROP.fw=fw; CROP.fh=fh; CROP.nw=img.naturalWidth; CROP.nh=img.naturalHeight;
@@ -2683,7 +2687,9 @@ function cropAbrir(id,src,blob,sig){
 }
 function cropPint(){ const c=CROP, img=el('crI'); if(!c||!img) return;
   c.x=Math.min(0,Math.max(c.fw-c.nw*c.s,c.x)); c.y=Math.min(0,Math.max(c.fh-c.nh*c.s,c.y));
-  img.style.width=(c.nw*c.s)+'px'; img.style.height=(c.nh*c.s)+'px'; img.style.left=c.x+'px'; img.style.top=c.y+'px'; }
+  img.style.width=(c.nw*c.s)+'px'; img.style.height=(c.nh*c.s)+'px'; img.style.left=c.x+'px'; img.style.top=c.y+'px';
+  const rs=el('crRes'); if(rs){ const w=Math.round(c.fw/c.s), h=Math.round(c.fh/c.s), n=w>=1000?'ok':w>=700?'warn':'bad'; // (17/11) píxeles reales del recorte (la web usa hasta 1000 de ancho)
+    rs.innerHTML=`<span class="ind ${n}">${w} × ${h} px${n==='ok'?'':n==='warn'?' · justa':' · se va a ver borrosa'}</span>`; } }
 window.cropZoom=v=>{ const c=CROP; if(!c) return; const ns=c.min*(+v), cx=(c.fw/2-c.x)/c.s, cy=(c.fh/2-c.y)/c.s; c.s=ns; c.x=c.fw/2-cx*ns; c.y=c.fh/2-cy*ns; cropPint(); };
 window.cropCentrar=()=>{ const c=CROP; if(!c) return; c.x=(c.fw-c.nw*c.s)/2; c.y=(c.fh-c.nh*c.s)/2; cropPint(); };
 window.cropCerrar=()=>{ if(CROP?.blob) URL.revokeObjectURL(CROP.src); CROP=null; mClose(); };
@@ -3287,7 +3293,7 @@ window.addEventListener('beforeunload',e=>{ if(wDirty||parDirty){ e.preventDefau
 // APP_BUILD: cambiarlo en CADA modificación de este archivo (lo usa la detección cuando la página vino de la caché).
 // Cada 3 min, al volver a la ventana y a los 5 s de abrir se pregunta a GitHub por el archivo publicado (HEAD sin caché: no gasta
 // lecturas de Firebase). Si cambió: sin cambios pendientes → recarga sola; con cambios → aviso fijo y Finanzas deja de publicar (web y Ventas) hasta recargar.
-const APP_BUILD='2026-11-17e';
+const APP_BUILD='2026-11-17f';
 (function(){
   if(!/^https?:$/.test(location.protocol)) return;
   let base = null, aviso = null;
