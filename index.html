@@ -560,7 +560,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   /* (01/11) Cargar pedido en 3 columnas: datos · ③ pedido · ④ agenda (calendario de entregas) */
   .carga3{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr)}
   main:has(#carga.show){max-width:1560px}
-  @media(max-width:1250px){ .carga3{grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr} .carga3>:first-child{grid-row:1/span 2} .carga3>.agendaCol{grid-column:2;grid-row:2} .carga3>.agendaCol>#boxAgenda{position:sticky;top:12px} }
+  @media(max-width:1250px){ .carga3{grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr} .carga3>:first-child{grid-row:1/span 2} .carga3>.agendaCol{grid-column:2;grid-row:2} .carga3>.agendaCol{position:sticky;top:12px;align-self:start;max-height:calc(100vh - 24px);overflow-y:auto} /* (18/11, Dany) ④ Entregas y ⑤ Consulta zona 2 quedan fijos juntos; si no entran en la ventana, scroll propio */ }
   /* (03/11, Dany) pantalla dividida: ④ Entregas va debajo de ③ Pedido y queda fija al bajar */
   .ag-dias{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px}
   .ag-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
@@ -868,6 +868,12 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
           <h3><span style="white-space:nowrap">④ Entregas</span> <span class="colap-sub" id="agendaSub" style="font-family:var(--mont);font-size:9.5px;font-weight:600;color:var(--muted);letter-spacing:.4px">— tocá un turno para este pedido</span></h3>
           <div class="ag-dias" id="agendaDias"></div>
           <div id="agendaDia"></div>
+        </div>
+        <!-- (18/11/2026, Dany) Consulta zona 2: para responder por WhatsApp; no toca el pedido. Valores: Finanzas → Landing → 05 · Envío -->
+        <div class="box" id="boxZona2">
+          <h3>⑤ Consulta zona 2</h3>
+          <div style="display:flex;gap:8px;margin-top:10px"><input id="z2Dir" placeholder="Calle y altura del cliente (y localidad si hace falta)" onkeydown="if(event.key==='Enter')z2Buscar()"><button class="btn btn-pri" id="z2Btn" onclick="z2Buscar()" style="white-space:nowrap">Buscar</button></div>
+          <div id="z2Res" style="margin-top:10px"></div>
         </div>
       </div>
     </div>
@@ -3308,6 +3314,92 @@ function copiarPedidoWA(){
   const t = textoPedidoWA(p), ok = ()=>{ const b = document.getElementById('btnCopiarWA'); if(b){ b.textContent = '✓ Copiado'; setTimeout(()=>b.textContent='Copiar texto',1800); } };
   if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok, ()=>copiarConFallback(t,ok)); else copiarConFallback(t,ok);
 }
+/* ===================== CONSULTA ZONA 2 (18/11/2026, Dany) =====================
+   Llega una consulta de fuera de la zona 1 por WhatsApp → se escribe la dirección → Georef (API oficial, gratis, sin Firebase)
+   → distancia en LÍNEA RECTA desde la salida → tramo, pedido mínimo y envío (Finanzas → Landing → 05 · Envío, adm_params/web.zona2)
+   → «Copiar respuesta» con el mensaje de Finanzas. No toca el pedido. Mismo buscador que la web (calles con título, localidades). */
+let ZONA2 = null;
+{
+  const TITULOS_CALLE = /^(av(enida)?\.?|paseo|pasaje|pje\.?|boulevard|bulevar|blvd\.?|bv\.?|diagonal|diag\.?|camino|calle|costanera|gral\.?|grl\.?|general|pte\.?|presidente|dr\.?|doctor|cnel\.?|coronel|tte\.?|teniente|ing\.?|ingeniero|gdor\.?|gobernador|cap\.?|capit[aá]n|int\.?|intendente|alte\.?|almirante|cmte\.?|comandante|sgto\.?|sargento|mons\.?|monse[nñ]or|pbro\.?|presb[ií]tero|cdte\.?)\s+/i;
+  const normCalle = t => (t || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[.,]/g, ' ').replace(/\b(avenida|av|calle|pasaje|pje|paseo|boulevard|bulevar|blvd|bv|diagonal|diag|camino)\b/g, ' ')
+    .replace(/\s+/g, ' ').trim();
+  const titulo = t => (t || '').toLowerCase().replace(/(^|[\s(])([a-záéíóúñü])/g, (m, p, c) => p + c.toUpperCase());
+  const sinTit = t => { let x = normCalle(t), y; while ((y = x.replace(TITULOS_CALLE, '').trim()) !== x) x = y; return x; };
+  const mismaCalleTxt = (encontrada, escrita) => {
+    const a = sinTit(encontrada), b = sinTit(escrita); if (!a || !b) return false;
+    if (a === b) return true;
+    // (08/11) Si lo escrito queda en una sola palabra genérica («Diagonal Norte» → «norte»), tiene que ser exacta («Colectora Acceso Norte» no vale)
+    if (/^(norte|sur|este|oeste|real|central|principal|nueva|nuevo|acceso|colectora|costanera|la|el|los|las)$/.test(b)) return false;
+    if (a.endsWith(' ' + b)) return true;
+    const A = a.split(' '), B = b.split(' ');
+    if (A.slice().sort().join(' ') === B.slice().sort().join(' ')) return true;
+    // «Pedro Rivera» = «Dr Pedro Ignacio Rivera»: todas las palabras escritas están y termina igual (el apellido). «Paz» ≠ «Paz Soldán».
+    return A[A.length - 1] === B[B.length - 1] && B.every(w => A.includes(w));
+  };
+  const PARTIDOS = [
+    [/vicente|florida|olivos|munro|carapachay|martelli/, ['06', 'vicente lopez']],
+    [/isidro|mart[ií]nez|acassuso|beccar|boulogne|adelina/, ['06', 'san isidro']],
+    [/fernando|victoria|virreyes/, ['06', 'san fernando']],
+    [/tigre/, ['06', 'tigre']]
+  ];
+  const pedirJSON = async url => { try { const r = await fetch(url); return await r.json(); } catch (e) { return null; } };
+  const kmEntre = (a, b) => { const R = 6371, r = x => x * Math.PI / 180, dLa = r(b.lat - a.lat), dLo = r(b.lng - a.lng);
+    return 2 * R * Math.asin(Math.sqrt(Math.sin(dLa / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLo / 2) ** 2)); };
+  async function buscar(input) {
+    const m = input.split(',')[0].match(/^(.*\d+)\s*([^\d]*)$/);
+    const dir = (m ? m[1] : input.split(',')[0]).trim();
+    const extra = ((m ? m[2] + ' ' : '') + input.split(',').slice(1).join(' ')).toLowerCase();
+    const pedidos = PARTIDOS.filter(([re]) => re.test(extra)).map(([, z]) => z);
+    const zonas = /caba|capital|ciudad/.test(extra) ? [['02', null]] : pedidos.length ? pedidos : [['02', null], ...PARTIDOS.map(([, z]) => z)];
+    const consultar = d => Promise.all(zonas.map(([prov, depto]) => pedirJSON(`https://apis.datos.gob.ar/georef/api/direcciones?direccion=${encodeURIComponent(d)}&provincia=${prov}` + (depto ? `&departamento=${encodeURIComponent(depto)}` : '') + '&max=5')));
+    const sinTitulo = dir.replace(TITULOS_CALLE, '').trim();
+    const tandas = await Promise.all(sinTitulo !== dir ? [consultar(dir), consultar(sinTitulo)] : [consultar(dir)]);
+    const cands = [];
+    for (const respuestas of tandas) for (let zi = 0; zi < zonas.length; zi++) {
+      const [prov] = zonas[zi], j = respuestas[zi];
+      for (const d of (j && j.direcciones) || []) {
+        if (d.ubicacion && d.ubicacion.lat != null && d.altura && d.altura.valor != null && mismaCalleTxt(d.calle.nombre, dir.replace(/\s*\d+\s*$/, ''))) {
+          const lugar = prov === '02' ? 'CABA' : titulo((d.localidad_censal && d.localidad_censal.nombre) || (d.departamento && d.departamento.nombre) || '');
+          cands.push({ lat: d.ubicacion.lat, lng: d.ubicacion.lon, texto: titulo(d.calle.nombre).replace(/^Av /, 'Av. ') + ' ' + d.altura.valor + ', ' + lugar, lugar });
+        }
+      }
+    }
+    if (!cands.length) return null;
+    const S = ZONA2.salida; cands.sort((a, b) => kmEntre(S, a) - kmEntre(S, b));
+    const distintos = []; for (const c of cands) if (distintos.every(o => o.lugar !== c.lugar)) distintos.push(c);
+    if (distintos.length > 1 && !pedidos.length && !/caba|capital|ciudad/.test(extra)) return { opciones: distintos };
+    return cands[0];
+  }
+  let OPS = [], ULT = null;
+  const caja = () => document.getElementById('z2Res');
+  function mostrar(c) {
+    const km = kmEntre(ZONA2.salida, c), T = ZONA2.tramos || [], i = T.findIndex(t => km <= +t.hasta), kmTxt = km.toFixed(1).replace('.', ',') + ' km';
+    if (i < 0) { ULT = null; caja().innerHTML = `<div class="meta" style="font-size:11.5px;color:var(--ink)">${c.texto}</div><div style="margin-top:6px;font-weight:700;color:var(--red,#A3261A)">Fuera de zona 2 · ${kmTxt}</div><div class="meta">Más lejos que el último tramo (${String(T[T.length - 1]?.hasta ?? '').replace('.', ',')} km).</div>`; return; }
+    const t = T[i]; ULT = t;
+    caja().innerHTML = `<div class="meta" style="font-size:11.5px;color:var(--ink)">${c.texto}</div>
+      <div style="margin-top:6px;font-weight:700;font-size:13px">Tramo ${'ABC'[i] || i + 1} · ${kmTxt}</div>
+      <div style="margin-top:4px;font-size:12.5px">Pedido mínimo <b>${fmt$(t.min)}</b> + envío <b>${fmt$(t.env)}</b></div>
+      ${km <= 4.5 ? '<div class="meta">Cerca del límite de la zona 1: si la web le dijo «llegamos», se pide por la web.</div>' : ''}
+      <button class="btn btn-ghost" style="margin-top:10px" onclick="z2Copiar(this)">Copiar respuesta</button>`;
+  }
+  window.z2Buscar = async () => {
+    const inp = document.getElementById('z2Dir'), q = (inp.value || '').trim(), b = document.getElementById('z2Btn');
+    if (!ZONA2 || !ZONA2.salida || !Array.isArray(ZONA2.tramos)) { caja().innerHTML = '<div class="meta">Falta la tabla de zona 2: se carga sola al abrir Finanzas → Landing.</div>'; return; }
+    if (!/\d/.test(q)) { caja().innerHTML = '<div class="meta">Escribí calle y altura (ej.: Juramento 2000, o Paseo Victorica 814 Tigre).</div>'; return; }
+    b.disabled = true; b.textContent = 'Buscando…'; caja().innerHTML = '';
+    try { const r = await buscar(q);
+      if (!r) { caja().innerHTML = '<div class="meta">No encontramos esa dirección. Revisá calle y número, o agregá la localidad (ej.: «Lavalle 1295, San Fernando»).</div>'; return; }
+      if (r.opciones) { OPS = r.opciones; caja().innerHTML = '<div class="meta" style="margin-bottom:6px">Esa dirección existe en más de un lugar. ¿Cuál es?</div><div style="display:flex;gap:6px;flex-wrap:wrap">' + OPS.map((o, i) => `<button class="btn btn-ghost" onclick="z2Elegir(${i})">${o.lugar}</button>`).join('') + '</div>'; return; }
+      mostrar(r);
+    } catch (e) { console.error('zona 2', e); caja().innerHTML = '<div class="meta">No se pudo consultar el buscador de direcciones. Probá de nuevo.</div>'; }
+    finally { b.disabled = false; b.textContent = 'Buscar'; }
+  };
+  window.z2Elegir = i => { if (OPS[i]) mostrar(OPS[i]); };
+  window.z2Copiar = btn => { if (!ULT) return;
+    const t = String(ZONA2.msg || '').replace(/\{minimo\}/g, fmt$(ULT.min)).replace(/\{envio\}/g, fmt$(ULT.env)), ok = () => avisoBtn(btn, '✓ Copiado · Ctrl+V');
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok, () => copiarConFallback(t, ok)); else copiarConFallback(t, ok); };
+}
 /* ===================== OTROS · FUERA DE CARTA (31/10/2026) =====================
    Productos que no están en la carta (postres, tortas, cotizaciones): descripción, cantidad y precio por unidad.
    Suman al subtotal, al envío gratis por monto y a la caja; no descuentan stock; no llevan el Dto. de Amigos (el precio
@@ -5002,6 +5094,7 @@ function iniciarListeners(){
     const d = snap.exists() ? snap.data() : {};
     ENVIO_WEB = {costo:+(d.envioCosto??1300), monto:+(d.envioGratisMonto??30000), todos:!!d.envioGratisTodos};
     WEB_DESC = d.descuentos || {}; WEB_CBDTO = d.combosDto || {};
+    ZONA2 = d.zona2 || null; // (18/11) tabla interna de zona 2 (la define Finanzas)
     HORARIO_ENT = normHorario(d.horarios && d.horarios.entrega); PAUSA_WEB = d.pausa || null; pintarAvisoPausa(); if(document.getElementById('carga').classList.contains('show')) pintarAgenda();
     if(dataReady && document.getElementById('carga').classList.contains('show')){ actualizarPreciosChips(); }
     COSTO_ENVIO = ENVIO_WEB.costo;
@@ -5175,7 +5268,7 @@ Object.assign(window, {
 // APP_BUILD: cambiarlo en CADA modificación de este archivo (lo usa la detección cuando la página vino de la caché).
 // Cada 3 min, al volver a la ventana y a los 5 s de abrir se pregunta a GitHub por el archivo publicado (HEAD sin caché: no gasta
 // lecturas de Firebase). Si cambió: sin cambios pendientes → recarga sola; con cambios → aviso fijo.
-const APP_BUILD='2026-11-17b';
+const APP_BUILD='2026-11-18b';
 (function(){
   if(!/^https?:$/.test(location.protocol)) return;
   let base = null, aviso = null;

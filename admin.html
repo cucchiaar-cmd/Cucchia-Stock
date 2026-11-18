@@ -2489,7 +2489,12 @@ window.parReset=()=>{ renderPar(); };
 // ═════════ LANDING (29/10/2026) ═════════
 // Combos: Landing = suma de lista − %. Un % general (adm_params/general.combosDto) y, si hace falta, uno propio por combo
 // (adm_productos/<combo>.webDto; null = sigue el general). Amigos nunca va a la web. Rappi se maneja con sus promos.
-let webDirty=false, WG=15, WCB={}, WP={}, WE={}, WT={}, WS=[], WH={}, WGN={}, WD={};
+let webDirty=false, WG=15, WCB={}, WP={}, WE={}, WT={}, WS=[], WH={}, WGN={}, WD={}, WZ2={};
+// (18/11/2026, Dany) Zona 2 · consultas por WhatsApp: tabla interna (no se publica en la web). La usa Ventas → Cargar pedido → «⑤ Consulta zona 2».
+// Distancia en línea recta desde la salida; el cliente paga el envío del tramo y el pedido mínimo es aparte (Dany pone $3.000 fijos por viaje).
+const Z2_MSG='Hola! Qué tal? Gracias por escribirnos 🍦\nTe cuento... para tu dirección el pedido mínimo es de {minimo} y el envío, de {envio}.\nContame qué sabores te tentaron y coordinamos la entrega.';
+const Z2_DEF={salida:{lat:-34.552507,lng:-58.483653,txt:'Paroissien 3850'},tramos:[{hasta:7,min:40000,env:3500},{hasta:11,min:45000,env:7000},{hasta:17.6,min:50000,env:13000}],msg:Z2_MSG};
+const webZ2Def=()=>{ const z=WEBCFG.zona2||{}; return {salida:{...(z.salida||Z2_DEF.salida)},tramos:(Array.isArray(z.tramos)&&z.tramos.length===3?z.tramos:Z2_DEF.tramos).map(t=>({hasta:+t.hasta,min:+t.min,env:+t.env})),msg:(z.msg||'').trim()?z.msg:Z2_MSG}; };
 // Secciones de la web. adm_params/web.secciones = [{id,fija?,titulo,frase}] (fijas: clasicos, autor, combos)
 // Secciones: título y frase se editan en todas. Clásicos y De Autor van siempre arriba (no se mueven); debajo, las nuevas y Combos se ordenan
 // (Dany 30/10). Las fijas no se borran. Estilo y menú no se editan: beige para todas y navy solo De Autor;
@@ -2565,11 +2570,12 @@ const numIn=v=>parseFloat(String(v).replace(/[^0-9.,]/g,'').replace(',','.'));
 function webEstadoGuardado(){
   WG=cbDto(); WCB={}; webCombos().forEach(p=>WCB[p.id]=webSaved(p.id)); WP={}; webItems().forEach(it=>WP[it.k]=webWOf(it.p,it.m)); WE=webEnvDef();
   WT={}; WF={}; WFO={}; webTxtProds().forEach(p=>WT[p.id]={frase:p.webFrase||'',desc:p.webDesc||'',sec:p.webSeccion||'',pres:+p.webPres||1});
-  WS=wsNorm(WEBCFG.secciones); WH=webHorDef(); WGN=webGnDef(); WD={}; webItems().forEach(({k,p,m})=>{ if(p.tipo!=='CB') WD[k]=dscOf(p,m); });
+  WS=wsNorm(WEBCFG.secciones); WH=webHorDef(); WGN=webGnDef(); WZ2=webZ2Def(); WD={}; webItems().forEach(({k,p,m})=>{ if(p.tipo!=='CB') WD[k]=dscOf(p,m); });
 }
 window.renderWeb=()=>{
   // Ventas lee el % de cada combo en vivo (adm_params/web.combosDto). Si lo guardado no coincide (o todavía no existe), se sincroniza
   // con los valores YA GUARDADOS (no con lo que esté en pantalla sin guardar). 30/10/2026
+  if(!WEBCFG.zona2) setDoc(doc(db,C.par,'web'),{zona2:Z2_DEF},{merge:true}).catch(e=>console.error('zona2',e)); // (18/11) valores acordados con Dany
   try{ const cbS={}; webCombos().forEach(p=>cbS[p.id]=webSaved(p.id)??cbDto()); if(JSON.stringify(cbS)!==JSON.stringify(WEBCFG.combosDto||{})) setDoc(doc(db,C.par,'web'),{combosDto:cbS},{merge:true}).catch(e=>console.error('combosDto',e)); }catch(e){ console.error(e); }
   webEstadoGuardado(); webDirty=false;
   const vEnv=VCFG.costoEnvio;
@@ -2590,13 +2596,14 @@ window.renderWeb=()=>{
    <div class="pcard wide"><div class="kicker"><span class="dot" style="width:10px;height:10px;background:var(--ok)"></span><span class="caps">04 · Descuentos</span></div><h3 class="h-md">Descuentos por producto</h3>
     <table class="ccol ptab wdsc"><thead><tr class="caps"><th>Producto</th><th class="n">Descuento</th><th>Vigencia</th><th class="n">Precio</th><th>Estado</th></tr></thead><tbody id="wDsc"></tbody></table>
     <p class="muted" style="font-size:.72rem;margin-top:.5rem">Solo Landing (la web y los pedidos web en Ventas). Rige <b>entre las dos fechas, incluidas</b>: arranca y se apaga solo. <b>Sin fecha de fin no se aplica</b> (así ningún descuento queda prendido por olvido). En la web: precio de lista tachado, el −% y el precio final. <b>Amigos</b>: mientras rige el descuento, cobra el mismo precio que la web con descuento (los descuentos no se suman). Los combos llevan su descuento en 03 · Combos (se arman sobre el precio de lista, sin este descuento).</p></div>
-   <div class="pcard wide"><div class="kicker"><span class="dot" style="width:10px;height:10px;background:var(--caramel)"></span><span class="caps">05 · Envío</span></div><h3 class="h-md">Costo y envío gratis</h3>
+   <div class="pcard wide"><div class="kicker"><span class="dot" style="width:10px;height:10px;background:var(--caramel)"></span><span class="caps">05 · Envío</span></div><h3 class="h-md">Envíos por zona</h3>
+    <div class="promo"><div class="caps" style="font-size:.7rem;color:var(--espresso)">Zona 1 · pedidos por la web</div>
     <div class="fgrid">
      <label class="f"><span class="caps">Costo de envío ($)</span><input id="wEnvC" value="${WE.costo}" oninput="webEnvIn('costo',this.value)" onchange="webEnv('costo',this.value)"><small>Lo que se cobra cuando no es gratis</small></label>
      <label class="f"><span class="caps">Envío gratis desde ($)</span><input id="wEnvM" value="${WE.monto}" oninput="webEnvIn('monto',this.value)" onchange="webEnv('monto',this.value)"><small>Subtotal del pedido: todo suma (potes, paletas, alfajores, combos) · 0 = nunca gratis</small></label>
      <label class="f"><span class="caps">Envío gratis para todos</span><span style="display:flex;align-items:center;gap:.6rem;min-height:2.6rem"><span id="wEnvT" class="sw${WE.todos?' on':''}" onclick="webEnv('todos')"><i></i></span><span id="wEnvTl" class="muted" style="font-size:.8rem"></span></span><small>Activado, nadie paga envío. Para campañas: lo prendés y lo apagás</small></label>
     </div>
-    <p class="muted" style="font-size:.72rem;margin-top:.5rem">El carrito le muestra al cliente cuánto le falta («Sumá $X y el envío es gratis»). Un solo valor para la web y Ventas. ${vEnv!=null?`Hoy Ventas usa ${$(vEnv)} para «Con envío»; cuando se conecte Ventas (paso 4), va a tomar este valor.`:'Ventas va a tomar este valor cuando se conecte (paso 4).'}</p></div>
+    <p class="muted" style="font-size:.72rem;margin-top:.5rem">El carrito le muestra al cliente cuánto le falta («Sumá $X y el envío es gratis»). Un solo valor para la web y Ventas. ${vEnv!=null?`Hoy Ventas usa ${$(vEnv)} para «Con envío»; cuando se conecte Ventas (paso 4), va a tomar este valor.`:'Ventas va a tomar este valor cuando se conecte (paso 4).'}</p></div>${webZ2Html()}</div>
    <div class="pcard wide"><div class="kicker"><span class="dot" style="width:10px;height:10px;background:var(--caramel)"></span><span class="caps">06 · Secciones</span></div><h3 class="h-md">Secciones de la web</h3>
     <div id="wSec"></div>
     <div style="display:flex;justify-content:flex-end;margin-top:.6rem"><button class="btn btn-sec caps btn-sm" onclick="webSecNueva()">+ Nueva sección</button></div>
@@ -2819,6 +2826,15 @@ window.webEnv=(k,v)=>{ if(k==='todos') WE.todos=!WE.todos; else if(k==='costo') 
 // Mientras se escribe: actualiza la vista previa sin redibujar la tabla (al salir del campo se recalcula todo)
 window.webGenIn=v=>{ const n=numIn(v); if(isNaN(n)) return; WG=n; wDirtySet(); webSend(); };
 window.webCbIn=(id,v)=>{ const n=numIn(v); if(isNaN(n)) return; WCB[id]=n===WG?null:n; wDirtySet(); webSend(); };
+function webZ2Html(){ const L='ABC';
+  return `<div class="promo">
+    <div class="caps" style="font-size:.7rem;color:var(--espresso)">Zona 2 · consultas por WhatsApp <span class="muted" style="text-transform:none;letter-spacing:0;font-size:.72rem">— no se publica en la web</span></div>
+    <table class="ccol ptab"><thead><tr class="caps"><th>Tramo</th><th>Hasta (km)</th><th>Pedido mínimo ($)</th><th>Envío ($)</th></tr></thead><tbody>
+    ${WZ2.tramos.map((t,i)=>`<tr><td>${L[i]}</td><td><input class="lin" style="width:4.5rem;text-align:center" value="${String(t.hasta).replace('.',',')}" oninput="webZ2(${i},'hasta',this.value)"></td><td><input class="lin" style="width:6.5rem;text-align:center" value="${t.min}" oninput="webZ2(${i},'min',this.value)"></td><td><input class="lin" style="width:6.5rem;text-align:center" value="${t.env}" oninput="webZ2(${i},'env',this.value)"></td></tr>`).join('')}
+    </tbody></table>
+    <label class="f"><span class="caps">Mensaje para WhatsApp</span><textarea rows="3" oninput="webZ2(-1,'msg',this.value)">${webEsc(WZ2.msg)}</textarea><small>{minimo} y {envio} se reemplazan por los montos del tramo · vacío = vuelve al texto original</small></label>
+    <p class="muted" style="font-size:.72rem;margin-top:.5rem">Ventas → Cargar pedido → <b>⑤ Consulta zona 2</b>: con la dirección del cliente calcula la distancia en línea recta desde la salida (${webEsc(WZ2.salida.txt||'')}) y muestra el tramo, el pedido mínimo y el envío, con el mensaje listo para copiar. Más lejos que el último tramo: fuera de zona 2.</p></div>`; }
+window.webZ2=(i,k,v)=>{ if(k==='msg') WZ2.msg=v; else { const n=numIn(v); if(isNaN(n)) return; WZ2.tramos[i][k]=k==='hasta'?Math.round(n*10)/10:Math.round(n); } wDirtySet(); };
 window.webEnvIn=(k,v)=>{ const n=numIn(v); if(isNaN(n)) return; if(k==='costo') WE.costo=Math.round(n); else WE.monto=Math.max(0,Math.round(n)); wDirtySet(); webSend(); };
 window.webCb=(id,v)=>{ const n=numIn(v); WCB[id]=(isNaN(n)||n===WG)?null:n; wDirtySet(); setTimeout(webLive,0); };
 window.webSet=(key,k,v)=>{ WP[key][k]=v; wDirtySet(); setTimeout(webLive,0); };
@@ -3013,6 +3029,7 @@ window.addEventListener('message',e=>{ const d=e.data; if(!d||!d.tipo) return; c
 window.addEventListener('resize',()=>{ if(prevOn&&view==='web') prevSize(); });
 window.webSave=async()=>{
   if(!webDirty) return;
+  { const h=WZ2.tramos.map(t=>+t.hasta); if(!h.every((x,i)=>x>0&&(i===0||x>h[i-1]))){ toast('Zona 2: los km de los tramos tienen que ir de menor a mayor'); return; } } // (18/11)
   const b=el('btnWeb'); b.disabled=true; b.innerHTML='<span class="spin sm inv"></span>Guardando…';
   try{
     // Carta: línea 360 = campos del producto; línea 250 = campos solo de la web
@@ -3074,6 +3091,9 @@ window.webSave=async()=>{
       await setDoc(doc(db,C.par,'web'),{horarios:WH},{merge:true});
       const ht=(H,t)=>WH_DIAS.filter(d=>H[t][d].on).map(d=>WH_NOM[d].slice(0,3)+' '+whTxt(H[t][d].d)+'–'+whTxt(H[t][d].h)).join(' · ')||'cerrado';
       for(const [t,n] of [['atencion','Horario de atención web'],['entrega','Horario de entregas web']]) if(JSON.stringify(h0[t])!==JSON.stringify(WH[t])) await hist('param',n,ht(h0,t),ht(WH,t)); }
+    // Zona 2 · WhatsApp (18/11): tabla interna, solo la lee Ventas
+    { if(!(WZ2.msg||'').trim()) WZ2.msg=Z2_MSG; const z0=webZ2Def(), r=z=>z.tramos.map((t,i)=>'ABC'[i]+' ≤'+t.hasta+' km · '+$(t.min)+' + '+$(t.env)).join(' | ');
+      if(JSON.stringify(z0)!==JSON.stringify(WZ2)){ await setDoc(doc(db,C.par,'web'),{zona2:WZ2},{merge:true}); await hist('param','Zona 2 · WhatsApp',r(z0),r(WZ2)+(z0.msg!==WZ2.msg?' · mensaje editado':'')); } }
     // Generales
     const gn0=webGnDef();
     if(JSON.stringify(gn0)!==JSON.stringify(WGN)){
@@ -3294,7 +3314,7 @@ window.addEventListener('beforeunload',e=>{ if(wDirty||parDirty){ e.preventDefau
 // APP_BUILD: cambiarlo en CADA modificación de este archivo (lo usa la detección cuando la página vino de la caché).
 // Cada 3 min, al volver a la ventana y a los 5 s de abrir se pregunta a GitHub por el archivo publicado (HEAD sin caché: no gasta
 // lecturas de Firebase). Si cambió: sin cambios pendientes → recarga sola; con cambios → aviso fijo y Finanzas deja de publicar (web y Ventas) hasta recargar.
-const APP_BUILD='2026-11-18a';
+const APP_BUILD='2026-11-18b';
 (function(){
   if(!/^https?:$/.test(location.protocol)) return;
   let base = null, aviso = null;
