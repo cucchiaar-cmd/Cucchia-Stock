@@ -428,13 +428,14 @@ table.ing tr.sel td{background:rgba(200,150,90,.12)}
 .catres{display:flex;justify-content:space-between;gap:1rem;padding:.45rem .2rem;border-bottom:1px solid rgba(221,208,184,.7);font-size:.82rem}
 
 /* Landing · vista previa (30/10/2026) */
-.web-lay.con{display:grid;grid-template-columns:minmax(0,1fr) 410px;gap:1.5rem;align-items:start}
+.web-lay.con{display:grid;grid-template-columns:minmax(0,1fr) clamp(250px,34%,410px);gap:1.5rem;align-items:start} /* (18/11, Dany: trabaja con Ventas al lado) la vista previa sigue al costado en ventanas angostas; se achica sola */
 .web-lay.con.esc{grid-template-columns:minmax(600px,.8fr) minmax(0,1.2fr)}
 #v-web .wrap.ancha{max-width:1320px;padding-left:2.5rem;padding-right:2.5rem}
 #v-web .wrap.ancha.ancha-esc{max-width:1680px}
 .ptab.wcarta td,.ptab.wcarta th{text-align:center}
 .ptab.wcarta td:first-child,.ptab.wcarta th:first-child{text-align:left}
-@media(max-width:1199px){.web-lay.con{grid-template-columns:1fr}}
+@media(max-width:1399px){.web-lay.con.esc{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+@media(max-width:759px){.web-lay.con,.web-lay.con.esc{grid-template-columns:1fr}}
 .web-prev{position:sticky;top:8.5rem}
 .web-prev .frame{width:100%;border:1px solid var(--cream-muted);border-radius:var(--r-in);overflow:hidden;background:#fff}
 .web-prev iframe{border:0;display:block;transform-origin:0 0}
@@ -2990,7 +2991,7 @@ function webSend(){ if(!prevOn||!prevListo) return; clearTimeout(prevT); prevT=s
 // así el pie de la landing (carrito) queda siempre a la vista sin bajar hasta el final.
 function prevAlto(){ const a=el('webPrev'), box=el('wFrameBox'), sb=el('sbWeb'); if(!a||!box) return 480;
   const top=parseFloat(getComputedStyle(a).top)||0, pc=a.querySelector('.pcard'), extra=pc?Math.max(0,pc.offsetHeight-box.offsetHeight):90;
-  const lado=window.innerWidth<1200; // en pantallas angostas el panel va debajo de los recuadros (no es fijo)
+  const lado=window.innerWidth<760; // (18/11) solo en pantallas muy angostas el panel va debajo de los recuadros (no es fijo)
   return Math.max(360,Math.round(window.innerHeight-(lado?0:top)-(sb?sb.offsetHeight:0)-extra-(lado?40:16))); }
 function prevSize(){ const box=el('wFrameBox'), f=el('wFrame'); if(!box||!f) return; const W=box.clientWidth||380, vw=prevDev==='cel'?390:1280, sc=Math.min(1,W/vw), H=prevAlto();
   f.style.width=vw+'px'; f.style.height=Math.round(H/sc)+'px'; f.style.transform=`scale(${sc})`; box.style.height=H+'px';
@@ -3293,7 +3294,7 @@ window.addEventListener('beforeunload',e=>{ if(wDirty||parDirty){ e.preventDefau
 // APP_BUILD: cambiarlo en CADA modificación de este archivo (lo usa la detección cuando la página vino de la caché).
 // Cada 3 min, al volver a la ventana y a los 5 s de abrir se pregunta a GitHub por el archivo publicado (HEAD sin caché: no gasta
 // lecturas de Firebase). Si cambió: sin cambios pendientes → recarga sola; con cambios → aviso fijo y Finanzas deja de publicar (web y Ventas) hasta recargar.
-const APP_BUILD='2026-11-17f';
+const APP_BUILD='2026-11-18a';
 (function(){
   if(!/^https?:$/.test(location.protocol)) return;
   let base = null, aviso = null;
