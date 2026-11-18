@@ -3343,6 +3343,90 @@ let ZONA2 = null;
     [/fernando|victoria|virreyes/, ['06', 'san fernando']],
     [/tigre/, ['06', 'tigre']]
   ];
+  // ⚠ ZONAS DUPLICADAS (18/11/2026): los polígonos de zona 1 y zona 2 están en la web (cucchia_landing_stitch_backend.html) y en Ventas (cucchia-sistema.html, «Consulta zona 2»). Si se cambia una zona, cambiarla en LOS DOS archivos (ver CLAUDE.md regla 12).
+  // Copia exacta de la web: polígonos, margen de calle (60 m) y tramos sin margen.
+  const ZONA_POLIGONO = [
+    [-34.5196637,-58.4744025],[-34.5186299,-58.475071],[-34.516552,-58.4759475],
+    [-34.5187171,-58.4807608],[-34.5215812,-58.4868688],[-34.5248341,-58.493149],
+    [-34.5307424,-58.5054562],[-34.5372827,-58.5011504],[-34.5405194,-58.4986517],
+    [-34.5429743,-58.4963915],[-34.545484,-58.4952805],[-34.5475813,-58.4956],
+    [-34.5490855,-58.4986136],[-34.5502461,-58.5001967],[-34.5512475,-58.5006354],
+    [-34.5624514,-58.505542],[-34.5701083,-58.5091422],[-34.573485,-58.5029194],
+    [-34.5786283,-58.4964344],[-34.5808935,-58.4934542],[-34.5891167,-58.4848309],
+    [-34.5842116,-58.4782006],[-34.5812437,-58.4742928],[-34.5797921,-58.4717692],
+    [-34.5775877,-58.4674729],[-34.575014,-58.4632338],[-34.5723265,-58.4603775],
+    [-34.5693601,-58.4577287],[-34.5668648,-58.4535636],[-34.56503,-58.4497501],
+    [-34.5638698,-58.447826],[-34.562141,-58.4447338],[-34.5607685,-58.4425856],
+    [-34.5588591,-58.4441305],[-34.5542792,-58.4364343],[-34.5533994,-58.4350063],
+    [-34.5497392,-58.4383799],[-34.5490853,-58.4390594],[-34.5484078,-58.4400726],
+    [-34.5477931,-58.4420992],[-34.5473611,-58.4451271],[-34.5468839,-58.4479881],
+    [-34.5462457,-58.4519661],[-34.548396,-58.4537781],[-34.5487004,-58.4543861],
+    [-34.5487593,-58.4547795],[-34.5456369,-58.4585107],[-34.5420529,-58.4625281],
+    [-34.5413862,-58.4632696],[-34.5365745,-58.4662498],[-34.5342952,-58.4676326],
+    [-34.530916,-58.4694601],[-34.5283429,-58.4707237],[-34.5224629,-58.4733225]
+  ];
+  const ZONA2_POLIGONO = [
+    [-34.5307424,-58.5054562],[-34.5475813,-58.4956],[-34.5502461,-58.5001967],
+    [-34.5701083,-58.5091422],[-34.5756068,-58.5119844],[-34.5849214,-58.5034964],
+    [-34.5950895,-58.4946954],[-34.6129996,-58.4802781],[-34.6350076,-58.4680878],
+    [-34.6305386,-58.4549033],[-34.6237137,-58.4339617],[-34.6216424,-58.4280409],
+    [-34.6133781,-58.4211744],[-34.6110715,-58.4167516],[-34.6091172,-58.3665787],
+    [-34.5823078,-58.3740937],[-34.527532,-58.4682405],[-34.5052154,-58.4794938],
+    [-34.4835218,-58.4833085],[-34.4717294,-58.4985673],[-34.4560036,-58.5077226],
+    [-34.4446793,-58.5353791],[-34.4309936,-58.5502565],[-34.4191938,-58.5777223],
+    [-34.4232846,-58.5824907],[-34.4322521,-58.584398],[-34.4451511,-58.5643708],
+    [-34.4566327,-58.5458696],[-34.465754,-58.5395753],[-34.4699997,-58.531183],
+    [-34.4780189,-58.5258424],[-34.4921685,-58.555597],[-34.4976705,-58.5512101],
+    [-34.5000283,-58.5466325],[-34.5063157,-58.5328996],[-34.5160601,-58.5170686]
+  ];
+  function dentroDePoligono(lat, lng, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+      if (((yi > lng) !== (yj > lng)) && (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi)) inside = !inside;
+    }
+    return inside;
+  }
+  function enZonaDeEntrega(lat, lng) {
+    // Ray-casting algorithm
+    const poly = ZONA_POLIGONO;
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const xi = poly[i][0], yi = poly[i][1];
+      const xj = poly[j][0], yj = poly[j][1];
+      const intersect = ((yi > lng) !== (yj > lng)) &&
+                        (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+    // Margen de calle: el límite se dibuja sobre calles; se aceptan las dos veredas.
+    // 60 m cubre el ancho de la calle + el error del geocoding sin llegar a la calle paralela (~100 m).
+    return inside || distanciaAlBordeM(lat, lng) <= MARGEN_CALLE_M;
+  }
+  const MARGEN_CALLE_M = 60;
+  // Tramos del borde SIN margen (límite exacto): Panamericana y Gral. Paz.
+  // Índices de vértices de ZONA_POLIGONO: del 6 (Panamericana, hacia Munro) al 10 (cruce Panamericana / Gral. Paz)
+  // y del 10 al 16 (Gral. Paz hacia Villa Pueyrredón). Si se redibuja la zona, revisar estos índices.
+  const TRAMOS_SIN_MARGEN = [[6, 16]];
+  const sinMargen = (i, j) => TRAMOS_SIN_MARGEN.some(([a, b]) => i >= a && i <= b && j >= a && j <= b);
+  // Distancia mínima (en metros) desde un punto al borde del polígono
+  function distanciaAlBordeM(lat, lng) {
+    const R = 6371000, rad = Math.PI / 180, k = Math.cos(lat * rad);
+    const toXY = (la, lo) => [lo * rad * R * k, la * rad * R];
+    const [px, py] = toXY(lat, lng);
+    const poly = ZONA_POLIGONO;
+    let min = Infinity;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      if (sinMargen(i, j)) continue;
+      const [ax, ay] = toXY(poly[j][0], poly[j][1]);
+      const [bx, by] = toXY(poly[i][0], poly[i][1]);
+      const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
+      let t = L2 ? ((px - ax) * dx + (py - ay) * dy) / L2 : 0;
+      t = Math.max(0, Math.min(1, t));
+      const d = Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+      if (d < min) min = d;
+    }
+    return min;
+  }
   const pedirJSON = async url => { try { const r = await fetch(url); return await r.json(); } catch (e) { return null; } };
   const kmEntre = (a, b) => { const R = 6371, r = x => x * Math.PI / 180, dLa = r(b.lat - a.lat), dLo = r(b.lng - a.lng);
     return 2 * R * Math.asin(Math.sqrt(Math.sin(dLa / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLo / 2) ** 2)); };
@@ -3361,26 +3445,55 @@ let ZONA2 = null;
       for (const d of (j && j.direcciones) || []) {
         if (d.ubicacion && d.ubicacion.lat != null && d.altura && d.altura.valor != null && mismaCalleTxt(d.calle.nombre, dir.replace(/\s*\d+\s*$/, ''))) {
           const lugar = prov === '02' ? 'CABA' : titulo((d.localidad_censal && d.localidad_censal.nombre) || (d.departamento && d.departamento.nombre) || '');
-          cands.push({ lat: d.ubicacion.lat, lng: d.ubicacion.lon, texto: titulo(d.calle.nombre).replace(/^Av /, 'Av. ') + ' ' + d.altura.valor + ', ' + lugar, lugar });
+          cands.push({ lat: d.ubicacion.lat, lng: d.ubicacion.lon, texto: titulo(d.calle.nombre).replace(/^Av /, 'Av. ') + ' ' + d.altura.valor + ', ' + lugar, lugar, depto: zonas[zi][1] || 'caba' });
         }
       }
     }
-    if (!cands.length) return null;
+    // (18/11, Dany) La misma calle puede existir en otro partido de la zona con otro nombre o sin la altura en Georef
+    // (ej. Jorge Newbery 1649: CABA y Beccar · Manuela Pedraza: en Vicente López figura «M Pedraza»). Sin localidad escrita,
+    // se busca la calle por el apellido en los partidos de la zona (acepta iniciales); si existe con esa altura, se reintenta
+    // con el nombre de ese partido: si se ubica, es una opción real; si no, opción «sin altura» (se pide confirmar por WhatsApp).
+    const sinAlt = [];
+    if (!pedidos.length && !/caba|capital|ciudad/.test(extra)) {
+      const num = +((dir.match(/(\d+)\s*$/) || [])[1] || 0), nombre = dir.replace(/\s*\d+\s*$/, ''), apellido = sinTit(nombre).split(' ').pop();
+      const conInicial = (enc, esc) => { const A = sinTit(enc).split(' '), B = sinTit(esc).split(' ');
+        return A.length > 1 && A[A.length - 1] === B[B.length - 1] && A.slice(0, -1).every(w => B.some(x => x === w || (w.length === 1 && x[0] === w))); };
+      const enRango = x => x.altura && x.altura.inicio && x.altura.fin && Math.min(+x.altura.inicio.izquierda || 0, +x.altura.inicio.derecha || 0) <= num && num <= Math.max(+x.altura.fin.izquierda || 0, +x.altura.fin.derecha || 0);
+      if (num && apellido) {
+        const conDepto = new Set(cands.map(c => c.depto));
+        const rs = await Promise.all(PARTIDOS.map(([, [prov, depto]]) => conDepto.has(depto) ? null
+          : pedirJSON(`https://apis.datos.gob.ar/georef/api/calles?nombre=${encodeURIComponent(apellido)}&provincia=${prov}&departamento=${encodeURIComponent(depto)}&max=50`).then(j => ({ prov, depto, j }))));
+        for (const r of rs) { if (!r || !r.j) continue;
+          const k = (r.j.calles || []).find(x => (mismaCalleTxt(x.nombre, nombre) || conInicial(x.nombre, nombre)) && enRango(x));
+          if (!k) continue;
+          const j2 = await pedirJSON(`https://apis.datos.gob.ar/georef/api/direcciones?direccion=${encodeURIComponent(k.nombre + ' ' + num)}&provincia=${r.prov}&departamento=${encodeURIComponent(r.depto)}&max=1`);
+          const d = j2 && (j2.direcciones || []).find(x => x.ubicacion && x.ubicacion.lat != null && x.altura && x.altura.valor != null);
+          const lugarK = titulo((d && d.localidad_censal && d.localidad_censal.nombre) || r.depto), calleK = titulo(nombre).replace(/^Av /, 'Av. ');
+          if (d) cands.push({ lat: d.ubicacion.lat, lng: d.ubicacion.lon, texto: calleK + ' ' + num + ', ' + lugarK, lugar: lugarK, depto: r.depto });
+          else sinAlt.push({ sinAltura: true, conAltura: false, depto: r.depto, lugar: titulo(r.depto), texto: calleK + ' ' + num + ', ' + titulo(r.depto) }); }
+      }
+    }
+    if (!cands.length && !sinAlt.length) return null; if (!cands.length && sinAlt.length === 1) return sinAlt[0];
     const S = ZONA2.salida; cands.sort((a, b) => kmEntre(S, a) - kmEntre(S, b));
-    const distintos = []; for (const c of cands) if (distintos.every(o => o.lugar !== c.lugar)) distintos.push(c);
+    const distintos = []; for (const c of cands) if (distintos.every(o => o.lugar !== c.lugar)) distintos.push(c); distintos.push(...sinAlt);
     if (distintos.length > 1 && !pedidos.length && !/caba|capital|ciudad/.test(extra)) return { opciones: distintos };
     return cands[0];
   }
   let OPS = [], ULT = null;
   const caja = () => document.getElementById('z2Res');
   function mostrar(c) {
-    const km = kmEntre(ZONA2.salida, c), T = ZONA2.tramos || [], i = T.findIndex(t => km <= +t.hasta), kmTxt = km.toFixed(1).replace('.', ',') + ' km';
-    if (i < 0) { ULT = null; caja().innerHTML = `<div class="meta" style="font-size:11.5px;color:var(--ink)">${c.texto}</div><div style="margin-top:6px;font-weight:700;color:var(--red,#A3261A)">Fuera de zona 2 · ${kmTxt}</div><div class="meta">Más lejos que el último tramo (${String(T[T.length - 1]?.hasta ?? '').replace('.', ',')} km).</div>`; return; }
+    if (c.sinAltura) { ULT = null; caja().innerHTML = `<div class="meta" style="font-size:11.5px;color:var(--ink)">${c.texto}</div><div style="margin-top:6px;font-weight:700;font-size:13px">Sin altura exacta</div><div class="meta">El buscador no ubica ese número en ${c.lugar}: confirmá con el cliente la zona o pedile una calle cercana.</div>`; return; } // (18/11)
+    const km = kmEntre(ZONA2.salida, c), T = ZONA2.tramos || [], kmTxt = km.toFixed(1).replace('.', ',') + ' km';
+    const z1 = enZonaDeEntrega(c.lat, c.lng), z2 = !z1 && dentroDePoligono(c.lat, c.lng, ZONA2_POLIGONO);
+    if (z1) { ULT = null; const E = (typeof ENVIO_WEB !== 'undefined' && ENVIO_WEB) || {};
+      const env = E.todos ? 'envío gratis' : 'envío ' + fmt$(E.costo) + (+E.monto > 0 ? ', gratis desde ' + fmt$(E.monto) : '');
+      caja().innerHTML = `<div class="meta" style="font-size:11.5px;color:var(--ink)">${c.texto}</div><div style="margin-top:6px;font-weight:700;font-size:13px">Zona 1 · ${kmTxt}</div><div style="margin-top:4px;font-size:12.5px">Se pide por la web · ${env}</div>`; return; }
+    const i = z2 ? T.findIndex(t => km <= +t.hasta) : -1;
+    if (i < 0) { ULT = null; caja().innerHTML = `<div class="meta" style="font-size:11.5px;color:var(--ink)">${c.texto}</div><div style="margin-top:6px;font-weight:700;color:var(--red,#A3261A)">Fuera de zona · ${kmTxt}</div><div class="meta">${z2 ? 'Más lejos que el último tramo (' + String(T[T.length - 1]?.hasta ?? '').replace('.', ',') + ' km).' : 'Fuera del dibujo de la zona 2 (la web le dice «no llegamos»).'}</div>`; return; }
     const t = T[i]; ULT = t;
     caja().innerHTML = `<div class="meta" style="font-size:11.5px;color:var(--ink)">${c.texto}</div>
       <div style="margin-top:6px;font-weight:700;font-size:13px">Tramo ${'ABC'[i] || i + 1} · ${kmTxt}</div>
       <div style="margin-top:4px;font-size:12.5px">Pedido mínimo <b>${fmt$(t.min)}</b> + envío <b>${fmt$(t.env)}</b></div>
-      ${km <= 4.5 ? '<div class="meta">Cerca del límite de la zona 1: si la web le dijo «llegamos», se pide por la web.</div>' : ''}
       <button class="btn btn-ghost" style="margin-top:10px" onclick="z2Copiar(this)">Copiar respuesta</button>`;
   }
   window.z2Buscar = async () => {
@@ -5268,7 +5381,7 @@ Object.assign(window, {
 // APP_BUILD: cambiarlo en CADA modificación de este archivo (lo usa la detección cuando la página vino de la caché).
 // Cada 3 min, al volver a la ventana y a los 5 s de abrir se pregunta a GitHub por el archivo publicado (HEAD sin caché: no gasta
 // lecturas de Firebase). Si cambió: sin cambios pendientes → recarga sola; con cambios → aviso fijo.
-const APP_BUILD='2026-11-18b';
+const APP_BUILD='2026-11-18d';
 (function(){
   if(!/^https?:$/.test(location.protocol)) return;
   let base = null, aviso = null;
