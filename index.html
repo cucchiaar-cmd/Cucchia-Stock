@@ -701,6 +701,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   .menu-overlay{display:none;position:fixed;inset:0;background:rgba(20,17,13,.5);z-index:19}
   @media(max-width:800px){
     .cols,.grid2,.kpis{grid-template-columns:1fr}
+    .carga3{grid-template-rows:none} .carga3>:first-child,.carga3>.agendaCol{grid-column:auto;grid-row:auto} .carga3>.agendaCol{position:static;max-height:none;overflow:visible} /* (19/11) celular: una sola columna (la regla de 1250 px forzaba 2) */
     aside{position:fixed;left:0;top:0;height:100vh;z-index:20;transform:translateX(-100%);transition:transform .2s ease}
     aside.open{transform:translateX(0);box-shadow:0 0 30px rgba(0,0,0,.4)}
     .menu-toggle{display:flex}
@@ -5381,7 +5382,7 @@ Object.assign(window, {
 // APP_BUILD: cambiarlo en CADA modificación de este archivo (lo usa la detección cuando la página vino de la caché).
 // Cada 3 min, al volver a la ventana y a los 5 s de abrir se pregunta a GitHub por el archivo publicado (HEAD sin caché: no gasta
 // lecturas de Firebase). Si cambió: sin cambios pendientes → recarga sola; con cambios → aviso fijo.
-const APP_BUILD='2026-11-18d';
+const APP_BUILD='2026-11-19a';
 (function(){
   if(!/^https?:$/.test(location.protocol)) return;
   let base = null, aviso = null;
