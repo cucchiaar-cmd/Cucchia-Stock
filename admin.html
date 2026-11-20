@@ -436,6 +436,26 @@ table.ing tr.sel td{background:rgba(200,150,90,.12)}
 .ptab.wcarta td:first-child,.ptab.wcarta th:first-child{text-align:left}
 @media(max-width:1399px){.web-lay.con.esc{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 @media(max-width:759px){.web-lay.con,.web-lay.con.esc{grid-template-columns:1fr}}
+/* (19/11, Dany) Celular / ventana muy angosta: pantalla dividida. Arriba los recuadros (scroll normal), abajo la vista previa fija (scroll propio), arriba de la barra de guardar. «Minimizar» la deja solo con su encabezado. */
+#wMin{display:none}
+@media(max-width:759px){
+  #wMin{display:inline-flex}
+  .web-lay.con .web-prev{position:fixed;left:0;right:0;top:auto;bottom:var(--sbh,0px);z-index:39;background:var(--cream-base);border-top:1px solid var(--cream-muted);box-shadow:0 -8px 24px rgba(26,26,46,.12);padding:.5rem .75rem .6rem}
+  .web-lay.con .web-prev>.pcard{padding:.55rem .7rem;gap:.45rem}
+  .web-lay.con .web-prev #wPrevInfo{display:none}
+  .web-lay.con .web-prev.min #wFrameBox{display:none}
+  #v-web .web-lay.con{padding-bottom:var(--prevh,48vh)}
+  .web-lay.con .web-prev{padding:.3rem .5rem .4rem}
+  .web-lay.con .web-prev>.pcard{padding:.4rem .55rem;gap:.35rem}
+  .web-lay.con .web-prev>.pcard>div:first-child{flex-wrap:nowrap!important;gap:.35rem}
+  .web-lay.con .web-prev>.pcard>div:first-child>span{font-size:.58rem!important}
+  .web-lay.con .web-prev .size-sel button,#wMin{padding:.22rem .45rem;font-size:.58rem}
+  #sbWeb{padding:.35rem 0}
+  #sbWeb .sb-in{flex-wrap:nowrap;gap:.5rem}
+  #sbWeb .sb-t{display:none}
+  #sbWeb #sbWTit{font-size:.6rem}
+  #sbWeb .btn{padding:.3rem .6rem;font-size:.6rem}
+}
 .web-prev{position:sticky;top:8.5rem}
 .web-prev .frame{width:100%;border:1px solid var(--cream-muted);border-radius:var(--r-in);overflow:hidden;background:#fff}
 .web-prev iframe{border:0;display:block;transform-origin:0 0}
@@ -599,7 +619,7 @@ table.ccol.ing td.n input.lin{font-size:1.15rem;text-align:center;padding:.25rem
   </section>
   <section class="sec"><div class="wrap"><div style="position:sticky;top:5.25rem;z-index:6;display:flex;justify-content:flex-end;margin:-1rem 0 1rem;pointer-events:none"><button class="btn btn-sec caps" id="btnPub" style="pointer-events:auto;box-shadow:0 4px 14px rgba(26,26,46,.18);margin-right:.5rem" title="Publica lo guardado en cucchia.ar (también se publica solo al guardar y cada minuto si cambió algo)" onclick="webPublicar()">Publicar en la web</button><button class="btn btn-pri caps" id="btnPrev" style="pointer-events:auto;box-shadow:0 4px 14px rgba(26,26,46,.28)" onclick="webPrev()">Ver vista previa</button></div><div id="webLay" class="web-lay"><div class="par-grid" id="webGrid"></div>
     <aside id="webPrev" class="web-prev hide"><div class="pcard" style="display:flex;flex-direction:column;gap:.6rem">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap"><span class="caps" style="font-size:.7rem;color:var(--espresso)">Vista previa · en vivo</span><div class="size-sel caps" id="wDev"><button data-d="cel" onclick="webDev('cel')">Celular</button><button data-d="esc" onclick="webDev('esc')">Escritorio</button></div></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap"><span class="caps" style="font-size:.7rem;color:var(--espresso)">Vista previa · en vivo</span><div style="display:flex;gap:.4rem;align-items:center"><div class="size-sel caps" id="wDev"><button data-d="cel" onclick="webDev('cel')">Celular</button><button data-d="esc" onclick="webDev('esc')">Escritorio</button></div><button class="btn btn-sec caps btn-sm" id="wMin" onclick="webPrevMin()">Minimizar</button></div></div>
       <div class="frame" id="wFrameBox"><iframe id="wFrame" title="Vista previa de la web" allow="clipboard-write"></iframe></div>
       <small class="muted" id="wPrevInfo" style="font-size:.72rem">Muestra lo que tenés en pantalla, aunque no esté guardado. Nada se publica desde acá.</small>
     </div></aside></div></div></section>
@@ -3014,8 +3034,12 @@ function webSend(){ if(!prevOn||!prevListo) return; clearTimeout(prevT); prevT=s
 // así el pie de la landing (carrito) queda siempre a la vista sin bajar hasta el final.
 function prevAlto(){ const a=el('webPrev'), box=el('wFrameBox'), sb=el('sbWeb'); if(!a||!box) return 480;
   const top=parseFloat(getComputedStyle(a).top)||0, pc=a.querySelector('.pcard'), extra=pc?Math.max(0,pc.offsetHeight-box.offsetHeight):90;
-  const lado=window.innerWidth<760; // (18/11) solo en pantallas muy angostas el panel va debajo de los recuadros (no es fijo)
-  return Math.max(360,Math.round(window.innerHeight-(lado?0:top)-(sb?sb.offsetHeight:0)-extra-(lado?40:16))); }
+  if(window.innerWidth<760){ // (19/11) celular: pantalla dividida, la vista previa ocupa ~45% abajo, arriba de la barra de guardar
+    const hd=pc?pc.firstElementChild.offsetHeight:40, sbh=sb?sb.offsetHeight:0, h=Math.max(200,Math.round(window.innerHeight*.35)-hd-30);
+    document.documentElement.style.setProperty('--sbh',sbh+'px');
+    requestAnimationFrame(()=>document.documentElement.style.setProperty('--prevh',(a.offsetHeight+16)+'px'));
+    return h; }
+  return Math.max(360,Math.round(window.innerHeight-top-(sb?sb.offsetHeight:0)-extra-16)); }
 function prevSize(){ const box=el('wFrameBox'), f=el('wFrame'); if(!box||!f) return; const W=box.clientWidth||380, vw=prevDev==='cel'?390:1280, sc=Math.min(1,W/vw), H=prevAlto();
   f.style.width=vw+'px'; f.style.height=Math.round(H/sc)+'px'; f.style.transform=`scale(${sc})`; box.style.height=H+'px';
   el('wPrevInfo').dataset.escala=Math.round(sc*100);
@@ -3026,6 +3050,7 @@ function prevPaint(){ const lay=el('webLay'), a=el('webPrev'), b=el('btnPrev'); 
   if(!u){ el('wPrevInfo').textContent='La vista previa funciona con Finanzas abierto desde tu computadora (archivo local).'; return; }
   const f=el('wFrame'); if(!f.dataset.src){ prevListo=false; f.dataset.src='1'; f.src=u; }
   requestAnimationFrame(()=>{ prevSize(); webSend(); }); }
+window.webPrevMin=()=>{ const a=el('webPrev'), m=a.classList.toggle('min'); el('wMin').textContent=m?'Ver':'Minimizar'; requestAnimationFrame(prevSize); };
 window.webPrev=()=>{ prevOn=!prevOn; try{ localStorage.setItem('fin_web_prev',prevOn?'1':'0'); }catch(_){} prevPaint(); };
 window.webDev=d=>{ prevDev=d; try{ localStorage.setItem('fin_web_dev',d); }catch(_){} el('webLay').classList.toggle('esc',d==='esc'); el('webLay').parentElement.classList.toggle('ancha-esc',prevOn&&d==='esc'); requestAnimationFrame(prevSize); };
 window.addEventListener('message',e=>{ const d=e.data; if(!d||!d.tipo) return; const fr=el('wFrame'); if(!fr||e.source!==fr.contentWindow) return; // (17/11) solo la vista previa
@@ -3321,7 +3346,7 @@ window.addEventListener('beforeunload',e=>{ if(wDirty||parDirty){ e.preventDefau
 // APP_BUILD: cambiarlo en CADA modificación de este archivo (lo usa la detección cuando la página vino de la caché).
 // Cada 3 min, al volver a la ventana y a los 5 s de abrir se pregunta a GitHub por el archivo publicado (HEAD sin caché: no gasta
 // lecturas de Firebase). Si cambió: sin cambios pendientes → recarga sola; con cambios → aviso fijo y Finanzas deja de publicar (web y Ventas) hasta recargar.
-const APP_BUILD='2026-11-18c';
+const APP_BUILD='2026-11-19a';
 (function(){
   if(!/^https?:$/.test(location.protocol)) return;
   let base = null, aviso = null;
